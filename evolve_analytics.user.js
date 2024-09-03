@@ -1050,30 +1050,30 @@
 
     /*----------------------------------------------------------------------------*/
 
-    const resets = [
-        ["mad", "MAD"],
-        ["bioseed", "Bioseed"],
-        ["cataclysm", "Cataclysm"],
-        ["blackhole", "Black Hole"],
-        ["ascend", "Ascension"],
-        ["descend", "Demonic Infusion"],
-        ["aiappoc", "AI Apocalypse"],
-        ["matrix", "Matrix"],
-        ["retire", "Retirement"],
-        ["eden", "Garden of Eden"],
-        ["terraform", "Terraform"]
-    ];
+    const resets = {
+        mad: "MAD",
+        bioseed: "Bioseed",
+        cataclysm: "Cataclysm",
+        blackhole: "Black Hole",
+        ascend: "Ascension",
+        descend: "Demonic Infusion",
+        aiappoc: "AI Apocalypse",
+        matrix: "Matrix",
+        retire: "Retirement",
+        eden: "Garden of Eden",
+        terraform: "Terraform"
+    };
 
     /*----------------------------------------------------------------------------*/
 
-    const universes = [
-        ["standard", "Standard"],
-        ["heavy", "Heavy Gravity"],
-        ["antimatter", "Antimatter"],
-        ["evil", "Evil"],
-        ["micro", "Micro"],
-        ["magic", "Magic"],
-    ];
+    const universes = {
+        standard: "Standard",
+        heavy: "Heavy Gravity",
+        antimatter: "Antimatter",
+        evil: "Evil",
+        micro: "Micro",
+        magic: "Magic"
+    };
 
     /*----------------------------------------------------------------------------*
      *                                  Database                                  *
@@ -1085,8 +1085,7 @@
         const serialized = {
             version: 1,
             views: state.views.map(view => ({
-                resetType: view.resetType,
-                universe: view.universe,
+                ...view,
                 milestones: view.milestones.map(milestone => milestone.serialize())
             }))
         };
@@ -1098,7 +1097,7 @@
         const localState = localStorage.getItem(configStorageKey);
         if (localState !== null) {
             const state = JSON.parse(localState);
-            state.views = state.views.map(({ resetType, universe, milestones }) => new View(resetType, universe, milestones));
+            state.views = state.views.map(args => new View(args));
             return state;
         }
         else {
@@ -1231,6 +1230,17 @@
 
         on(event, callback) {
             (this.callbacks[event] ??= []).push(callback);
+            return callback;
+        }
+
+        unsubscribe(callback) {
+            for (const callbacks of Object.values(this.callbacks)) {
+                const idx = callbacks.indexOf(callback);
+                if (idx !== -1) {
+                    callbacks.splice(idx, 1);
+                    break;
+                }
+            }
         }
 
         emit(event, ...args) {
@@ -1242,12 +1252,30 @@
     /*----------------------------------------------------------------------------*/
 
     class View extends Subscribable {
-        constructor(resetType, universe, milestones) {
+        constructor(state) {
             super();
 
-            this.resetType = resetType;
-            this.universe = universe;
-            this.milestones = milestones.map(args => milestoneFactory(...args)) ?? [];
+            const defineSetting = (prop, defaultValue) => {
+                Object.defineProperty(this, prop, {
+                    enumerable: true,
+                    get: () => {
+                        return state[prop] ?? defaultValue;
+                    },
+                    set: (value) => {
+                        if (value !== state[prop]) {
+                            state[prop] = value;
+                            this.emit("update");
+                        }
+                    }
+                });
+            };
+
+            defineSetting("resetType");
+            defineSetting("universe");
+            defineSetting("daysScale");
+            defineSetting("numRuns");
+
+            this.milestones = state.milestones.map(args => milestoneFactory(...args)) ?? [];
         }
 
         findMilestoneIndex(milestone) {
@@ -1279,6 +1307,10 @@
             this.state = state;
 
             this.on("*", () => saveState(this.state));
+
+            for (const view of this.views) {
+                view.on("update", () => saveState(this.state));
+            }
         }
 
         get views() {
@@ -1296,12 +1328,20 @@
         }
 
         addView(resetType, universe, milestones) {
-            const view = new View(resetType, universe, milestones);
+            const view = new View({ resetType, universe, milestones });
             view.on("update", () => saveState(this.state));
 
             this.state.views.push(view);
 
             this.emit("viewAdded", view);
+        }
+
+        removeView(view) {
+            const idx = this.views.indexOf(view);
+            if (idx !== -1) {
+                this.views.splice(idx, 1);
+                this.emit("viewRemoved", view);
+            }
         }
     };
 
@@ -1324,7 +1364,7 @@
     }
 
     function getResetCounts() {
-        return Object.fromEntries(resets.map(([reset, name]) => [name, evolve.global.stats[reset] ?? 0]));
+        return Object.fromEntries(Object.entries(resets).map(([reset, name]) => [name, evolve.global.stats[reset] ?? 0]));
     }
 
     /*----------------------------------------------------------------------------*/
@@ -1376,11 +1416,11 @@
     await synchronize();
 
     function inferResetType(runStats) {
-        const resets = getResetCounts();
+        const resetCounts = getResetCounts();
 
         // Find which reset got incremented
-        const reset = Object.keys(resets).find(reset => {
-            return resets[reset] === (runStats.resets[reset] ?? 0) + 1;
+        const reset = Object.entries(resetCounts).find(([reset, count]) => {
+            return count === (runStats.resets[reset] ?? 0) + 1;
         });
 
         // The game does not differentiate between Black Hole and Vacuum Collapse resets
@@ -1392,6 +1432,8 @@
         }
     }
 
+    // The game refreshes the page after a reset
+    // Thus the script initialization can be a place to update the history
     const lastRunStats = loadLastRun();
     if (lastRunStats !== null) {
         // We want to keep it if we just refreshed the page
@@ -1415,7 +1457,24 @@
 
     /*----------------------------------------------------------------------------*/
 
-    const reachedMask = Array(config.milestones.length).fill(false);
+    // Don't check completed milestones
+    function makeMilestoneMask() {
+        return Array(config.milestones.length).fill(false);
+    }
+
+    let reachedMask = makeMilestoneMask();
+
+    function onMilestonesChange() {
+        reachedMask = makeMilestoneMask();
+    }
+
+    config.on("viewAdded", view => {
+        onMilestonesChange();
+        view.on("update", onMilestonesChange);
+    });
+    for (const view of config.views) {
+        view.on("update", onMilestonesChange);
+    }
 
     function checkMilestoneConditions() {
         const newlyCompleted = [];
@@ -1467,31 +1526,31 @@
 
     $("head").append(`
         <style type="text/css">
-            html.dark .dark-bg {
+            html.dark .bg-dark {
                 background: #181818
             }
 
-            html.light .dark-bg {
+            html.light .bg-dark {
                 background: #dddddd
             }
 
-            html.darkNight .dark-bg {
+            html.darkNight .bg-dark {
                 background: #181818
             }
 
-            html.gruvboxLight .dark-bg {
+            html.gruvboxLight .bg-dark {
                 background: #a89984
             }
 
-            html.gruvboxDark .dark-bg {
+            html.gruvboxDark .bg-dark {
                 background: #1d2021
             }
 
-            html.orangeSoda .dark-bg {
+            html.orangeSoda .bg-dark {
                 background: #181818
             }
 
-            html.dracula .dark-bg {
+            html.dracula .bg-dark {
                 background: #1a1c24
             }
 
@@ -1503,11 +1562,11 @@
 
     /*----------------------------------------------------------------------------*/
 
-    function makeSelectNode(options) {
-        const optionNodes = options.map(value => `<option>${value}</option>`);
+    function makeSelectNode(options, defaultValue) {
+        const optionNodes = options.map(value => `<option ${value === defaultValue ? "selected" : ""}>${value}</option>`);
 
         return $(`
-            <select style="width: 200px">
+            <select style="width: 100px">
                 ${optionNodes}
             </select>
         `);
@@ -1544,7 +1603,7 @@
             focus: onChange, // Arrow keys press
             change: onChange, // Keyboard type
             classes: {
-                "ui-autocomplete": "dark-bg w-fit"
+                "ui-autocomplete": "bg-dark w-fit"
             }
         });
     }
@@ -1555,7 +1614,7 @@
 
     function makeMilestoneSettings(view) {
         const builtTargetOptions = makeAutocompleteInputNode("Building/Project", buildings.map(([, , name], idx) => ({ value: idx, label: name })));
-        const buildCountOption = $(`<input style="width: 200px" type="number" placeholder="Count" min="1" value="1">`);
+        const buildCountOption = $(`<input style="width: 100px" type="number" placeholder="Count" min="1" value="1">`);
 
         const researchedTargetOptions = makeAutocompleteInputNode("Tech", techs.flatMap(([, ...names], idx) => names.map(name => ({ value: idx, label: name }))));
 
@@ -1609,10 +1668,48 @@
 
     /*----------------------------------------------------------------------------*/
 
-    function transformRunData(history, milestones, resetType) {
+    function makeViewSettings(view) {
+        const resetTypeInput = makeSelectNode(Object.values(resets), view.resetType)
+            .css("width", "150px")
+            .on("change", function() { view.resetType = this.value; });
+
+        const universeInput = makeSelectNode(["any", ...Object.keys(universes)], view.universe ?? "any")
+            .css("width", "150px")
+            .on("change", function() { view.universe = this.value === "any" ? null : this.value; });
+
+        const daysScaleInput = $(`<input style="width: 100px" type="number" placeholder="Auto" min="1">`)
+            .on("change", function() { view.daysScale = this.value || undefined; });
+
+        const numRunsInput = $(`<input style="width: 100px" type="number" placeholder="All" min="1">`)
+            .on("change", function() { view.numRuns = this.value || undefined; });
+
+        function makeInputNode(label, inputNode) {
+            return $(`<div>`).append(`<span style="margin-right: 8px">${label}</span>`).append(inputNode);
+        }
+
+        return $(`<div style="display: flex; flex-wrap: wrap; flex-direction: row; gap: 8px"></div>`)
+            .append(makeInputNode("Reset type", resetTypeInput))
+            .append(makeInputNode("Universe", universeInput))
+            .append(makeInputNode("Days scale", daysScaleInput))
+            .append(makeInputNode("Show last N runs", numRunsInput));
+    }
+
+    /*----------------------------------------------------------------------------*/
+
+    function preprocessRunData(history, milestones, view) {
+        const numSkipped = view.numRuns ? Math.max(history.length - view.numRuns, 0) : 0;
+
         const entries = [];
         for (const [i, entry] of Object.entries(history)) {
-            if (entry.resetType !== resetType) {
+            if (i < numSkipped) {
+                continue;
+            }
+
+            if (entry.resetType !== view.resetType) {
+                continue;
+            }
+
+            if (view.universe !== null && entry.universe !== view.universe) {
                 continue;
             }
 
@@ -1661,7 +1758,7 @@
 
         const milestones = view.milestones.map(m => m.name);
 
-        const entries = transformRunData(history, milestones, view.resetType);
+        const entries = preprocessRunData(history, milestones, view);
 
         // Try to order the milestones in the legend in the order in which they happen during a run
         const orderedMilestones = [view.resetType, ...Object.keys(lastRun.milestones).filter(m => milestones.includes(m)).reverse()];
@@ -1671,7 +1768,7 @@
 
         const node = Plot.plot({
             width: 800,
-            y: { grid: true },
+            y: { grid: true, domain: view.daysScale ? [0, view.daysScale] : undefined },
             color: { legend: true, domain: orderedMilestones },
             marks: [
                 Plot.areaY(entries, { x: "run", y: "dayDiff", fill: "milestone", fillOpacity: 0.5 }),
@@ -1709,15 +1806,35 @@
 
     /*----------------------------------------------------------------------------*/
 
-    function makeViewTab(parent, view) {
-        parent
+    function makeViewTab(view, id) {
+        function generateTitle() {
+            let title = view.resetType;
+            if (view.universe !== null) {
+                title += ` (${view.universe})`;
+            }
+
+            return title;
+        }
+
+        const controlNode = $(`<li><a href="#${id}">${generateTitle()}</a></li>`);
+        const contentNode = $(`<div id="${id}" class="vscroll" style="height: calc(100vh - 10rem)"></div>`);
+
+        const removeViewNode = $(`<button class="button right">Delete View</button>`).on("click", () => {
+            config.removeView(view);
+        });
+
+        contentNode
+            .append(makeViewSettings(view).css("margin-bottom", "1em"))
             .append(makeMilestoneSettings(view).css("margin-bottom", "1em"))
-            .append(makeGraph(view));
+            .append(makeGraph(view))
+            .append(removeViewNode);
 
         view.on("update", () => {
-            parent.find("figure:last").remove();
-            parent.append(makeGraph(view));
+            controlNode.find("> a").text(generateTitle());
+            contentNode.find("figure:last").replaceWith(makeGraph(view));
         });
+
+        return [controlNode, contentNode];
     }
 
     /*----------------------------------------------------------------------------*/
@@ -1747,7 +1864,7 @@
     });
 
     analyticsPanel.find("#analytics-add-view").on("click", function() {
-        config.addView("Ascension", "heavy", []);
+        config.addView("Ascension", getUniverse(), []);
     });
 
     function onViewAdded(view) {
@@ -1755,19 +1872,23 @@
         const count = controlParentNode.children().length;
         const id = `analytics-view-${count}`;
 
-        let title = view.resetType;
-        if (view.universe !== null) {
-            title += ` (${view.universe})`;
-        }
-
-        const controlNode = $(`<li><a href="#${id}">${title}</a></li>`);
-        const contentNode = $(`<div id="${id}"></div>`);
-        makeViewTab(contentNode, view);
+        const [controlNode, contentNode] = makeViewTab(view, id);
 
         controlNode.insertBefore(lastChild(analyticsPanel.find("> nav > ul")));
         analyticsPanel.append(contentNode);
         analyticsPanel.tabs("refresh");
         analyticsPanel.tabs({ active: count - 1 });
+
+        const cb = config.on("viewRemoved", removedView => {
+            if (removedView === view) {
+                config.unsubscribe(cb);
+
+                controlNode.remove();
+                contentNode.remove();
+                analyticsPanel.tabs("refresh");
+                analyticsPanel.tabs({ active: 0 });
+            }
+        });
     }
 
     function lastChild(node) {
