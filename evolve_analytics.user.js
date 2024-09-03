@@ -1098,7 +1098,7 @@
         const localState = localStorage.getItem(configStorageKey);
         if (localState !== null) {
             const state = JSON.parse(localState);
-            state.views = state.views.map(args => new View(...args));
+            state.views = state.views.map(({ resetType, universe, milestones }) => new View(resetType, universe, milestones));
             return state;
         }
         else {
@@ -1465,6 +1465,44 @@
      *                                     UI                                     *
      *----------------------------------------------------------------------------*/
 
+    $("head").append(`
+        <style type="text/css">
+            html.dark .dark-bg {
+                background: #181818
+            }
+
+            html.light .dark-bg {
+                background: #dddddd
+            }
+
+            html.darkNight .dark-bg {
+                background: #181818
+            }
+
+            html.gruvboxLight .dark-bg {
+                background: #a89984
+            }
+
+            html.gruvboxDark .dark-bg {
+                background: #1d2021
+            }
+
+            html.orangeSoda .dark-bg {
+                background: #181818
+            }
+
+            html.dracula .dark-bg {
+                background: #1a1c24
+            }
+
+            .w-fit {
+                width: fit-content
+            }
+        </style>
+    `);
+
+    /*----------------------------------------------------------------------------*/
+
     function makeSelectNode(options) {
         const optionNodes = options.map(value => `<option>${value}</option>`);
 
@@ -1504,7 +1542,10 @@
             delay: 0,
             select: onChange, // Dropdown list click
             focus: onChange, // Arrow keys press
-            change: onChange // Keyboard type
+            change: onChange, // Keyboard type
+            classes: {
+                "ui-autocomplete": "dark-bg w-fit"
+            }
         });
     }
 
@@ -1668,6 +1709,19 @@
 
     /*----------------------------------------------------------------------------*/
 
+    function makeViewTab(parent, view) {
+        parent
+            .append(makeMilestoneSettings(view).css("margin-bottom", "1em"))
+            .append(makeGraph(view));
+
+        view.on("update", () => {
+            parent.find("figure:last").remove();
+            parent.append(makeGraph(view));
+        });
+    }
+
+    /*----------------------------------------------------------------------------*/
+
     const tabControlNode = $(`
         <li role="tab" aria-controls="analytics-content" aria-selected="false">
             <a id="analytics-label" tabindex="0" data-unsp-sanitized="clean">Analytics</a>
@@ -1676,65 +1730,90 @@
 
     const tabContentNode = $(`
         <div class="tab-item" role="tabpanel" id="analytics" aria-labelledby="analytics-label" tabindex="-1" style="display: none;">
-            <div id="analyticsPanel" class="tab-item"></div>
+            <div id="analyticsPanel" class="tab-item">
+                <nav class="tabs">
+                    <ul role="tablist" class="hscroll" style="margin-left: 0; width: 100%">
+                        <li><a id="analytics-add-view" role="button">+ Add View</a></li>
+                    </ul>
+                </nav>
+            </div>
         </div>
     `);
 
-    function makeViewTab(view) {
-        function lastChild(node) {
-            const children = node.children();
-            const length = children.length;
-            return children[length - 1];
+    const analyticsPanel = tabContentNode.find("> #analyticsPanel").tabs({
+        classes: {
+            "ui-tabs-active": "is-active"
+        }
+    });
+
+    analyticsPanel.find("#analytics-add-view").on("click", function() {
+        config.addView("Ascension", "heavy", []);
+    });
+
+    function onViewAdded(view) {
+        const controlParentNode = analyticsPanel.find("> nav > ul");
+        const count = controlParentNode.children().length;
+        const id = `analytics-view-${count}`;
+
+        let title = view.resetType;
+        if (view.universe !== null) {
+            title += ` (${view.universe})`;
         }
 
-        function hidden(node) {
-            return node.attr("tabindex") === "-1";
-        }
+        const controlNode = $(`<li><a href="#${id}">${title}</a></li>`);
+        const contentNode = $(`<div id="${id}"></div>`);
+        makeViewTab(contentNode, view);
 
-        function hideTab(controlNode, contentNode, direction) {
-            controlNode.removeClass("is-active");
-            controlNode.attr("aria-selected", "false");
-
-            contentNode.hide("slide", { direction, complete: () => contentNode.css("display", "none").attr("tabindex", "-1") }, 200);
-        }
-
-        function showTab(controlNode, contentNode, direction) {
-            controlNode.addClass("is-active");
-            controlNode.attr("aria-selected", "true");
-
-            contentNode.show("slide", { direction, complete: () => contentNode.css("display", "").attr("tabindex", "0") }, 200);
-        }
-
-        tabContentNode.find("> #analyticsPanel")
-            .append(makeMilestoneSettings(view).css("margin-bottom", "1em"))
-            .append(makeGraph(view));
-
-        view.on("update", () => {
-            const panelNode = tabContentNode.find("> #analyticsPanel");
-            panelNode.find("figure:last").remove();
-            panelNode.append(makeGraph(view));
-        });
-
-        // Note that there's a hidden "Hell Observations" tab after setting
-        tabControlNode.insertBefore(lastChild($("#mainTabs > nav > ul")));
-        tabContentNode.insertBefore(lastChild($("#mainTabs > section")));
-
-        tabControlNode.siblings().click(function() {
-            if (!hidden(tabContentNode)) {
-                hideTab(tabControlNode, tabContentNode, "right");
-                showTab($(this), tabContentNode.parent().children().eq($(this).index()), "left");
-            }
-        });
-
-        tabControlNode.click(() => {
-            hideTab(tabControlNode.siblings(), tabContentNode.siblings(), "left");
-            showTab(tabControlNode, tabContentNode, "right");
-        });
+        controlNode.insertBefore(lastChild(analyticsPanel.find("> nav > ul")));
+        analyticsPanel.append(contentNode);
+        analyticsPanel.tabs("refresh");
+        analyticsPanel.tabs({ active: count - 1 });
     }
+
+    function lastChild(node) {
+        const children = node.children();
+        const length = children.length;
+        return children[length - 1];
+    }
+
+    function hidden(node) {
+        return node.attr("tabindex") === "-1";
+    }
+
+    function hideTab(controlNode, contentNode, direction) {
+        controlNode.removeClass("is-active");
+        controlNode.attr("aria-selected", "false");
+
+        contentNode.hide("slide", { direction, complete: () => contentNode.css("display", "none").attr("tabindex", "-1") }, 200);
+    }
+
+    function showTab(controlNode, contentNode, direction) {
+        controlNode.addClass("is-active");
+        controlNode.attr("aria-selected", "true");
+
+        contentNode.show("slide", { direction, complete: () => contentNode.css("display", "").attr("tabindex", "0") }, 200);
+    }
+
+    // Note that there's a hidden "Hell Observations" tab after setting
+    tabControlNode.insertBefore(lastChild($("#mainTabs > nav > ul")));
+    tabContentNode.insertBefore(lastChild($("#mainTabs > section")));
+
+    tabControlNode.siblings().click(function() {
+        if (!hidden(tabContentNode)) {
+            hideTab(tabControlNode, tabContentNode, "right");
+            showTab($(this), tabContentNode.parent().children().eq($(this).index()), "left");
+        }
+    });
+
+    tabControlNode.click(() => {
+        hideTab(tabControlNode.siblings(), tabContentNode.siblings(), "left");
+        showTab(tabControlNode, tabContentNode, "right");
+    });
 
     for (const view of config.views) {
-        makeViewTab(view);
+        onViewAdded(view);
     }
+    config.on("viewAdded", onViewAdded);
 
-    config.on("viewAdded", view => makeViewTab(view));
+    analyticsPanel.tabs({ active: 0 });
 })();
