@@ -1086,7 +1086,7 @@
             version: 1,
             views: state.views.map(view => ({
                 ...view,
-                milestones: view.milestones.map(milestone => milestone.serialize())
+                milestones: view.milestones.filter(m => !(m instanceof ResetMilestone)).map(m => m.serialize())
             }))
         };
 
@@ -1137,89 +1137,6 @@
      *                                   Models                                   *
      *----------------------------------------------------------------------------*/
 
-    class Building {
-        constructor(tab, id, name, count = 1, enabled = true) {
-            this.tab = tab;
-            this.id = id;
-            this.name = name;
-            this.count = count;
-            this.enabled = true;
-        }
-
-        get signature() {
-            return `${this.tab}-${this.id}:${this.count}`;
-        }
-
-        serialize() {
-            return ["Built", this.tab, this.id, this.name, this.count, this.enabled];
-        }
-
-        get complete() {
-            const instance = evolve.global[this.tab]?.[this.id];
-            const count = this.tab === "arpa" ? instance?.rank : instance?.count;
-            return (count ?? 0) >= this.count;
-        }
-    };
-
-    class Research {
-        constructor(id, name, enabled = true) {
-            this.id = id;
-            this.name = name;
-            this.enabled = enabled;
-        }
-
-        get signature() {
-            return `tech-${this.id}`;
-        }
-
-        serialize() {
-            return ["Researched", this.id, this.name, this.enabled];
-        }
-
-        get complete() {
-            return $(`#tech-${this.id} .oldTech`).length !== 0;
-        }
-    };
-
-    class EvolveEvent {
-        constructor(name, enabled = true) {
-            this.name = name;
-
-            if (name === "Womlings arrival") {
-                this.impl = () => evolve.global.race.servants !== undefined;
-            }
-            else {
-                this.impl = () => false;
-            }
-        }
-
-        get signature() {
-            return this.name;
-        }
-
-        serialize() {
-            return ["Event", this.name];
-        }
-
-        get complete() {
-            return this.impl();
-        }
-    };
-
-    function milestoneFactory(type, ...args) {
-        if (type === "Built") {
-            return new Building(...args);
-        }
-        else if (type === "Researched") {
-            return new Research(...args);
-        }
-        else if (type === "Event") {
-            return new Event(...args);
-        }
-    }
-
-    /*----------------------------------------------------------------------------*/
-
     class Subscribable {
         constructor() {
             Object.defineProperty(this, "callbacks", {
@@ -1251,6 +1168,124 @@
 
     /*----------------------------------------------------------------------------*/
 
+    class Milestone extends Subscribable {
+        constructor(enabled = true) {
+            super();
+
+            this._enabled = enabled;
+        }
+
+        get enabled() {
+            return this._enabled;
+        }
+
+        set enabled(value) {
+            if (value !== this._enabled) {
+                this._enabled = value;
+                this.emit("update");
+            }
+        }
+    }
+
+    class Building extends Milestone {
+        constructor(tab, id, name, count = 1, enabled = true) {
+            super(enabled);
+
+            this.tab = tab;
+            this.id = id;
+            this.name = name;
+            this.count = count;
+        }
+
+        get signature() {
+            return `${this.tab}-${this.id}:${this.count}`;
+        }
+
+        serialize() {
+            return ["Built", this.tab, this.id, this.name, this.count, this.enabled];
+        }
+
+        get complete() {
+            const instance = evolve.global[this.tab]?.[this.id];
+            const count = this.tab === "arpa" ? instance?.rank : instance?.count;
+            return (count ?? 0) >= this.count;
+        }
+    };
+
+    class Research extends Milestone {
+        constructor(id, name, enabled = true) {
+            super(enabled);
+
+            this.id = id;
+            this.name = name;
+        }
+
+        get signature() {
+            return `tech-${this.id}`;
+        }
+
+        serialize() {
+            return ["Researched", this.id, this.name, this.enabled];
+        }
+
+        get complete() {
+            return $(`#tech-${this.id} .oldTech`).length !== 0;
+        }
+    };
+
+    class EvolveEvent extends Milestone {
+        constructor(name, enabled = true) {
+            super(enabled);
+
+            this.name = name;
+
+            if (name === "Womlings arrival") {
+                this.impl = () => evolve.global.race.servants !== undefined;
+            }
+            else {
+                this.impl = () => false;
+            }
+        }
+
+        get signature() {
+            return this.name;
+        }
+
+        serialize() {
+            return ["Event", this.name, this.enabled];
+        }
+
+        get complete() {
+            return this.impl();
+        }
+    };
+
+    class ResetMilestone extends Milestone {
+        constructor(name) {
+            super(true);
+
+            this.name = name;
+        }
+
+        get signature() {
+            return this.name;
+        }
+    };
+
+    function milestoneFactory(type, ...args) {
+        if (type === "Built") {
+            return new Building(...args);
+        }
+        else if (type === "Researched") {
+            return new Research(...args);
+        }
+        else if (type === "Event") {
+            return new Event(...args);
+        }
+    }
+
+    /*----------------------------------------------------------------------------*/
+
     class View extends Subscribable {
         constructor(state) {
             super();
@@ -1276,6 +1311,15 @@
             defineSetting("numRuns");
 
             this.milestones = state.milestones.map(args => milestoneFactory(...args)) ?? [];
+            this.milestones.push(new ResetMilestone(this.resetType));
+
+            for (const milestone of this.milestones) {
+                milestone.on("update", () => this.emit("update"));
+            }
+        }
+
+        findMilestone(name) {
+            return this.milestones.find(m => m.name === name);
         }
 
         findMilestoneIndex(milestone) {
@@ -1286,6 +1330,7 @@
             const existingIdx = this.findMilestoneIndex(milestone);
             if (existingIdx === -1) {
                 this.milestones.push(milestone);
+                milestone.on("update", () => this.emit("update"));
                 this.emit("update");
             }
         }
@@ -1557,6 +1602,10 @@
             .w-fit {
                 width: fit-content
             }
+
+            .crossed {
+                text-decoration: line-through
+            }
         </style>
     `);
 
@@ -1696,8 +1745,10 @@
 
     /*----------------------------------------------------------------------------*/
 
-    function preprocessRunData(history, milestones, view) {
+    function preprocessRunData(history, view) {
         const numSkipped = view.numRuns ? Math.max(history.length - view.numRuns, 0) : 0;
+
+        const milestones = Object.fromEntries(view.milestones.filter(m => m.enabled).map(m => [m.name, m]));
 
         const entries = [];
         for (const [i, entry] of Object.entries(history)) {
@@ -1715,7 +1766,7 @@
 
             let previousDay = 0;
             for (const [milestone, day] of Object.entries(entry.milestones)) {
-                if (!milestones.includes(milestone)) {
+                if (!(milestone in milestones)) {
                     continue;
                 }
 
@@ -1739,32 +1790,29 @@
 
                 previousDay = day;
             }
-
-            entries.push({
-                run: Number(i),
-                milestone: entry.resetType,
-                day: entry.totalDays,
-                dayDiff: entry.totalDays - previousDay
-            });
         }
 
         return entries;
     }
 
     function makeGraph(view) {
+        const milestones = view.milestones.map(m => m.name);
+        const enabledMilestones = view.milestones.filter(m => m.enabled).map(m => m.name);
+
+        // Create a milestone for the reset
         const history = loadHistory();
+        for (const entry of history) {
+            entry.milestones[entry.resetType] = entry.totalDays;
+        }
 
         const lastRun = history[history.length - 1];
+        const lastRunTimestamps = Object.entries(lastRun.milestones).filter(([m]) => enabledMilestones.includes(m)).map(([, days]) => days);
 
-        const milestones = view.milestones.map(m => m.name);
-
-        const entries = preprocessRunData(history, milestones, view);
+        const entries = preprocessRunData(history, view);
 
         // Try to order the milestones in the legend in the order in which they happen during a run
-        const orderedMilestones = [view.resetType, ...Object.keys(lastRun.milestones).filter(m => milestones.includes(m)).reverse()];
+        const orderedMilestones = Object.keys(lastRun.milestones).filter(m => milestones.includes(m)).reverse();
         orderedMilestones.push(...milestones.filter(m => !orderedMilestones.includes(m)));
-
-        const lastRunTimestamps = [...Object.values(lastRun.milestones), lastRun.totalDays];
 
         const node = Plot.plot({
             width: 800,
@@ -1788,6 +1836,20 @@
                 }
             </style>
         `);
+
+        for (const legendNode of legend.find("> span")) {
+            const milestone = view.findMilestone($(legendNode).text());
+            if (milestone !== undefined) {
+                $(legendNode).toggleClass("crossed", !milestone.enabled);
+            }
+        }
+
+        legend.find("> span").css("cursor", "pointer").on("click", function() {
+            const milestone = view.findMilestone($(this).text());
+            if (milestone !== undefined) {
+                milestone.enabled = !milestone.enabled;
+            }
+        });
 
         const plot = $(node).find("> svg");
         plot.attr("width", "100%");
