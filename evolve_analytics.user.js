@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.1.3
+// @version      0.1.4
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -1392,10 +1392,15 @@
         commitRun(runStats) {
             const resetType = inferResetType(runStats);
 
+            const milestones = [
+                ...Object.entries(runStats.milestones).map(([milestone, days]) => [this.getMilestoneID(milestone), days]),
+                [this.getMilestoneID(resetType), runStats.totalDays]
+            ];
+
             this.runs.push({
                 run: runStats.run,
                 universe: runStats.universe,
-                milestones: [...runStats.milestones, [this.getMilestoneID(resetType), runStats.totalDays]]
+                milestones
             });
 
             saveHistory({
