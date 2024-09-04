@@ -1639,6 +1639,14 @@
 
     /*----------------------------------------------------------------------------*/
 
+    function lastChild(node) {
+        const children = node.children();
+        const length = children.length;
+        return children[length - 1];
+    }
+
+    /*----------------------------------------------------------------------------*/
+
     function makeSelectNode(options, defaultValue) {
         const optionNodes = options.map(value => `<option ${value === defaultValue ? "selected" : ""}>${value}</option>`);
 
@@ -1698,6 +1706,8 @@
 
         return node;
     }
+
+    /*----------------------------------------------------------------------------*/
 
     function makeMilestoneSettings(view) {
         const builtTargetOptions = makeAutocompleteInputNode("Building/Project", buildings.map(([, , name], idx) => ({ value: idx, label: name })));
@@ -2012,12 +2022,6 @@
                 analyticsPanel.tabs({ active: 0 });
             }
         });
-    }
-
-    function lastChild(node) {
-        const children = node.children();
-        const length = children.length;
-        return children[length - 1];
     }
 
     function hidden(node) {
