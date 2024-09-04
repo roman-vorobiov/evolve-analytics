@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.1.5
+// @version      0.1.6
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -1748,7 +1748,7 @@
             }
             else if (typeOptions.val() === "Researched") {
                 const infoIdx = researchedTargetOptions[0]._value;
-                return new Research(...techs[infoIdx]);
+                return infoIdx && new Research(...techs[infoIdx]);
             }
             else if (typeOptions.val() === "Event") {
                 return new EvolveEvent(eventTargetOptions.val());
