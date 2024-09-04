@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.1.8
+// @version      0.1.9
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -1745,7 +1745,7 @@
         function makeMilestone() {
             if (typeOptions.val() === "Built") {
                 const infoIdx = builtTargetOptions[0]._value;
-                return infoIdx && new Building(...buildings[infoIdx], buildCountOption.val());
+                return infoIdx && new Building(...buildings[infoIdx], Number(buildCountOption.val()));
             }
             else if (typeOptions.val() === "Researched") {
                 const infoIdx = researchedTargetOptions[0]._value;
@@ -1864,11 +1864,11 @@
 
                 // Don't put events in the stacked view
                 if (events.includes(milestone)) {
-                    entries.push({ run: Number(i), milestone, day, segment });
+                    entries.push({ run: i, milestone, day, segment });
                     continue;
                 }
 
-                entries.push({ run: Number(i), milestone, day, dayDiff, segment });
+                entries.push({ run: i, milestone, day, dayDiff, segment });
 
                 previousEnabledDay = day;
             }
@@ -1883,6 +1883,11 @@
 
         // Create a milestone for the reset
         const filteredHistory = filterHistory(view);
+
+        // Duplicate the single entry so that lines can be plotted
+        if (filteredHistory.length === 1) {
+            filteredHistory.push(filteredHistory[0]);
+        }
 
         const lastRun = filteredHistory[filteredHistory.length - 1];
         const lastRunTimestamps = lastRun?.milestones.filter(([id]) => enabledMilestoneIDs.includes(id)).map(([, days]) => days) ?? [];
