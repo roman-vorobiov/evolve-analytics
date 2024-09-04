@@ -1404,7 +1404,7 @@
             });
 
             saveHistory({
-                milestones: this.milestones,
+                milestones: this.milestoneIDs,
                 runs: this.runs
             });
         }
