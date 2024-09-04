@@ -1418,7 +1418,8 @@
         }
 
         addMilestone(milestone) {
-            const id = Math.max(...Object.values(this.milestoneIDs)) + 1;
+            const milestoneIDs = Object.values(this.milestoneIDs);
+            const id = milestoneIDs.length !== 0 ? Math.max(...milestoneIDs) + 1 : 0;
 
             this.milestones[id] = milestone;
             this.milestoneIDs[milestone] = id;
