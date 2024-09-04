@@ -1076,6 +1076,74 @@
     };
 
     /*----------------------------------------------------------------------------*
+     *                                   Utils                                    *
+     *----------------------------------------------------------------------------*/
+
+    function rotateMap(obj) {
+        return Object.fromEntries(Object.entries(obj).map(([k, v]) => [v, k]));
+    }
+
+    /*----------------------------------------------------------------------------*/
+
+    function getRunNumber() {
+        return evolve.global.stats.reset + 1;
+    }
+
+    function getDay() {
+        return evolve.global.stats.days;
+    }
+
+    function getUniverse() {
+        return evolve.global.race.universe;
+    }
+
+    function getResetCounts() {
+        return Object.fromEntries(Object.entries(resets).map(([reset, name]) => [name, evolve.global.stats[reset] ?? 0]));
+    }
+
+    /*----------------------------------------------------------------------------*/
+
+    function onGameTick(fn) {
+        let craftCost = evolve.craftCost;
+        Object.defineProperty(evolve, "craftCost", {
+            get: () => craftCost,
+            set: (value) => {
+                craftCost = value;
+                fn();
+            }
+        });
+    }
+
+    function onGameDay(fn) {
+        let previousDay = null;
+        onGameTick(() => {
+            const day = getDay();
+
+            if (previousDay !== day) {
+                fn(day);
+                previousDay = day;
+            }
+        });
+    }
+
+    /*----------------------------------------------------------------------------*/
+
+    function synchronize() {
+        return new Promise(resolve => {
+            function impl() {
+                if (window.evolve?.global?.stats !== undefined) {
+                    resolve();
+                }
+                else {
+                    setTimeout(impl, 100);
+                }
+            }
+
+            impl();
+        });
+    }
+
+    /*----------------------------------------------------------------------------*
      *                                  Database                                  *
      *----------------------------------------------------------------------------*/
 
@@ -1086,7 +1154,7 @@
             version: 1,
             views: state.views.map(view => ({
                 ...view,
-                milestones: view.milestones.filter(m => !(m instanceof ResetMilestone)).map(m => m.serialize())
+                milestones: view.milestones.map(m => m.serialize())
             }))
         };
 
@@ -1261,14 +1329,18 @@
     };
 
     class ResetMilestone extends Milestone {
-        constructor(name) {
-            super(true);
+        constructor(name, enabled = true) {
+            super(enabled);
 
             this.name = name;
         }
 
         get signature() {
             return this.name;
+        }
+
+        serialize() {
+            return ["Reset", this.name, this.enabled];
         }
     };
 
@@ -1280,9 +1352,73 @@
             return new Research(...args);
         }
         else if (type === "Event") {
-            return new Event(...args);
+            return new EvolveEvent(...args);
+        }
+        else if (type === "Reset") {
+            return new ResetMilestone(...args);
         }
     }
+
+    /*----------------------------------------------------------------------------*/
+
+    function inferResetType(runStats) {
+        const resetCounts = getResetCounts();
+
+        // Find which reset got incremented
+        const reset = Object.keys(resetCounts).find(reset => {
+            return resetCounts[reset] === (runStats.resets[reset] ?? 0) + 1;
+        });
+
+        // The game does not differentiate between Black Hole and Vacuum Collapse resets
+        if (reset === "Black Hole" && runStats.universe === "magic") {
+            return "Vacuum Collapse";
+        }
+        else {
+            return reset ?? "Unknown";
+        }
+    }
+
+    class History {
+        constructor(state) {
+            this.milestoneIDs = state?.milestones ?? {};
+            this.milestones = rotateMap(this.milestoneIDs);
+            this.runs = state?.runs ?? [];
+        }
+
+        commitRun(runStats) {
+            const resetType = inferResetType(runStats);
+
+            this.runs.push({
+                run: runStats.run,
+                universe: runStats.universe,
+                milestones: [...runStats.milestones, [this.getMilestoneID(resetType), runStats.totalDays]]
+            });
+
+            saveHistory({
+                milestones: this.milestones,
+                runs: this.runs
+            });
+        }
+
+        getMilestone(id) {
+            return this.milestones[id];
+        }
+
+        getMilestoneID(milestone) {
+            return this.milestoneIDs[milestone] ?? this.addMilestone(milestone);
+        }
+
+        addMilestone(milestone) {
+            const id = Math.max(...Object.values(this.milestoneIDs)) + 1;
+
+            this.milestones[id] = milestone;
+            this.milestoneIDs[milestone] = id;
+
+            return id;
+        }
+    }
+
+    const history = new History(loadHistory());
 
     /*----------------------------------------------------------------------------*/
 
@@ -1305,13 +1441,13 @@
                 });
             };
 
+            defineSetting("mode", "Total");
             defineSetting("resetType");
             defineSetting("universe");
             defineSetting("daysScale");
             defineSetting("numRuns");
 
-            this.milestones = state.milestones.map(args => milestoneFactory(...args)) ?? [];
-            this.milestones.push(new ResetMilestone(this.resetType));
+            this.milestones = state.milestones?.map(args => milestoneFactory(...args)) ?? [];
 
             for (const milestone of this.milestones) {
                 milestone.on("update", () => this.emit("update"));
@@ -1372,8 +1508,8 @@
             return Object.values(uniqueMilestones);
         }
 
-        addView(resetType, universe, milestones) {
-            const view = new View({ resetType, universe, milestones });
+        addView(resetType, universe) {
+            const view = new View({ resetType, universe, milestones: [["Reset", resetType]] });
             view.on("update", () => saveState(this.state));
 
             this.state.views.push(view);
@@ -1393,89 +1529,10 @@
     const config = new Config(loadState());
 
     /*----------------------------------------------------------------------------*
-     *                                  Game API                                  *
-     *----------------------------------------------------------------------------*/
-
-    function getRunNumber() {
-        return evolve.global.stats.reset + 1;
-    }
-
-    function getDay() {
-        return evolve.global.stats.days;
-    }
-
-    function getUniverse() {
-        return evolve.global.race.universe;
-    }
-
-    function getResetCounts() {
-        return Object.fromEntries(Object.entries(resets).map(([reset, name]) => [name, evolve.global.stats[reset] ?? 0]));
-    }
-
-    /*----------------------------------------------------------------------------*/
-
-    function onGameTick(fn) {
-        let craftCost = evolve.craftCost;
-        Object.defineProperty(evolve, 'craftCost', {
-            get: () => craftCost,
-            set: (value) => {
-                craftCost = value;
-                fn();
-            }
-        });
-    }
-
-    function onGameDay(fn) {
-        let previousDay = null;
-        onGameTick(() => {
-            const day = getDay();
-
-            if (previousDay !== day) {
-                fn(day);
-                previousDay = day;
-            }
-        });
-    }
-
-    /*----------------------------------------------------------------------------*/
-
-    function synchronize() {
-        return new Promise(resolve => {
-            function impl() {
-                if (window.evolve?.global?.stats !== undefined) {
-                    resolve();
-                }
-                else {
-                    setTimeout(impl, 100);
-                }
-            }
-
-            impl();
-        });
-    }
-
-    /*----------------------------------------------------------------------------*
      *                                Run tracking                                *
      *----------------------------------------------------------------------------*/
 
     await synchronize();
-
-    function inferResetType(runStats) {
-        const resetCounts = getResetCounts();
-
-        // Find which reset got incremented
-        const reset = Object.entries(resetCounts).find(([reset, count]) => {
-            return count === (runStats.resets[reset] ?? 0) + 1;
-        });
-
-        // The game does not differentiate between Black Hole and Vacuum Collapse resets
-        if (reset === "Black Hole" && runStats.universe === "magic") {
-            return "Vacuum Collapse";
-        }
-        else {
-            return reset ?? "Unknown";
-        }
-    }
 
     // The game refreshes the page after a reset
     // Thus the script initialization can be a place to update the history
@@ -1488,50 +1545,23 @@
 
         // We want to push the run into the history only immediately after finishing it
         if (lastRunStats.run === getRunNumber() - 1) {
-            const history = loadHistory() ?? [];
-            history.push({
-                run: lastRunStats.run,
-                universe: lastRunStats.universe,
-                resetType: inferResetType(lastRunStats),
-                totalDays: lastRunStats.totalDays,
-                milestones: lastRunStats.milestones
-            });
-            saveHistory(history);
+            history.commitRun(lastRunStats);
         }
     }
 
     /*----------------------------------------------------------------------------*/
 
-    // Don't check completed milestones
-    function makeMilestoneMask() {
-        return Array(config.milestones.length).fill(false);
-    }
-
-    let reachedMask = makeMilestoneMask();
-
-    function onMilestonesChange() {
-        reachedMask = makeMilestoneMask();
-    }
-
-    config.on("viewAdded", view => {
-        onMilestonesChange();
-        view.on("update", onMilestonesChange);
-    });
-    for (const view of config.views) {
-        view.on("update", onMilestonesChange);
-    }
-
-    function checkMilestoneConditions() {
+    function checkMilestoneConditions(runStats) {
         const newlyCompleted = [];
 
-        for (let i = 0; i != config.milestones.length; ++i) {
-            if (reachedMask[i]) {
+        for (const milestone of config.milestones) {
+            // Don't check completed milestones
+            if (milestone.name in runStats.milestones) {
                 continue;
             }
 
-            if (config.milestones[i].complete) {
-                reachedMask[i] = true;
-                newlyCompleted.push(config.milestones[i]);
+            if (milestone.complete) {
+                newlyCompleted.push(milestone.name);
             }
         }
 
@@ -1553,13 +1583,11 @@
 
         runStats.totalDays = day;
 
-        const newlyCompleted = checkMilestoneConditions();
+        const newlyCompleted = checkMilestoneConditions(runStats);
         for (const milestone of newlyCompleted) {
-            if (!(milestone.name in runStats.milestones)) {
-                // Since this callback is invoked at the beginning of a day,
-                // the milestone was reached the previous day
-                runStats.milestones[milestone.name] = day - 1;
-            }
+            // Since this callback is invoked at the beginning of a day,
+            // the milestone was reached the previous day
+            runStats.milestones[milestone] = day - 1;
         }
 
         saveLastRun(runStats);
@@ -1661,13 +1689,23 @@
         return $(`<button class="button" style="height: 22px">${text}</button>`);
     }
 
+    function makeNumberInput(placeholder, defaultValue) {
+        const node = $(`<input style="width: 100px" type="number" placeholder="${placeholder}" min="1">`);
+
+        if (defaultValue !== undefined) {
+            node.attr("value", defaultValue);
+        }
+
+        return node;
+    }
+
     function makeMilestoneSettings(view) {
         const builtTargetOptions = makeAutocompleteInputNode("Building/Project", buildings.map(([, , name], idx) => ({ value: idx, label: name })));
-        const buildCountOption = $(`<input style="width: 100px" type="number" placeholder="Count" min="1" value="1">`);
+        const buildCountOption = makeNumberInput("Count", "1");
 
         const researchedTargetOptions = makeAutocompleteInputNode("Tech", techs.flatMap(([, ...names], idx) => names.map(name => ({ value: idx, label: name }))));
 
-        const eventTargetOptions = makeSelectNode(events);
+        const eventTargetOptions = makeSelectNode(events).css("width", "200px");
 
         function selectOptions(type) {
             builtTargetOptions.toggle(type === "Built");
@@ -1722,14 +1760,19 @@
             .css("width", "150px")
             .on("change", function() { view.resetType = this.value; });
 
-        const universeInput = makeSelectNode(["any", ...Object.keys(universes)], view.universe ?? "any")
+        const reversedUniverseMap = rotateMap(universes);
+        const universeInput = makeSelectNode(["Any", ...Object.values(universes)], view.universe ?? "Any")
             .css("width", "150px")
-            .on("change", function() { view.universe = this.value === "any" ? null : this.value; });
+            .on("change", function() { view.universe = this.value === "Any" ? null : reversedUniverseMap[this.value]; });
 
-        const daysScaleInput = $(`<input style="width: 100px" type="number" placeholder="Auto" min="1">`)
+        const modeInput = makeSelectNode(["Total", "Segmented"], view.mode)
+            .css("width", "100px")
+            .on("change", function() { view.mode = this.value; });
+
+        const daysScaleInput = makeNumberInput("Auto", view.daysScale)
             .on("change", function() { view.daysScale = this.value || undefined; });
 
-        const numRunsInput = $(`<input style="width: 100px" type="number" placeholder="All" min="1">`)
+        const numRunsInput = makeNumberInput("All", view.numRuns)
             .on("change", function() { view.numRuns = this.value || undefined; });
 
         function makeInputNode(label, inputNode) {
@@ -1739,24 +1782,26 @@
         return $(`<div style="display: flex; flex-wrap: wrap; flex-direction: row; gap: 8px"></div>`)
             .append(makeInputNode("Reset type", resetTypeInput))
             .append(makeInputNode("Universe", universeInput))
+            .append(makeInputNode("Mode", modeInput))
             .append(makeInputNode("Days scale", daysScaleInput))
             .append(makeInputNode("Show last N runs", numRunsInput));
     }
 
     /*----------------------------------------------------------------------------*/
 
-    function preprocessRunData(history, view) {
-        const numSkipped = view.numRuns ? Math.max(history.length - view.numRuns, 0) : 0;
+    function filterHistory(view) {
+        function getResetType(entry) {
+            const milestoneID = entry.milestones[entry.milestones.length - 1][0];
+            return history.getMilestone(milestoneID);
+        }
 
-        const milestones = Object.fromEntries(view.milestones.filter(m => m.enabled).map(m => [m.name, m]));
+        const entriesToSkip = view.numRuns ? Math.max(history.runs.length - view.numRuns, 0) : 0;
 
         const entries = [];
-        for (const [i, entry] of Object.entries(history)) {
-            if (i < numSkipped) {
-                continue;
-            }
+        for (let i = entriesToSkip; i !== history.runs.length; ++i) {
+            const entry = history.runs[i];
 
-            if (entry.resetType !== view.resetType) {
+            if (getResetType(entry) !== view.resetType) {
                 continue;
             }
 
@@ -1764,31 +1809,40 @@
                 continue;
             }
 
+            entries.push(entry);
+        }
+        return entries;
+    }
+
+    function preprocessRunData(historyEntries, view) {
+        const milestones = Object.fromEntries(view.milestones.filter(m => m.enabled).map(m => [m.name, m]));
+
+        const entries = [];
+        for (let i = 0; i !== historyEntries.length; ++i) {
             let previousDay = 0;
-            for (const [milestone, day] of Object.entries(entry.milestones)) {
+            let previousEnabledDay = 0;
+
+            for (const [milestoneID, day] of historyEntries[i].milestones) {
+                const milestone = history.getMilestone(milestoneID);
+
+                const dayDiff = day - previousEnabledDay;
+                const segment = day - previousDay;
+
+                previousDay = day;
+
                 if (!(milestone in milestones)) {
                     continue;
                 }
 
                 // Don't put events in the stacked view
                 if (events.includes(milestone)) {
-                    entries.push({
-                        run: Number(i),
-                        milestone,
-                        day: day
-                    });
-
+                    entries.push({ run: Number(i), milestone, day, segment });
                     continue;
                 }
 
-                entries.push({
-                    run: Number(i),
-                    milestone,
-                    day: day,
-                    dayDiff: day - previousDay
-                });
+                entries.push({ run: Number(i), milestone, day, dayDiff, segment });
 
-                previousDay = day;
+                previousEnabledDay = day;
             }
         }
 
@@ -1796,55 +1850,62 @@
     }
 
     function makeGraph(view) {
-        const milestones = view.milestones.map(m => m.name);
-        const enabledMilestones = view.milestones.filter(m => m.enabled).map(m => m.name);
+        const milestoneIDs = view.milestones.map(m => history.getMilestoneID(m.name));
+        const enabledMilestoneIDs = view.milestones.filter(m => m.enabled).map(m => history.getMilestoneID(m.name));
 
         // Create a milestone for the reset
-        const history = loadHistory();
-        for (const entry of history) {
-            entry.milestones[entry.resetType] = entry.totalDays;
-        }
+        const filteredHistory = filterHistory(view);
 
-        const lastRun = history[history.length - 1];
-        const lastRunTimestamps = Object.entries(lastRun.milestones).filter(([m]) => enabledMilestones.includes(m)).map(([, days]) => days);
+        const lastRun = filteredHistory[filteredHistory.length - 1];
+        const lastRunTimestamps = lastRun.milestones.filter(([id]) => enabledMilestoneIDs.includes(id)).map(([, days]) => days);
 
-        const entries = preprocessRunData(history, view);
+        const entries = preprocessRunData(filteredHistory, view);
 
         // Try to order the milestones in the legend in the order in which they happen during a run
-        const orderedMilestones = Object.keys(lastRun.milestones).filter(m => milestones.includes(m)).reverse();
-        orderedMilestones.push(...milestones.filter(m => !orderedMilestones.includes(m)));
+        milestoneIDs.sort((l, r) => lastRun.milestones.findIndex(([id]) => id === r) - lastRun.milestones.findIndex(([id]) => id === l));
+        // const orderedMilestoneIDs = lastRun.milestones.map(([id]) => id).filter(id => milestoneIDs.includes(id)).reverse();
+        // orderedMilestoneIDs.push(...milestoneIDs.filter(id => !orderedMilestoneIDs.includes(id)));
+
+        const marks = [
+            Plot.axisY({ anchor: "left", label: "days" }),
+            Plot.axisX([], { label: null }),
+            Plot.ruleY([0])
+        ];
+
+        if (view.mode === "Total") {
+            marks.push(
+                Plot.areaY(entries, { x: "run", y: "dayDiff", fill: "milestone", fillOpacity: 0.5 }),
+                Plot.lineY(entries, { x: "run", y: "day", stroke: "milestone", marker: "dot", tip: { format: { x: false } } }),
+                Plot.axisY(lastRunTimestamps, { anchor: "right" })
+            );
+        }
+        else if (view.mode === "Segmented") {
+            marks.push(
+                Plot.lineY(entries, { x: "run", y: "segment", stroke: "milestone", marker: "dot", tip: { format: { x: false } } })
+            );
+        }
 
         const node = Plot.plot({
             width: 800,
             y: { grid: true, domain: view.daysScale ? [0, view.daysScale] : undefined },
-            color: { legend: true, domain: orderedMilestones },
-            marks: [
-                Plot.areaY(entries, { x: "run", y: "dayDiff", fill: "milestone", fillOpacity: 0.5 }),
-                Plot.lineY(entries, { x: "run", y: "day", stroke: "milestone", marker: "dot", tip: { format: { x: false } } }),
-                Plot.axisY({ anchor: "left", label: "days" }),
-                Plot.axisY(lastRunTimestamps, { anchor: "right" }),
-                Plot.axisX([], { label: null }),
-                Plot.ruleY([0])
-            ]
+            color: { legend: true, domain: milestoneIDs.map(id => history.getMilestone(id)) },
+            marks
         });
 
-        const legend = $(node).find("> div");
-        legend.prepend(`
-            <style>
-                span {
-                    font-size: 1rem !important;
-                }
-            </style>
-        `);
+        const legendMilestones = $(node).find("> div > span");
 
-        for (const legendNode of legend.find("> span")) {
+        legendMilestones
+            .css("cursor", "pointer")
+            .css("font-size", "1rem");
+
+        for (const legendNode of legendMilestones) {
             const milestone = view.findMilestone($(legendNode).text());
             if (milestone !== undefined) {
                 $(legendNode).toggleClass("crossed", !milestone.enabled);
             }
         }
 
-        legend.find("> span").css("cursor", "pointer").on("click", function() {
+        legendMilestones.on("click", function() {
             const milestone = view.findMilestone($(this).text());
             if (milestone !== undefined) {
                 milestone.enabled = !milestone.enabled;
@@ -1872,7 +1933,7 @@
         function generateTitle() {
             let title = view.resetType;
             if (view.universe !== null) {
-                title += ` (${view.universe})`;
+                title += ` (${universes[view.universe]})`;
             }
 
             return title;
@@ -1881,7 +1942,7 @@
         const controlNode = $(`<li><a href="#${id}">${generateTitle()}</a></li>`);
         const contentNode = $(`<div id="${id}" class="vscroll" style="height: calc(100vh - 10rem)"></div>`);
 
-        const removeViewNode = $(`<button class="button right">Delete View</button>`).on("click", () => {
+        const removeViewNode = $(`<button class="button right" style="margin-right: 1em">Delete View</button>`).on("click", () => {
             config.removeView(view);
         });
 
@@ -1926,7 +1987,7 @@
     });
 
     analyticsPanel.find("#analytics-add-view").on("click", function() {
-        config.addView("Ascension", getUniverse(), []);
+        config.addView("Ascension", getUniverse());
     });
 
     function onViewAdded(view) {
