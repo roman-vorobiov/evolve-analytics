@@ -1867,14 +1867,14 @@
         const filteredHistory = filterHistory(view);
 
         const lastRun = filteredHistory[filteredHistory.length - 1];
-        const lastRunTimestamps = lastRun.milestones.filter(([id]) => enabledMilestoneIDs.includes(id)).map(([, days]) => days);
+        const lastRunTimestamps = lastRun?.milestones.filter(([id]) => enabledMilestoneIDs.includes(id)).map(([, days]) => days) ?? [];
 
         const entries = preprocessRunData(filteredHistory, view);
 
         // Try to order the milestones in the legend in the order in which they happen during a run
-        milestoneIDs.sort((l, r) => lastRun.milestones.findIndex(([id]) => id === r) - lastRun.milestones.findIndex(([id]) => id === l));
-        // const orderedMilestoneIDs = lastRun.milestones.map(([id]) => id).filter(id => milestoneIDs.includes(id)).reverse();
-        // orderedMilestoneIDs.push(...milestoneIDs.filter(id => !orderedMilestoneIDs.includes(id)));
+        if (lastRun !== undefined) {
+            milestoneIDs.sort((l, r) => lastRun.milestones.findIndex(([id]) => id === r) - lastRun.milestones.findIndex(([id]) => id === l));
+        }
 
         const marks = [
             Plot.axisY({ anchor: "left", label: "days" }),
