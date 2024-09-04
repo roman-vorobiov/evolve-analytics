@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.1.1
+// @version      0.1.3
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -12,7 +12,7 @@
 // @grant        none
 // ==/UserScript==
 
-/*global evolve $ Plot*/
+/*global $ Plot*/
 
 (async function() {
     "use strict";
@@ -1085,27 +1085,29 @@
 
     /*----------------------------------------------------------------------------*/
 
+    let game = undefined;
+
     function getRunNumber() {
-        return evolve.global.stats.reset + 1;
+        return game.global.stats.reset + 1;
     }
 
     function getDay() {
-        return evolve.global.stats.days;
+        return game.global.stats.days;
     }
 
     function getUniverse() {
-        return evolve.global.race.universe;
+        return game.global.race.universe;
     }
 
     function getResetCounts() {
-        return Object.fromEntries(Object.entries(resets).map(([reset, name]) => [name, evolve.global.stats[reset] ?? 0]));
+        return Object.fromEntries(Object.entries(resets).map(([reset, name]) => [name, game.global.stats[reset] ?? 0]));
     }
 
     /*----------------------------------------------------------------------------*/
 
     function onGameTick(fn) {
-        let craftCost = evolve.craftCost;
-        Object.defineProperty(evolve, "craftCost", {
+        let craftCost = game.craftCost;
+        Object.defineProperty(game, "craftCost", {
             get: () => craftCost,
             set: (value) => {
                 craftCost = value;
@@ -1129,10 +1131,12 @@
     /*----------------------------------------------------------------------------*/
 
     function synchronize() {
+        const win = typeof unsafeWindow !== "undefined" ? unsafeWindow : window;
+
         return new Promise(resolve => {
             function impl() {
-                if (window.evolve?.global?.stats !== undefined) {
-                    resolve();
+                if (win.evolve?.global?.stats !== undefined) {
+                    resolve(win.evolve);
                 }
                 else {
                     setTimeout(impl, 100);
@@ -1274,7 +1278,7 @@
         }
 
         get complete() {
-            const instance = evolve.global[this.tab]?.[this.id];
+            const instance = game.global[this.tab]?.[this.id];
             const count = this.tab === "arpa" ? instance?.rank : instance?.count;
             return (count ?? 0) >= this.count;
         }
@@ -1308,7 +1312,7 @@
             this.name = name;
 
             if (name === "Womlings arrival") {
-                this.impl = () => evolve.global.race.servants !== undefined;
+                this.impl = () => game.global.race.servants !== undefined;
             }
             else {
                 this.impl = () => false;
@@ -1532,7 +1536,9 @@
      *                                Run tracking                                *
      *----------------------------------------------------------------------------*/
 
-    await synchronize();
+    game = await synchronize();
+
+    /*----------------------------------------------------------------------------*/
 
     // The game refreshes the page after a reset
     // Thus the script initialization can be a place to update the history
@@ -1745,11 +1751,17 @@
         }
 
         const addMilestoneNode = makeSlimButtonNode("Add").on("click", () => {
-            view.addMilestone(makeMilestone());
+            const milestone = makeMilestone();
+            if (milestone !== undefined) {
+                view.addMilestone();
+            }
         });
 
         const removeMilestoneNode = makeSlimButtonNode("Remove").on("click", () => {
-            view.removeMilestone(makeMilestone());
+            const milestone = makeMilestone();
+            if (milestone !== undefined) {
+                view.removeMilestone(milestone);
+            }
         });
 
         return $(`<div style="display: flex; flex-direction: row; gap: 8px"></div>`)
