@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.1.10
+// @version      0.1.11
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -1155,7 +1155,7 @@
 
     function saveState(state) {
         const serialized = {
-            version: 1,
+            version: 2,
             views: state.views.map(view => ({
                 ...view,
                 milestones: view.milestones.map(m => m.serialize())
@@ -1169,7 +1169,17 @@
         const localState = localStorage.getItem(configStorageKey);
         if (localState !== null) {
             const state = JSON.parse(localState);
+
+            if (state.version === 1) {
+                for (const view of state.views) {
+                    if (view.mode === "Total") {
+                        view.mode = "Total (filled)";
+                    }
+                }
+            }
+
             state.views = state.views.map(args => new View(args));
+
             return state;
         }
         else {
@@ -1793,7 +1803,7 @@
             .css("width", "150px")
             .on("change", function() { view.universe = this.value === "Any" ? undefined : reversedUniverseMap[this.value]; });
 
-        const modeInput = makeSelectNode(["Total", "Segmented"], view.mode)
+        const modeInput = makeSelectNode(["Total", "Total (filled)", "Segmented"], view.mode)
             .css("width", "100px")
             .on("change", function() { view.mode = this.value; });
 
@@ -1911,17 +1921,16 @@
             Plot.ruleY([0])
         ];
 
-        if (view.mode === "Total") {
-            marks.push(
-                Plot.areaY(entries, { x: "run", y: "dayDiff", fill: "milestone", fillOpacity: 0.5 }),
-                Plot.lineY(entries, { x: "run", y: "day", stroke: "milestone", marker: "dot", tip: { format: { x: false } } }),
-                Plot.axisY(lastRunTimestamps, { anchor: "right" })
-            );
+        if (view.mode.startsWith("Total")) {
+            if (view.mode === "Total (filled)") {
+                marks.push(Plot.areaY(entries, { x: "run", y: "dayDiff", fill: "milestone", fillOpacity: 0.5 }));
+            }
+
+            marks.push(Plot.lineY(entries, { x: "run", y: "day", stroke: "milestone", marker: "dot", tip: { format: { x: false } } }));
+            marks.push(Plot.axisY(lastRunTimestamps, { anchor: "right" }));
         }
         else if (view.mode === "Segmented") {
-            marks.push(
-                Plot.lineY(entries, { x: "run", y: "segment", stroke: "milestone", marker: "dot", tip: { format: { x: false } } })
-            );
+            marks.push(Plot.lineY(entries, { x: "run", y: "segment", stroke: "milestone", marker: "dot", tip: { format: { x: false } } }));
         }
 
         const node = Plot.plot({
