@@ -1791,7 +1791,7 @@
         const reversedUniverseMap = rotateMap(universes);
         const universeInput = makeSelectNode(["Any", ...Object.values(universes)], view.universe ?? "Any")
             .css("width", "150px")
-            .on("change", function() { view.universe = this.value === "Any" ? null : reversedUniverseMap[this.value]; });
+            .on("change", function() { view.universe = this.value === "Any" ? undefined : reversedUniverseMap[this.value]; });
 
         const modeInput = makeSelectNode(["Total", "Segmented"], view.mode)
             .css("width", "100px")
@@ -1833,7 +1833,7 @@
                 continue;
             }
 
-            if (view.universe !== null && entry.universe !== view.universe) {
+            if (view.universe !== undefined && entry.universe !== view.universe) {
                 continue;
             }
 
@@ -1965,7 +1965,7 @@
     function makeViewTab(view, id) {
         function generateTitle() {
             let title = view.resetType;
-            if (view.universe !== null) {
+            if (view.universe !== undefined) {
                 title += ` (${universes[view.universe]})`;
             }
 
