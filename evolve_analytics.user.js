@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.1.11
+// @version      0.1.12
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -1600,19 +1600,19 @@
         };
     }
 
+    const currentRunStats = loadLastRun() ?? makeNewRunStats();
+
     onGameDay(day => {
-        const runStats = loadLastRun() ?? makeNewRunStats();
+        currentRunStats.totalDays = day;
 
-        runStats.totalDays = day;
-
-        const newlyCompleted = checkMilestoneConditions(runStats);
+        const newlyCompleted = checkMilestoneConditions(currentRunStats);
         for (const milestone of newlyCompleted) {
             // Since this callback is invoked at the beginning of a day,
             // the milestone was reached the previous day
-            runStats.milestones[milestone] = day - 1;
+            currentRunStats.milestones[milestone] = day - 1;
         }
 
-        saveLastRun(runStats);
+        saveLastRun(currentRunStats);
     });
 
     /*----------------------------------------------------------------------------*
