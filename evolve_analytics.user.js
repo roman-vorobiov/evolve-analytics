@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.1.9
+// @version      0.1.10
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -1850,8 +1850,16 @@
             let previousDay = 0;
             let previousEnabledDay = 0;
 
+            // Don't treat events as segments
+            const eventMilestones = [];
+
             for (const [milestoneID, day] of historyEntries[i].milestones) {
                 const milestone = history.getMilestone(milestoneID);
+
+                if (events.includes(milestone)) {
+                    eventMilestones.push([milestone, day]);
+                    continue;
+                }
 
                 const dayDiff = day - previousEnabledDay;
                 const segment = day - previousDay;
@@ -1862,15 +1870,13 @@
                     continue;
                 }
 
-                // Don't put events in the stacked view
-                if (events.includes(milestone)) {
-                    entries.push({ run: i, milestone, day, segment });
-                    continue;
-                }
-
                 entries.push({ run: i, milestone, day, dayDiff, segment });
 
                 previousEnabledDay = day;
+            }
+
+            for (const [milestone, day] of eventMilestones) {
+                entries.push({ run: i, milestone, day });
             }
         }
 
