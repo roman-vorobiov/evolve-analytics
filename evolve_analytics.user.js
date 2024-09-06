@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.1.12
+// @version      0.1.13
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -1922,6 +1922,15 @@
 
         const entries = preprocessRunData(filteredHistory, view);
 
+        let yScale = undefined;
+        if (view.daysScale) {
+            yScale = [0, view.daysScale];
+        }
+        else if (lastRun === undefined) {
+            // Default scale with empty history
+            yScale = [0, 1000];
+        }
+
         // Try to order the milestones in the legend in the order in which they happen during a run
         if (lastRun !== undefined) {
             milestoneIDs.sort((l, r) => lastRun.milestones.findIndex(([id]) => id === r) - lastRun.milestones.findIndex(([id]) => id === l));
@@ -1947,7 +1956,7 @@
 
         const node = Plot.plot({
             width: 800,
-            y: { grid: true, domain: view.daysScale ? [0, view.daysScale] : undefined },
+            y: { grid: true, domain: yScale },
             color: { legend: true, domain: milestoneIDs.map(id => history.getMilestone(id)) },
             marks
         });
