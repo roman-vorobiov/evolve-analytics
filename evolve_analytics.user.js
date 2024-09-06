@@ -1155,7 +1155,7 @@
 
     function saveState(state) {
         const serialized = {
-            version: 2,
+            version: 3,
             views: state.views.map(view => ({
                 ...view,
                 milestones: view.milestones.map(m => m.serialize())
@@ -1183,7 +1183,7 @@
             return state;
         }
         else {
-            return { views: [] };
+            return { version: 3, views: [] };
         }
     }
 
@@ -1446,31 +1446,39 @@
         constructor(state) {
             super();
 
-            const defineSetting = (prop, defaultValue) => {
+            const defineSetting = (prop, options) => {
                 Object.defineProperty(this, prop, {
                     enumerable: true,
                     get: () => {
-                        return state[prop] ?? defaultValue;
+                        return state[prop] ?? options?.defaultValue;
                     },
                     set: (value) => {
                         if (value !== state[prop]) {
                             state[prop] = value;
+                            options?.callback?.(value);
                             this.emit("update");
                         }
                     }
                 });
             };
 
-            defineSetting("mode", "Total");
-            defineSetting("resetType");
+            this.milestones = state.milestones?.map(args => milestoneFactory(...args)) ?? [];
+
+            defineSetting("mode", { defaultValue: "Total" });
+            defineSetting("resetType", { callback: (resetType) => this.updateResetMilestone(resetType) });
             defineSetting("universe");
             defineSetting("daysScale");
             defineSetting("numRuns");
 
-            this.milestones = state.milestones?.map(args => milestoneFactory(...args)) ?? [];
-
             for (const milestone of this.milestones) {
                 milestone.on("update", () => this.emit("update"));
+            }
+        }
+
+        updateResetMilestone(resetType) {
+            const milestone = this.milestones.find(m => m instanceof ResetMilestone);
+            if (milestone !== undefined) {
+                milestone.name = resetType;
             }
         }
 
@@ -1511,6 +1519,10 @@
 
             for (const view of this.views) {
                 view.on("update", () => saveState(this.state));
+
+                if (this.state.version < 3) {
+                    view.updateResetMilestone(view.resetType);
+                }
             }
         }
 
