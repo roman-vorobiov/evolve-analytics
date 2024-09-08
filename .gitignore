@@ -1,0 +1,9 @@
+.DS_Store
+node_modules
+/package
+.env
+.env.*
+!.env.example
+
+# VS code
+.devcontainer.json

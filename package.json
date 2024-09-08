@@ -1,0 +1,9 @@
+{
+  "name": "evolve-analytics",
+  "version": "0.1.13",
+  "description": "Track and see detailed information about your runs.",
+  "scripts": {
+  },
+  "author": "Roman Vorobiov",
+  "license": "MIT"
+}
