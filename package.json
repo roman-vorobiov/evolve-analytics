@@ -1,9 +1,23 @@
 {
-  "name": "evolve-analytics",
-  "version": "0.1.13",
-  "description": "Track and see detailed information about your runs.",
-  "scripts": {
-  },
-  "author": "Roman Vorobiov",
-  "license": "MIT"
+    "name": "evolve-analytics",
+    "description": "Track and see detailed information about your runs.",
+    "version": "0.1.0",
+    "author": "Roman Vorobiov",
+    "type": "module",
+    "private": true,
+    "scripts": {
+        "build": "rollup -c",
+        "dev": "rollup -c --watch"
+    },
+    "license": "MIT",
+    "devDependencies": {
+        "@observablehq/plot": "^0.6.16",
+        "@rollup/plugin-typescript": "^11.1.6",
+        "@types/jquery": "^3.5.30",
+        "@types/jqueryui": "^1.12.23",
+        "rollup": "^4.21.2",
+        "rollup-plugin-tla": "^0.0.2",
+        "tslib": "^2.7.0",
+        "typescript": "^5.5.4"
+    }
 }

@@ -1,0 +1,13 @@
+{
+    "include": ["./src/**/*"],
+    "exclude": [],
+    "compilerOptions": {
+        "outDir": "./",
+        "noImplicitAny": true,
+        "module": "ESNext",
+        "target": "ESNext",
+        "moduleResolution": "node",
+        "resolveJsonModule": true,
+        "esModuleInterop": true
+    }
+}
