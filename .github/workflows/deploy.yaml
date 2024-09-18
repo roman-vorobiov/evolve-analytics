@@ -1,4 +1,4 @@
-name: Bundle and delpoy to the main branch
+name: Bundle and deploy to the main branch
 
 on:
   push:
