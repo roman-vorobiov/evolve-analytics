@@ -7,7 +7,7 @@ export default {
     output: {
         file: "build/evolve_analytics.user.js",
         format: "iife",
-        banner: () => fs.readFile("src/meta.js", "utf-8")
+        banner: () => fs.readFile("evolve_analytics.meta.js", "utf-8")
     },
     external: ["jqueryui"],
     plugins: [typescript(), tla()],

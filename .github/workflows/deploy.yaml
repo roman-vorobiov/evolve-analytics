@@ -1,0 +1,46 @@
+name: Bundle and delpoy to the main branch
+
+on:
+  push:
+    branches: [develop]
+    paths: [evolve_analytics.meta.js]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout develop
+      uses: actions/checkout@v4
+
+    - name: Get version
+      run: |
+        echo "VERSION=$(sed -n 's/\/\/ *@version *//p' evolve_analytics.meta.js)" >> $GITHUB_ENV
+
+    - name: Checkout experimental
+      uses: actions/checkout@v4
+      with:
+        ref: experimental
+        path: build
+
+    - name: Setup node
+      uses: actions/setup-node@v4
+      with:
+        node-version: 22.x
+
+    - name: Build package
+      run: |
+        npm install
+        npm run build
+        cp evolve_analytics.meta.js build/
+
+    - name: Make Commit
+      uses: EndBug/add-and-commit@v9
+      with:
+        cwd: build
+        fetch: false
+        default_author: github_actions
+        message: "${{ env.VERSION }}"
+        add: "."
