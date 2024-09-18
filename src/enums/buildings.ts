@@ -1,4 +1,4 @@
-export default [
+export default <[string, string, string][]> [
     ["city", "food", "Gather Food"],
     ["city", "lumber", "Gather Lumber"],
     ["city", "stone", "Gather Stone"],

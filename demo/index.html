@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en" class="gruvboxDark standardqueuestyle standard">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mock evolve</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Lato&display=swap">
+    <link rel="stylesheet" href="https://unpkg.com/buefy@0.9.13/dist/buefy.min.css">
+    <link rel="stylesheet" type="text/css" href="https://pmotschmann.github.io/Evolve/evolve/evolve.css">
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6"></script>
+    <script type="text/javascript" src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script type="text/javascript" src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
+    <script type="text/javascript" src="./config.3.js"></script>
+    <script type="text/javascript" src="./history.3.js"></script>
+    <script type="text/javascript" src="../build/evolve_analytics.user.js"></script>
+    <script lang="js">
+        window.evolve = {
+            global: {
+                city: {},
+                space: {},
+                interstellar: {},
+                galaxy: {},
+                portal: {},
+                arpa: {},
+                stats: {
+                    mad: 0,
+                    bioseed: 0,
+                    cataclysm: 0,
+                    blackhole: 0,
+                    ascend: 0,
+                    descend: 0,
+                    aiappoc: 0,
+                    matrix: 0,
+                    retire: 0,
+                    eden: 0,
+                    terraform: 0,
+                    reset: 0,
+                    days: 0
+                },
+                race: {
+                    universe: "standard"
+                }
+            }
+        }
+
+        setInterval(() => { window.evolve.craftCost = {}; }, 5000);
+    </script>
+</head>
+<body style>
+    <div id="topBar" class="topBar"></div>
+    <div id="main" class="main">
+        <div class="columns is-gapless">
+            <div class="column is-one-quarter leftColumn"></div>
+            <div id="mainColumn" class="column is-half">
+                <div class="content">
+                    <div class="b-tabs" id="mainTabs">
+                        <nav class="tabs">
+                            <ul role="tablist">
+                                <li role="tab" style="display: none;"><a id="3-label" tabindex="-1" data-unsp-sanitized="clean">Evolve</a></li>
+                                <li role="tab"><a id="5-label" tabindex="0" data-unsp-sanitized="clean">Civilization</a></li>
+                                <li role="tab"><a id="7-label" tabindex="-1" data-unsp-sanitized="clean">Civics</a></li>
+                                <li role="tab"><a id="9-label" tabindex="-1" data-unsp-sanitized="clean">Research</a></li>
+                                <li role="tab"><a id="11-label" tabindex="-1" data-unsp-sanitized="clean">Resources</a></li>
+                                <li role="tab"><a id="13-label" tabindex="-1" data-unsp-sanitized="clean">A.R.P.A.</a></li>
+                                <li role="tab"><a id="15-label" tabindex="-1" data-unsp-sanitized="clean">Stats</a></li>
+                                <li role="tab"><a id="17-label" tabindex="-1" data-unsp-sanitized="clean">Settings</a></li>
+                                <li role="tab" class="is-disabled"><a id="128-label" tabindex="-1" data-unsp-sanitized="clean"><span></span></a></li>
+                            </ul>
+                        </nav>
+                        <section class="tab-content">
+                            <div class="tab-item sticky" role="tabpanel" id="evolution" tabindex="-1" style="display: none;"></div>
+                            <div class="tab-item" role="tabpanel" id="5-content" tabindex="-1" style="display: none;"></div>
+                            <div class="tab-item" role="tabpanel" id="7-content" tabindex="-1" style="display: none;"></div>
+                            <div class="tab-item" role="tabpanel" id="9-content" tabindex="-1" style="display: none;"></div>
+                            <div class="tab-item" role="tabpanel" id="9-content" tabindex="-1" style="display: none;"></div>
+                            <div class="tab-item" role="tabpanel" id="9-content" tabindex="-1" style="display: none;"></div>
+                            <div class="tab-item" role="tabpanel" id="9-content" tabindex="-1" style="display: none;"></div>
+                            <div class="settings sticky" role="tabpanel" id="settings" tabindex="0">
+                                <button class="button" style="margin-right: 1em" onclick="resetConfig()">Reset views</button>
+                                <button class="button" style="margin-right: 1em" onclick="resetHistory()">Reset History</button>
+                            </div>
+                            <div class="tab-item" role="tabpanel" id="128-content" tabindex="-1" style="display: none;"></div>
+                        </section>
+                    </div>
+                </div>
+            </div>
+            <div id="queueColumn" class="queueCol column is-one-quarter"></div>
+        </div>
+    </div>
+</body>
+</html>

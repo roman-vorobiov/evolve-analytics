@@ -1,20 +1,63 @@
-declare var unsafeWindow: any;
+import { resets } from "./enums";
+import type { Evolve, BuildingInfoTabs, ArpaInfoTab } from "./evolve";
+import type { default as JQuery } from "jquery";
 
-function synchronize() {
-    const win = typeof unsafeWindow !== "undefined" ? unsafeWindow : window;
+declare const $: typeof JQuery;
 
-    return new Promise(resolve => {
-        function impl() {
-            if (win.evolve?.global?.stats !== undefined) {
-                resolve(win.evolve);
+export class Game {
+    constructor(private evolve: Evolve) {}
+
+    get runNumber() {
+        return this.evolve.global.stats.reset + 1;
+    }
+
+    get day() {
+        return this.evolve.global.stats.days;
+    }
+
+    get universe() {
+        return this.evolve.global.race.universe;
+    }
+
+    get resetCounts() {
+        const resetCount = (reset: string) => this.evolve.global.stats[reset as keyof typeof resets];
+        return Object.fromEntries(Object.entries(resets).map(([reset, name]) => [name, resetCount(reset) ?? 0]));
+    }
+
+    built(tab: string, building: string, count: number) {
+        const instance: any = this.evolve.global[tab as keyof (BuildingInfoTabs & ArpaInfoTab)]?.[building];
+        const instanceCount = tab === "arpa" ? instance?.rank : instance?.count;
+        return (instanceCount ?? 0) >= count;
+    }
+
+    researched(tech: string) {
+        return $(`#tech-${tech} .oldTech`).length !== 0;
+    }
+
+    womlingsArrived() {
+        return this.evolve.global.race.servants !== undefined;
+    }
+
+    onGameDay(fn: (day: number) => void) {
+        let previousDay: number | null = null;
+        this.onGameTick(() => {
+            const day = this.day;
+
+            if (previousDay !== day) {
+                fn(day);
+                previousDay = day;
             }
-            else {
-                setTimeout(impl, 100);
-            }
-        }
+        });
+    }
 
-        impl();
-    });
+    private onGameTick(fn: () => void) {
+        let craftCost = this.evolve.craftCost;
+        Object.defineProperty(this.evolve, "craftCost", {
+            get: () => craftCost,
+            set: (value) => {
+                craftCost = value;
+                fn();
+            }
+        });
+    }
 }
-
-export const game: any = await synchronize();

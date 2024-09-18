@@ -1,10 +1,17 @@
-import { updateHistory, trackMilestones } from "./runTracking";
-import { bootstrapAnalyticsTab } from "./ui/analyticsTab";
+import { synchronize } from "./evolve";
+import { Game } from "./game";
+import { getConfig } from "./config";
+import { initializeHistory } from "./history";
+import { processLatestRun, trackMilestones } from "./runTracking";
+import { bootstrapAnalyticsTab } from "./ui";
 
-// The game refreshes the page after a reset
-// Thus the script initialization can be a place to update the history
-updateHistory();
+const evolve = await synchronize();
+const game = new Game(evolve);
+const config = getConfig(game);
+const history = initializeHistory(game);
 
-trackMilestones();
+processLatestRun(game, history);
 
-bootstrapAnalyticsTab();
+trackMilestones(game, config);
+
+bootstrapAnalyticsTab(config, history);

@@ -1,14 +1,9 @@
-import { applyCustonStyles } from "./styles"
-import { makeViewTab } from "./viewTab"
-import { lastChild } from "./utils"
-import { getUniverse } from "../gameUtils";
-import { config } from "../config";
+import { makeViewTab } from "./viewTab";
+import { lastChild } from "./utils";
+import type { ConfigManager, View } from "../config";
+import type { HistoryManager } from "../history";
 
-import type { View } from "../view";
-
-export function bootstrapAnalyticsTab() {
-    applyCustonStyles();
-
+export function makeAnalyticsTab(config: ConfigManager, history: HistoryManager) {
     const tabControlNode = $(`
         <li role="tab" aria-controls="analytics-content" aria-selected="false">
             <a id="analytics-label" tabindex="0" data-unsp-sanitized="clean">Analytics</a>
@@ -34,30 +29,26 @@ export function bootstrapAnalyticsTab() {
     });
 
     analyticsPanel.find("#analytics-add-view").on("click", function() {
-        config.addView("Ascension", getUniverse());
+        config.addView();
     });
 
-    function onViewAdded(view: View) {
+    function addViewTab(view: View) {
         const controlParentNode = analyticsPanel.find("> nav > ul");
         const count = controlParentNode.children().length;
         const id = `analytics-view-${count}`;
 
-        const [controlNode, contentNode] = makeViewTab(view, id);
+        const [controlNode, contentNode] = makeViewTab(id, view, config, history);
 
         controlNode.insertBefore(lastChild(analyticsPanel.find("> nav > ul")));
         analyticsPanel.append(contentNode);
         analyticsPanel.tabs("refresh");
         analyticsPanel.tabs({ active: count - 1 });
 
-        const cb = config.on("viewRemoved", removedView => {
-            if (removedView === view) {
-                config.unsubscribe(cb);
-
-                controlNode.remove();
-                contentNode.remove();
-                analyticsPanel.tabs("refresh");
-                analyticsPanel.tabs({ active: 0 });
-            }
+        config.on("viewRemoved", view, () => {
+            controlNode.remove();
+            contentNode.remove();
+            analyticsPanel.tabs("refresh");
+            analyticsPanel.tabs({ active: 0 });
         });
     }
 
@@ -96,9 +87,9 @@ export function bootstrapAnalyticsTab() {
     });
 
     for (const view of config.views) {
-        onViewAdded(view);
+        addViewTab(view);
     }
-    config.on("viewAdded", onViewAdded);
+    config.on("viewAdded", addViewTab);
 
     analyticsPanel.tabs({ active: 0 });
 }

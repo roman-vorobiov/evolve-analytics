@@ -1,99 +1,141 @@
-import { type Milestone } from "./milestones";
-import { View, type ViewState } from "./view";
+import { saveConfig, loadConfig } from "./database";
+import { milestoneEnabled, milestoneName, milestoneType, type Milestone } from "./milestones";
 import { Subscribable } from "./subscribable";
+import type { Game } from "./game";
 
-type ConfigState = {
+export type ViewConfig = {
+    resetType: string,
+    universe?: string,
+    mode: string,
+    daysScale?: number,
+    numRuns?: number,
+    milestones: Milestone[]
+}
+
+export type View = ViewConfig & {
+    toggleMilestone(milestone: string): void;
+    addMilestone(milestone: Milestone): void;
+    removeMilestone(milestone: Milestone): void;
+}
+
+export type Config = {
     version: number,
-    views: ViewState[]
+    views: ViewConfig[]
 }
 
-type ParsedConfigState = {
-    version: number,
-    views: View[]
-}
+function makeViewProxy(config: ConfigManager, view: ViewConfig): View {
+    return <View> new Proxy(view, {
+        get(obj, prop, receiver) {
+            if (prop === "toggleMilestone") {
+                return (name: string) => {
+                    const milestone = view.milestones.find(m => milestoneName(m) === name);
+                    if (milestone !== undefined) {
+                        milestone[milestone.length - 1] = !milestone[milestone.length - 1];
+                        config.emit("viewUpdated", receiver);
+                    }
+                };
+            }
+            else if (prop === "addMilestone") {
+                return (milestone: Milestone) => {
+                    view.milestones.push(milestone);
+                    config.emit("viewUpdated", receiver);
+                };
+            }
+            else if (prop === "removeMilestone") {
+                return (milestone: Milestone) => {
+                    const signature = milestone.slice(0, -1).join(":");
+                    const idx = view.milestones.findIndex(m => m.slice(0, -1).join(":") === signature);
+                    if (idx !== -1) {
+                        view.milestones.splice(idx, 1);
+                        config.emit("viewUpdated", receiver);
+                    }
+                };
+            }
+            else {
+                return Reflect.get(obj, prop, receiver);
+            }
+        },
+        set(obj, prop, value, receiver) {
+            const ret = Reflect.set(obj, prop, value, receiver);
 
-const configStorageKey = "sneed.analytics.config";
-
-function saveState(state: ParsedConfigState) {
-    const serialized = {
-        version: 3,
-        views: state.views.map(view => ({
-            ...view,
-            milestones: view.milestones.map(m => m.serialize())
-        }))
-    };
-
-    localStorage.setItem(configStorageKey, JSON.stringify(serialized));
-}
-
-function loadState(): ParsedConfigState {
-    const localState = localStorage.getItem(configStorageKey);
-    if (localState !== null) {
-        const state = JSON.parse(localState) as ConfigState;
-
-        if (state.version === 1) {
-            for (const view of state.views) {
-                if (view.mode === "Total") {
-                    view.mode = "Total (filled)";
+            if (prop === "resetType") {
+                const milestone = obj.milestones.find(m => milestoneType(m) === "Reset");
+                if (milestone !== undefined) {
+                    milestone[1] = value;
                 }
             }
-        }
 
-        return {
-            version: state.version,
-            views: state.views.map(args => new View(args))
-        };
-    }
-    else {
-        return { version: 3, views: [] };
-    }
+            config.emit("viewUpdated", receiver);
+
+            return ret;
+        }
+    });
 }
 
-class Config extends Subscribable {
-    constructor(public state: ParsedConfigState) {
+export class ConfigManager extends Subscribable {
+    milestones: Milestone[];
+    views: View[];
+
+    constructor(private game: Game, private config: Config) {
         super();
 
-        this.on("*", () => saveState(this.state));
+        this.milestones = this.collectMilestones();
 
-        for (const view of this.views) {
-            view.on("update", () => saveState(this.state));
+        this.views = this.config.views.map(v => makeViewProxy(this, v));
 
-            if (this.state.version < 3) {
-                view.updateResetMilestone(view.resetType);
-            }
-        }
+        this.on("*", () => {
+            saveConfig(this.config);
+            this.milestones = this.collectMilestones();
+        });
     }
 
-    get views() {
-        return this.state.views;
+    get version() {
+        return this.config.version;
     }
 
-    get milestones() {
-        const uniqueMilestones: Record<string, Milestone> = {};
-        for (const view of this.state.views) {
-            for (const milestone of view.milestones) {
-                uniqueMilestones[milestone.signature] ??= milestone;
-            }
-        }
-        return Object.values(uniqueMilestones);
-    }
+    addView() {
+        const view: ViewConfig = {
+            resetType: "Ascension",
+            universe: this.game.universe,
+            mode: "Total (filled)",
+            milestones: [["Reset", "Ascension", true]]
+        };
 
-    addView(resetType: string, universe: string) {
-        const view = new View({ resetType, universe, milestones: [["Reset", resetType]] });
-        view.on("update", () => saveState(this.state));
+        const proxy = makeViewProxy(this, view);
 
-        this.state.views.push(view);
+        this.config.views.push(view);
+        this.views.push(proxy);
 
-        this.emit("viewAdded", view);
+        this.emit("viewAdded", proxy);
     }
 
     removeView(view: View) {
         const idx = this.views.indexOf(view);
         if (idx !== -1) {
+            this.config.views.splice(idx, 1);
             this.views.splice(idx, 1);
             this.emit("viewRemoved", view);
         }
     }
-};
 
-export const config = new Config(loadState());
+    private collectMilestones() {
+        const milestones = this.config.views.flatMap(v => {
+            return v.milestones
+                .filter(milestoneEnabled)
+                .filter(m => milestoneType(m) !== "Reset");
+        });
+
+        const uniqueMilestones: Map<string, Milestone> = new Map();
+
+        for (const milestone of milestones) {
+            uniqueMilestones.set(milestone.join(":"), milestone);
+        }
+
+        return [...uniqueMilestones.values()];
+    }
+}
+
+export function getConfig(game: Game) {
+    const config = loadConfig() ?? { version: 3, views: [] };
+    return new ConfigManager(game, config);
+}

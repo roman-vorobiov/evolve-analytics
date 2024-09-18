@@ -1,143 +1,70 @@
-import { Subscribable } from "./subscribable";
-import { game } from "./game";
+import type { Game } from "./game";
 
-declare var $: any;
+export type BuiltMilestone = ["Built", /*tab*/ string, /*id*/ string, /*name*/ string, /*count*/ number];
+export type ResearchedMilestone = ["Researched", /*id*/ string, /*name*/ string];
+export type EventMilestone = ["Event", /*name*/ string];
+export type ResetMilestone = ["Reset", /*name*/ string];
 
-export type SerializedMilestone = any[];
+export type Milestone = [...(BuiltMilestone | ResearchedMilestone | EventMilestone | ResetMilestone), /*enabled*/ boolean];
 
-export interface Milestone {
-    name: string;
-
-    get signature(): string;
-
-    get complete(): boolean;
-
-    serialize(): SerializedMilestone;
+export type MilestoneChecker = {
+    name: string,
+    reached: () => boolean
 }
 
-export class Milestone extends Subscribable implements Milestone {
-    constructor(private _enabled: boolean = true) {
-        super();
-    }
+export function milestoneType(milestone: Milestone) {
+    return milestone[0];
+}
 
-    get enabled() {
-        return this._enabled;
-    }
+export function milestoneEnabled(milestone: Milestone) {
+    return milestone[milestone.length - 1] as boolean;
+}
 
-    set enabled(value) {
-        if (value !== this._enabled) {
-            this._enabled = value;
-            this.emit("update");
-        }
+export function milestoneName(milestone: Milestone): string {
+    if (milestone[0] === "Built") {
+        return milestone[3];
+    }
+    else if (milestone[0] === "Researched") {
+        return milestone[2];
+    }
+    else if (milestone[0] === "Event") {
+        return milestone[1];
+    }
+    else if (milestone[0] === "Reset") {
+        return milestone[1];
+    }
+    else {
+        return "Unknown";
     }
 }
 
-export class Building extends Milestone {
-    constructor(
-        public tab: string,
-        public id: string,
-        public name: string,
-        public count: number = 1,
-        enabled: boolean = true
-    ) {
-        super(enabled);
-    }
+export function makeMilestoneChecker(game: Game, milestone: Milestone): MilestoneChecker | undefined {
+    if (milestone[0] === "Built") {
+        const [, tab, id, name, count] = milestone;
 
-    get signature() {
-        return `${this.tab}-${this.id}:${this.count}`;
+        return {
+            name,
+            reached: () => game.built(tab, id, count)
+        };
     }
+    else if (milestone[0] === "Researched") {
+        const [, id, name] = milestone;
 
-    serialize() {
-        return ["Built", this.tab, this.id, this.name, this.count, this.enabled];
+        return {
+            name,
+            reached: () => game.researched(id)
+        };
     }
+    else if (milestone[0] === "Event") {
+        const [, name] = milestone;
 
-    get complete() {
-        const instance = game.global[this.tab]?.[this.id];
-        const count = this.tab === "arpa" ? instance?.rank : instance?.count;
-        return (count ?? 0) >= this.count;
-    }
-};
+        const impl = {
+            "Womlings arrival": () => game.womlingsArrived()
+        };
 
-export class Research extends Milestone {
-    constructor(
-        public id: string,
-        public name: string,
-        enabled: boolean = true
-    ) {
-        super(enabled);
-    }
-
-    get signature() {
-        return `tech-${this.id}`;
-    }
-
-    serialize() {
-        return ["Researched", this.id, this.name, this.enabled];
-    }
-
-    get complete() {
-        return $(`#tech-${this.id} .oldTech`).length !== 0;
-    }
-};
-
-export class EvolveEvent extends Milestone {
-    impl: () => boolean;
-
-    constructor(
-        public name: string,
-        enabled: boolean = true
-    ) {
-        super(enabled);
-
-        if (name === "Womlings arrival") {
-            this.impl = () => game.global.race.servants !== undefined;
-        }
-        else {
-            this.impl = () => false;
-        }
-    }
-
-    get signature() {
-        return this.name;
-    }
-
-    serialize() {
-        return ["Event", this.name, this.enabled];
-    }
-
-    get complete() {
-        return this.impl();
-    }
-};
-
-export class ResetMilestone extends Milestone {
-    constructor(
-        public name: string,
-        enabled: boolean = true
-    ) {
-        super(enabled);
-    }
-
-    get signature() {
-        return this.name;
-    }
-
-    serialize() {
-        return ["Reset", this.name, this.enabled];
-    }
-};
-
-export function milestoneFactory(type: string, ...args: any[]): Milestone {
-    if (type === "Built") {
-        return new (Building as any)(...args);
-    }
-    else if (type === "Researched") {
-        return new (Research as any)(...args);
-    }
-    else if (type === "Event") {
-        return new (EvolveEvent as any)(...args);
-    }
-    else if (type === "Reset") {
-        return new (ResetMilestone as any)(...args);
+        return {
+            name,
+            reached: impl[name as keyof typeof impl] ?? (() => false)
+        };
     }
 }

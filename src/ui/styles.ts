@@ -1,5 +1,5 @@
-export function applyCustonStyles() {
-    $("head").append(`
+export function makeStyles() {
+    return $(`
         <style type="text/css">
             html.dark .bg-dark {
                 background: #181818

@@ -1,7 +1,7 @@
 type Callback = (..._: any[]) => void;
 
 export class Subscribable {
-    callbacks: Record<string, Callback[]>;
+    callbacks: Record<string, WeakMap<WeakKey, Callback[]>>;
 
     constructor() {
         Object.defineProperty(this, "callbacks", {
@@ -10,25 +10,28 @@ export class Subscribable {
         });
     }
 
-    on(event: string, callback: Callback) {
-        (this.callbacks[event] ??= []).push(callback);
-        return callback;
+    on(event: string, key: WeakKey, callback: Callback): void;
+    on(event: string, callback: Callback): void;
+    on(event: string, ...args: [WeakKey, Callback] | [Callback]) {
+        const [key, callback] = args.length === 2 ? args : [this, args[0]];
+
+        const map = this.callbacks[event] ??= new WeakMap();
+        const list = map.get(key) ?? (map.set(key, []), map.get(key)!);
+
+        list.push(callback);
     }
 
-    unsubscribe(callback: Callback) {
-        for (const callbacks of Object.values(this.callbacks)) {
-            const idx = callbacks.indexOf(callback);
-            if (idx !== -1) {
-                callbacks.splice(idx, 1);
-                break;
-            }
+    emit(event: string, arg?: any) {
+        if (arg !== undefined) {
+            this.invoke(event, arg, arg);
+            this.invoke("*", arg, arg);
         }
+
+        this.invoke(event, this, arg);
+        this.invoke("*", this, arg);
     }
 
-    emit(event: string, ...args: any[]) {
-        console.log(...args);
-
-        this.callbacks[event]?.forEach(cb => cb(...args));
-        this.callbacks["*"]?.forEach(cb => cb(...args));
+    private invoke(event: string, key: WeakKey, arg: any) {
+        this.callbacks[event]?.get(key)?.forEach(cb => cb(arg));
     }
 }

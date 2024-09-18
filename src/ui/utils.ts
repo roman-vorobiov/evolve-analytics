@@ -9,7 +9,7 @@ export function lastChild(node: JQuery) {
     return children[length - 1];
 }
 
-export function makeSelectNode(options: string[], defaultValue?: string) {
+export function makeSelect(options: string[], defaultValue?: string) {
     const optionNodes = options.map(value => `<option ${value === defaultValue ? "selected" : ""}>${value}</option>`);
 
     return $(`
@@ -26,7 +26,7 @@ type AutocompleteOptions = {
 
 type AugmentedSelectElement = HTMLSelectElement & { _value: string | undefined }
 
-export function makeAutocompleteInputNode(placeholder: string, options: AutocompleteOptions[]): JQuery<AugmentedSelectElement> {
+export function makeAutocompleteInput(placeholder: string, options: AutocompleteOptions[]): JQuery<AugmentedSelectElement> {
     function onChange(event: Event, ui: JQueryUI.AutocompleteUIParams) {
         // If it wasn't selected from list
         if (ui.item === null){
@@ -62,7 +62,7 @@ export function makeAutocompleteInputNode(placeholder: string, options: Autocomp
     });
 }
 
-export function makeSlimButtonNode(text: string) {
+export function makeSlimButton(text: string) {
     return $(`<button class="button" style="height: 22px">${text}</button>`);
 }
 

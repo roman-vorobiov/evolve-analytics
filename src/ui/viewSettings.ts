@@ -1,19 +1,19 @@
-import { makeNumberInput, makeSelectNode } from "../utils";
-import { rotateMap } from "../../utils";
-import { resets, universes } from "../../enums";
-import type { View } from "../../view";
+import { makeNumberInput, makeSelect } from "./utils";
+import { rotateMap } from "../utils";
+import { resets, universes } from "../enums";
+import type { View } from "../config";
 
 export function makeViewSettings(view: View) {
-    const resetTypeInput = makeSelectNode(Object.values(resets), view.resetType)
+    const resetTypeInput = makeSelect(Object.values(resets), view.resetType)
         .css("width", "150px")
         .on("change", function(this: HTMLInputElement) { view.resetType = this.value; });
 
     const reversedUniverseMap = rotateMap(universes);
-    const universeInput = makeSelectNode(["Any", ...Object.values(universes)], view.universe ?? "Any")
+    const universeInput = makeSelect(["Any", ...Object.values(universes)], view.universe ?? "Any")
         .css("width", "150px")
         .on("change", function(this: HTMLSelectElement) { view.universe = this.value === "Any" ? undefined : reversedUniverseMap[this.value]; });
 
-    const modeInput = makeSelectNode(["Total", "Total (filled)", "Segmented"], view.mode)
+    const modeInput = makeSelect(["Total", "Total (filled)", "Segmented"], view.mode)
         .css("width", "100px")
         .on("change", function(this: HTMLSelectElement) { view.mode = this.value; });
 

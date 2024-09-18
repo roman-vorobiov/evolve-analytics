@@ -7,7 +7,8 @@
     "private": true,
     "scripts": {
         "build": "rollup -c",
-        "dev": "rollup -c --watch"
+        "dev": "rollup -c --watch",
+        "test": "jest --watch"
     },
     "license": "MIT",
     "devDependencies": {
@@ -17,6 +18,7 @@
         "@types/jqueryui": "^1.12.23",
         "rollup": "^4.21.2",
         "rollup-plugin-tla": "^0.0.2",
+        "ts-jest": "^29.2.5",
         "tslib": "^2.7.0",
         "typescript": "^5.5.4"
     }

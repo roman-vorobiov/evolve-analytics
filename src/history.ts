@@ -1,58 +1,55 @@
-import { inferResetType, type RunStats } from "./runStats";
-import { rotateMap } from "./utils";
+import { saveHistory, loadHistory } from "./database";
+import { inferResetType, type LatestRun } from "./runTracking";
+import { rotateMap } from "./utils"
+import type { Game } from "./game";
 
-type MilestoneTimestamp = [number, number];
+export type MilestoneReference = [number, number];
 
 export type HistoryEntry = {
     run: number,
     universe: string,
-    milestones: MilestoneTimestamp[]
+    milestones: MilestoneReference[]
 }
 
-type HistoryState = {
-    milestones?: Record<string, number>,
-    runs?: HistoryEntry[]
+export type RunHistory = {
+    milestones: Record<string, number>,
+    runs: HistoryEntry[]
 }
 
-const historyStorageKey = "sneed.analytics.history";
+export class HistoryManager {
+    private game: Game;
+    private history: RunHistory;
+    public milestones: Record<number, string>;
 
-function loadHistory(): HistoryState {
-    return JSON.parse(localStorage.getItem(historyStorageKey));
-}
-
-function saveHistory(history: HistoryState) {
-    localStorage.setItem(historyStorageKey, JSON.stringify(history));
-}
-
-export class History {
-    milestones: Record<number, string>;
-    milestoneIDs: Record<string, number>;
-    runs: HistoryEntry[];
-
-    constructor(state: HistoryState | undefined) {
-        this.milestoneIDs = state?.milestones ?? {};
-        this.milestones = rotateMap(this.milestoneIDs);
-        this.runs = state?.runs ?? [];
+    constructor(game: Game, history: RunHistory) {
+        this.game = game;
+        this.history = history;
+        this.milestones = rotateMap(history.milestones);
     }
 
-    commitRun(runStats: RunStats) {
-        const resetType = inferResetType(runStats);
+    get milestoneIDs() {
+        return this.history.milestones;
+    }
 
-        const milestones: MilestoneTimestamp[] = [
-            ...Object.entries(runStats.milestones).map(([milestone, days]) => [this.getMilestoneID(milestone), days]) as MilestoneTimestamp[],
+    get runs() {
+        return this.history.runs;
+    }
+
+    commitRun(runStats: LatestRun) {
+        const resetType = inferResetType(runStats, this.game);
+
+        const milestones: MilestoneReference[] = [
+            ...Object.entries(runStats.milestones).map(([milestone, days]) => [this.getMilestoneID(milestone), days]) as MilestoneReference[],
             [this.getMilestoneID(resetType), runStats.totalDays]
         ];
 
-        this.runs.push({
+        this.history.runs.push({
             run: runStats.run,
             universe: runStats.universe,
             milestones
         });
 
-        saveHistory({
-            milestones: this.milestoneIDs,
-            runs: this.runs
-        });
+        saveHistory(this.history);
     }
 
     getMilestone(id: number): string {
@@ -63,7 +60,7 @@ export class History {
         return this.milestoneIDs[milestone] ?? this.addMilestone(milestone);
     }
 
-    addMilestone(milestone: string): number {
+    private addMilestone(milestone: string): number {
         const milestoneIDs = Object.values(this.milestoneIDs);
         const id = milestoneIDs.length !== 0 ? Math.max(...milestoneIDs) + 1 : 0;
 
@@ -74,4 +71,15 @@ export class History {
     }
 }
 
-export const history = new History(loadHistory());
+export function blankHistory(): RunHistory {
+    return {
+        milestones: {},
+        runs: []
+    }
+}
+
+export function initializeHistory(game: Game): HistoryManager {
+    const history = loadHistory() ?? blankHistory();
+
+    return new HistoryManager(game, history);
+}
