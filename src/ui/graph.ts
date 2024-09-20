@@ -1,7 +1,7 @@
-import { applyFilters } from "../exports/historyFiltering"
-import { asPlotPoints, type PlotPoint } from "../exports/plotPoints"
-import { milestoneEnabled, milestoneName } from "../milestones";
-import type { ConfigManager, View } from "../config";
+import { applyFilters } from "../exports/historyFiltering";
+import { asPlotPoints, type PlotPoint } from "../exports/plotPoints";
+import { generateMilestoneNames } from "../milestones";
+import type { View } from "../config";
 import type { HistoryManager } from "../history";
 
 import type { default as PlotType } from "@observablehq/plot";
@@ -75,20 +75,23 @@ export function makeGraph(history: HistoryManager, view: View) {
         Plot.ruleY([0])
     ];
 
-    if (view.mode.startsWith("Total")) {
-        if (view.mode === "Total (filled)") {
+    switch (view.mode) {
+        case "filled":
             marks.push(areaMarks(plotPoints));
-        }
+            // fall-through
 
-        marks.push(lineMarks(plotPoints, "day"));
-        marks.push(timestamps(plotPoints, "day"));
-    }
-    else if (view.mode === "Segmented") {
-        marks.push(lineMarks(plotPoints, "segment"));
-        marks.push(timestamps(plotPoints, "segment"));
+        case "total":
+            marks.push(lineMarks(plotPoints, "day"));
+            marks.push(timestamps(plotPoints, "day"));
+            break;
+
+        case "segmented":
+            marks.push(lineMarks(plotPoints, "segment"));
+            marks.push(timestamps(plotPoints, "segment"));
+            break;
     }
 
-    const milestones = view.milestones.map(milestoneName);
+    const milestones: string[] = Object.keys(view.milestones);
 
     // Try to order the milestones in the legend in the order in which they happened during the last run
     if (filteredRuns.length !== 0) {
@@ -105,7 +108,7 @@ export function makeGraph(history: HistoryManager, view: View) {
     const node = Plot.plot({
         width: 800,
         y: { grid: true, domain: yScale },
-        color: { legend: true, domain: milestones },
+        color: { legend: true, domain: generateMilestoneNames(milestones) },
         marks
     });
 
@@ -115,15 +118,16 @@ export function makeGraph(history: HistoryManager, view: View) {
         .css("cursor", "pointer")
         .css("font-size", "1rem");
 
-    for (const legendNode of legendMilestones) {
-        const milestone = view.milestones.find(m => milestoneName(m) === $(legendNode).text());
-        if (milestone !== undefined) {
-            $(legendNode).toggleClass("crossed", !milestoneEnabled(milestone));
-        }
+    for (let i = 0; i != legendMilestones.length; ++i) {
+        const node = legendMilestones[i];
+        const milestone = milestones[i];
+
+        $(node).toggleClass("crossed", !view.milestones[milestone]);
     }
 
     legendMilestones.on("click", function() {
-        view.toggleMilestone($(this).text());
+        const milestone = milestones[$(this).index() - 1];
+        view.toggleMilestone(milestone);
     });
 
     const plot = $(node).find("> svg");

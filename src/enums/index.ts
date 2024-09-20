@@ -1,10 +1,10 @@
-export { default as buildings } from "./buildings";
+export { buildings } from "./buildings";
 
-export { default as techs } from "./research";
+export { techs } from "./research";
 
-export const events = [
-    "Womlings arrival"
-];
+export const events = {
+    "womlings": "Womlings arrival"
+};
 
 export const resets = {
     mad: "MAD",
@@ -27,4 +27,10 @@ export const universes = {
     evil: "Evil",
     micro: "Micro",
     magic: "Magic"
+};
+
+export const viewModes = {
+    "total": "Total",
+    "filled": "Total (filled)",
+    "segmented": "Segmented"
 };

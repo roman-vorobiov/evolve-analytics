@@ -29,8 +29,8 @@ describe("History", () => {
 
             history.commitRun({ run: 123, universe: "standard", resets: {}, totalDays: 456, milestones: {} });
 
-            expect(history.milestones).toEqual({ [0]: "Bioseed" });
-            expect(history.milestoneIDs).toEqual({ "Bioseed": 0 });
+            expect(history.milestones).toEqual({ [0]: "reset:bioseed" });
+            expect(history.milestoneIDs).toEqual({ "reset:bioseed": 0 });
 
             expect(history.runs.length).toBe(1);
             expect(history.runs[0]).toEqual(<HistoryEntry> {
@@ -46,15 +46,15 @@ describe("History", () => {
             const game = new Game(makeGameState({ bioseed: 1 }));
             const history = new HistoryManager(game, {
                 milestones: {
-                    "Bioseed": 789
+                    "reset:bioseed": 789
                 },
                 runs: []
             });
 
             history.commitRun({ run: 123, universe: "standard", resets: {}, totalDays: 456, milestones: {} });
 
-            expect(history.milestones).toEqual({ [789]: "Bioseed" });
-            expect(history.milestoneIDs).toEqual({ "Bioseed": 789 });
+            expect(history.milestones).toEqual({ [789]: "reset:bioseed" });
+            expect(history.milestoneIDs).toEqual({ "reset:bioseed": 789 });
 
             expect(history.runs.length).toBe(1);
             expect(history.runs[0]).toEqual(<HistoryEntry> {
@@ -70,22 +70,22 @@ describe("History", () => {
             const game = new Game(makeGameState({ bioseed: 1 }));
             const history = new HistoryManager(game, {
                 milestones: {
-                    "foo": 0
+                    "tech:club": 0
                 },
                 runs: []
             });
 
-            history.commitRun({ run: 123, universe: "standard", resets: {}, totalDays: 456, milestones: { "foo": 10, "bar": 20 } });
+            history.commitRun({ run: 123, universe: "standard", resets: {}, totalDays: 456, milestones: { "tech:club": 10, "built:city-shed:1": 20 } });
 
             expect(history.milestones).toEqual({
-                [0]: "foo",
-                [1]: "bar",
-                [2]: "Bioseed"
+                [0]: "tech:club",
+                [1]: "built:city-shed:1",
+                [2]: "reset:bioseed"
             });
             expect(history.milestoneIDs).toEqual({
-                "foo": 0,
-                "bar": 1,
-                "Bioseed": 2
+                "tech:club": 0,
+                "built:city-shed:1": 1,
+                "reset:bioseed": 2
             });
 
             expect(history.runs.length).toBe(1);
@@ -104,8 +104,8 @@ describe("History", () => {
             const game = new Game(makeGameState({ bioseed: 1 }));
             const history = new HistoryManager(game, {
                 milestones: {
-                    "foo": 0,
-                    "MAD": 1
+                    "tech:club": 0,
+                    "reset:mad": 1
                 },
                 runs: [
                     {
@@ -119,19 +119,19 @@ describe("History", () => {
                 ]
             });
 
-            history.commitRun({ run: 123, universe: "standard", resets: {}, totalDays: 456, milestones: { "foo": 10, "bar": 20 } });
+            history.commitRun({ run: 123, universe: "standard", resets: {}, totalDays: 456, milestones: { "tech:club": 10, "built:city-shed:1": 20 } });
 
             expect(history.milestones).toEqual({
-                [0]: "foo",
-                [1]: "MAD",
-                [2]: "bar",
-                [3]: "Bioseed"
+                [0]: "tech:club",
+                [1]: "reset:mad",
+                [2]: "built:city-shed:1",
+                [3]: "reset:bioseed"
             });
             expect(history.milestoneIDs).toEqual({
-                "foo": 0,
-                "MAD": 1,
-                "bar": 2,
-                "Bioseed": 3
+                "tech:club": 0,
+                "reset:mad": 1,
+                "built:city-shed:1": 2,
+                "reset:bioseed": 3
             });
 
             expect(history.runs.length).toBe(2);

@@ -16,7 +16,7 @@ const config = {
             "mode": "Total (filled)",
             "resetType": "Ascension",
             "universe": "heavy",
-            "numRuns": "50"
+            "numRuns": 50
         },
         {
             "milestones": [
@@ -35,7 +35,7 @@ const config = {
             "universe": "heavy"
         }
     ]
-}
+};
 
 function resetConfig() {
     localStorage.setItem("sneed.analytics.config", JSON.stringify(config));

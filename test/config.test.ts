@@ -1,115 +1,263 @@
-import { describe, expect, it } from "@jest/globals";
-import { makeGameState } from "./fixture";
+import { describe, expect, it, beforeEach } from "@jest/globals";
+import { LocalStorageMock, makeGameState } from "./fixture";
 
 import { Game } from "../src/game";
 import { ConfigManager } from "../src/config";
-import { milestoneName, type Milestone } from "../src/milestones";
-import type { ViewConfig } from "../src/config";
+import type { View, ViewConfig } from "../src/config";
 
-function makeView(milestones: Milestone[]): ViewConfig {
+function makeView(milestones: string[]): ViewConfig {
     return {
-        mode: "Total",
-        resetType: "Black Hole",
+        mode: "filled",
+        resetType: "blackhole",
         universe: "standard",
-        milestones
+        milestones: Object.fromEntries(milestones.map(m => [m, true]))
     };
 }
 
-function makeConfig(...milestoneSets: Milestone[][]) {
+function makeConfig(milestoneSets: string[][]) {
     return {
-        version: 3,
+        version: 4,
         views: milestoneSets.map(makeView)
     }
 }
 
 describe("Config", () => {
+    beforeEach(() => {
+        Object.defineProperty(global, "localStorage", {
+            configurable: true,
+            value: new LocalStorageMock()
+        });
+    });
+
     it("should collect milestones from each view", () => {
         const game = new Game(makeGameState({}));
-        const config = new ConfigManager(game, makeConfig(
+        const config = new ConfigManager(game, makeConfig([
             [
-                ["Built", "city", "apartment", "Apartment", 1, true],
-                ["Built", "space", "spaceport", "Red Spaceport", 2, true]
+                "built:city-apartment:1",
+                "built:space-spaceport:2"
             ],
             [
-                ["Built", "interstellar", "mining_droid", "Alpha Mining Droid", 3, true],
-                ["Built", "galaxy", "dreadnought", "Gateway Dreadnought", 4, true]
+                "built:interstellar-mining_droid:3",
+                "built:galaxy-dreadnought:4"
             ]
-        ));
+        ]));
 
-        const milestones = config.milestones.map(milestoneName);
-        expect(milestones).toEqual([
-            "Apartment",
-            "Red Spaceport",
-            "Alpha Mining Droid",
-            "Gateway Dreadnought"
+        expect(config.milestones).toEqual([
+            "built:city-apartment:1",
+            "built:space-spaceport:2",
+            "built:interstellar-mining_droid:3",
+            "built:galaxy-dreadnought:4"
         ]);
     });
 
     it("should not duplicate the same milestone", () => {
         const game = new Game(makeGameState({}));
-        const config = new ConfigManager(game, makeConfig(
+        const config = new ConfigManager(game, makeConfig([
             [
-                ["Built", "city", "apartment", "Apartment", 1, true],
-                ["Built", "space", "spaceport", "Red Spaceport", 2, true]
+                "built:city-apartment:1",
+                "built:space-spaceport:2"
             ],
             [
-                ["Built", "space", "spaceport", "Red Spaceport", 2, true],
-                ["Built", "galaxy", "dreadnought", "Gateway Dreadnought", 4, true]
+                "built:space-spaceport:2",
+                "built:galaxy-dreadnought:4"
             ]
-        ));
+        ]));
 
-        const milestones = config.milestones.map(milestoneName);
-        expect(milestones).toEqual([
-            "Apartment",
-            "Red Spaceport",
-            "Gateway Dreadnought"
-        ]);
-    });
-
-    it("should not merge the same building with different counts", () => {
-        const game = new Game(makeGameState({}));
-        const config = new ConfigManager(game, makeConfig(
-            [
-                ["Built", "city", "apartment", "Apartment", 1, true],
-                ["Built", "city", "apartment", "Apartment", 2, true]
-            ]
-        ));
-
-        const milestones = config.milestones.map(milestoneName);
-        expect(milestones).toEqual([
-            "Apartment",
-            "Apartment"
-        ]);
-    });
-
-    it("should not merge different milestones with the same name", () => {
-        const game = new Game(makeGameState({}));
-        const config = new ConfigManager(game, makeConfig(
-            [
-                ["Built", "city", "apartment", "Apartment", 1, true],
-                ["Researched", "apartment", "Apartment", true]
-            ]
-        ));
-
-        const milestones = config.milestones.map(milestoneName);
-        expect(milestones).toEqual([
-            "Apartment",
-            "Apartment"
+        expect(config.milestones).toEqual([
+            "built:city-apartment:1",
+            "built:space-spaceport:2",
+            "built:galaxy-dreadnought:4"
         ]);
     });
 
     it("should not collect disabled milestones", () => {
         const game = new Game(makeGameState({}));
-        const config = new ConfigManager(game, makeConfig(
+        const config = new ConfigManager(game, makeConfig([
             [
-                ["Built", "city", "apartment", "Apartment", 1, false],
-                ["Built", "space", "spaceport", "Red Spaceport", 2, true]
+                "built:city-apartment:1",
+                "built:space-spaceport:2"
             ]
-        ));
+        ]));
 
-        const milestones = config.milestones.map(milestoneName);
-        expect(milestones).toEqual([
-            "Red Spaceport"
+        config.views[0].toggleMilestone("built:city-apartment:1");
+
+        expect(config.milestones).toEqual([
+            "built:space-spaceport:2"
         ]);
+    });
+
+    it("should emit events when a view is added", () => {
+        const game = new Game(makeGameState({}));
+        const config = new ConfigManager(game, makeConfig([]));
+
+        let addedView: View | undefined = undefined;
+        config.on("viewAdded", v => { addedView = v; });
+
+        config.addView();
+
+        expect(addedView).toEqual({
+            mode: "filled",
+            resetType: "ascend",
+            universe: "standard",
+            milestones: {
+                "reset:ascend": true
+            }
+        });
+    });
+
+    it("should emit events when a view is removed", () => {
+        const game = new Game(makeGameState({}));
+        const config = new ConfigManager(game, makeConfig([
+            [
+                "reset:blackhole"
+            ]
+        ]));
+
+        const originalView = config.views[0];
+
+        let removedView: View | undefined = undefined;
+        config.on("viewRemoved", v => { removedView = v; });
+
+        config.removeView(originalView);
+
+        expect(removedView).toBe(originalView);
+    });
+
+    it("should emit events when a view is modified", () => {
+        const game = new Game(makeGameState({}));
+        const config = new ConfigManager(game, makeConfig([
+            [
+                "reset:blackhole"
+            ]
+        ]));
+
+        let modifiedView: View | undefined = undefined;
+        config.on("viewUpdated", v => { modifiedView = v; });
+
+        config.views[0].universe = "magic";
+
+        expect(modifiedView).toEqual({
+            mode: "filled",
+            resetType: "blackhole",
+            universe: "magic",
+            milestones: {
+                "reset:blackhole": true
+            }
+        });
+    });
+
+    it("should emit events when a milestone is added", () => {
+        const game = new Game(makeGameState({}));
+        const config = new ConfigManager(game, makeConfig([
+            [
+                "reset:blackhole"
+            ]
+        ]));
+
+        let modifiedView: View | undefined = undefined;
+        config.on("viewUpdated", v => { modifiedView = v; });
+
+        config.views[0].addMilestone("tech:club");
+
+        expect(modifiedView).toEqual({
+            mode: "filled",
+            resetType: "blackhole",
+            universe: "standard",
+            milestones: {
+                "reset:blackhole": true,
+                "tech:club": true
+            }
+        });
+    });
+
+    it("should emit events when a milestone is removed", () => {
+        const game = new Game(makeGameState({}));
+        const config = new ConfigManager(game, makeConfig([
+            [
+                "reset:blackhole"
+            ]
+        ]));
+
+        let modifiedView: View | undefined = undefined;
+        config.on("viewUpdated", v => { modifiedView = v; });
+
+        config.views[0].removeMilestone("reset:blackhole");
+
+        expect(modifiedView).toEqual({
+            mode: "filled",
+            resetType: "blackhole",
+            universe: "standard",
+            milestones: {}
+        });
+    });
+
+    it("should emit events when a milestone is modified", () => {
+        const game = new Game(makeGameState({}));
+        const config = new ConfigManager(game, makeConfig([
+            [
+                "reset:blackhole"
+            ]
+        ]));
+
+        let modifiedView: View | undefined = undefined;
+        config.on("viewUpdated", v => { modifiedView = v; });
+
+        config.views[0].toggleMilestone("reset:blackhole");
+
+        expect(modifiedView).toEqual({
+            mode: "filled",
+            resetType: "blackhole",
+            universe: "standard",
+            milestones: {
+                "reset:blackhole": false
+            }
+        });
+    });
+
+    it("should update milestones when switching reset types", () => {
+        const game = new Game(makeGameState({}));
+        const config = new ConfigManager(game, makeConfig([
+            [
+                "reset:blackhole"
+            ]
+        ]));
+
+        let modifiedView: View | undefined = undefined;
+        config.on("viewUpdated", v => { modifiedView = v; });
+
+        expect(config.views[0].milestones).toEqual({
+            "reset:blackhole": true
+        });
+
+        config.views[0].resetType = "matrix";
+
+        expect(config.views[0].milestones).toEqual({
+            "reset:matrix": true
+        });
+
+        expect(modifiedView).toEqual({
+            mode: "filled",
+            resetType: "matrix",
+            universe: "standard",
+            milestones: {
+                "reset:matrix": true
+            }
+        });
+    });
+
+    it("should not emit events when the value doesn't change", () => {
+        const game = new Game(makeGameState({}));
+        const config = new ConfigManager(game, makeConfig([
+            [
+                "reset:blackhole"
+            ]
+        ]));
+
+        let modifiedView: View | undefined = undefined;
+        config.on("viewUpdated", v => { modifiedView = v; });
+
+        config.views[0].universe = "standard";
+
+        expect(modifiedView).toBeUndefined();
     });
 });

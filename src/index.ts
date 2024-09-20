@@ -1,9 +1,12 @@
+import { migrate } from "./migration";
 import { synchronize } from "./evolve";
 import { Game } from "./game";
 import { getConfig } from "./config";
 import { initializeHistory } from "./history";
 import { processLatestRun, trackMilestones } from "./runTracking";
 import { bootstrapAnalyticsTab } from "./ui";
+
+migrate();
 
 const evolve = await synchronize();
 const game = new Game(evolve);

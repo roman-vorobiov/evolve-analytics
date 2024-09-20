@@ -1,5 +1,7 @@
 import { resets } from "./enums";
+import { transformMap } from "./utils";
 import type { Evolve, BuildingInfoTabs, ArpaInfoTab } from "./evolve";
+
 import type { default as JQuery } from "jquery";
 
 declare const $: typeof JQuery;
@@ -19,9 +21,8 @@ export class Game {
         return this.evolve.global.race.universe;
     }
 
-    get resetCounts() {
-        const resetCount = (reset: string) => this.evolve.global.stats[reset as keyof typeof resets];
-        return Object.fromEntries(Object.entries(resets).map(([reset, name]) => [name, resetCount(reset) ?? 0]));
+    get resetCounts(): Record<keyof typeof resets, number> {
+        return transformMap(resets, ([reset]) => [reset, this.evolve.global.stats[reset] ?? 0]);
     }
 
     built(tab: string, building: string, count: number) {

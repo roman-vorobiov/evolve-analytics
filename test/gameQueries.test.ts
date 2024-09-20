@@ -43,17 +43,17 @@ describe("Game queries", () => {
         const game = new Game(makeGameState({ stats: { bioseed: 1, ascend: 2, descend: 3, blackhole: 4 } }));
 
         expect(game.resetCounts).toEqual({
-            "AI Apocalypse": 0,
-            "Ascension": 2,
-            "Bioseed": 1,
-            "Black Hole": 4,
-            "Cataclysm": 0,
-            "Demonic Infusion": 3,
-            "Garden of Eden": 0,
-            "MAD": 0,
-            "Matrix": 0,
-            "Retirement": 0,
-            "Terraform": 0
+            mad: 0,
+            bioseed: 1,
+            cataclysm: 0,
+            blackhole: 4,
+            ascend: 2,
+            descend: 3,
+            aiappoc: 0,
+            matrix: 0,
+            retire: 0,
+            eden: 0,
+            terraform: 0
         });
     });
 

@@ -20,36 +20,25 @@ describe("Latest run info", () => {
         it("should detect reset type based on the reset counts difference", () => {
             const game = new Game(makeGameState({ bioseed: 3 }));
 
-            const run = makeRunStats({ universe: "heavy", resets: { "MAD": 3, "Bioseed": 2, "Black Hole": 1 } });
+            const run = makeRunStats({ universe: "heavy", resets: { mad: 3, bioseed: 2, blackhole: 1 } });
 
-            expect(inferResetType(run, game)).toBe("Bioseed");
+            expect(inferResetType(run, game)).toBe("bioseed");
         });
 
         it("should detect new reset types", () => {
             const game = new Game(makeGameState({ mad: 3, ascend: 1 }));
 
-            const run = makeRunStats({ universe: "heavy", resets: { "MAD": 3 } });
+            const run = makeRunStats({ universe: "heavy", resets: { mad: 3 } });
 
-            expect(inferResetType(run, game)).toBe("Ascension");
-        });
-
-        it.each([
-            { universe: "heavy", expected: "Black Hole" },
-            { universe: "magic", expected: "Vacuum Collapse" },
-        ])("should detect t3 as $expected in $universe", ({ universe, expected }) => {
-            const game = new Game(makeGameState({ mad: 3, blackhole: 3 }));
-
-            const run = makeRunStats({ universe, resets: { "MAD": 3, "Black Hole": 2 } });
-
-            expect(inferResetType(run, game)).toBe(expected);
+            expect(inferResetType(run, game)).toBe("ascend");
         });
 
         it("should handle invalid records", () => {
             const game = new Game(makeGameState({ mad: 3 }));
 
-            const run = makeRunStats({ universe: "heavy", resets: { "MAD": 3 } });
+            const run = makeRunStats({ universe: "heavy", resets: { mad: 3 } });
 
-            expect(inferResetType(run, game)).toBe("Unknown");
+            expect(inferResetType(run, game)).toBe("unknown");
         });
     });
 

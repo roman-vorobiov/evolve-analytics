@@ -1,4 +1,5 @@
-import { milestoneType, milestoneName, milestoneEnabled, type Milestone } from "../milestones";
+import { generateMilestoneNames } from "../milestones";
+import { transformMap, zip } from "../utils";
 import type { HistoryManager, HistoryEntry, MilestoneReference } from "../history";
 import type { ViewConfig } from "../config";
 
@@ -10,11 +11,20 @@ export type PlotPoint = {
     segment: number // days since the last non-event milestone
 }
 
-export function asPlotPoints(filteredRuns: HistoryEntry[], history: HistoryManager, view: ViewConfig): PlotPoint[] {
-    const getMilestoneID = (milestone: Milestone) => history.getMilestoneID(milestoneName(milestone));
-    const getMilestoneInfo = (milestone: Milestone) => ({ type: milestoneType(milestone), enabled: milestoneEnabled(milestone) });
+function makeMilestoneNamesMapping(history: HistoryManager, view: ViewConfig): Record<number, string> {
+    const milestones = Object.keys(view.milestones);
+    const milestoneIDs = milestones.map(m => history.getMilestoneID(m));
+    const milestoneNames = generateMilestoneNames(milestones);
 
-    const milestones = Object.fromEntries(view.milestones.map(m => [getMilestoneID(m), getMilestoneInfo(m)]));
+    return Object.fromEntries(zip(milestoneIDs, milestoneNames));
+}
+
+export function asPlotPoints(filteredRuns: HistoryEntry[], history: HistoryManager, view: ViewConfig): PlotPoint[] {
+    const milestones = transformMap(view.milestones, ([milestone, enabled]) => {
+        return [history.getMilestoneID(milestone), { enabled, isEvent: milestone.startsWith("event:") }];
+    });
+
+    const milestoneNames = makeMilestoneNamesMapping(history, view);
 
     const entries: PlotPoint[] = [];
 
@@ -28,7 +38,7 @@ export function asPlotPoints(filteredRuns: HistoryEntry[], history: HistoryManag
                 continue;
             }
 
-            if (milestones[milestoneID].type === "Event") {
+            if (milestones[milestoneID].isEvent) {
                 events.push([milestoneID, day]);
             }
             else {
@@ -43,7 +53,7 @@ export function asPlotPoints(filteredRuns: HistoryEntry[], history: HistoryManag
 
             entries.push({
                 run: i,
-                milestone: history.getMilestone(milestoneID),
+                milestone: milestoneNames[milestoneID],
                 day,
                 segment: day
             });
@@ -66,7 +76,7 @@ export function asPlotPoints(filteredRuns: HistoryEntry[], history: HistoryManag
 
             entries.push({
                 run: i,
-                milestone: history.getMilestone(milestoneID),
+                milestone: milestoneNames[milestoneID],
                 day,
                 dayDiff,
                 segment

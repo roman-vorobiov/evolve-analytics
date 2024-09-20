@@ -6,7 +6,6 @@ import { Game } from "../src/game";
 import { trackMilestones } from "../src/runTracking";
 import { ConfigManager } from "../src/config";
 import type { Evolve, BuildingInfoTabs } from "../src/evolve";
-import type { Milestone } from "../src/milestones";
 
 function nextDay(evolve: Evolve) {
     ++evolve.global.stats.days;
@@ -30,14 +29,14 @@ function makeGameState(buildings: Partial<BuildingInfoTabs>): Evolve {
     };
 }
 
-function makeConfig(game: Game, milestones: Milestone[]): ConfigManager {
+function makeConfig(game: Game, milestones: string[]): ConfigManager {
     return new ConfigManager(game, {
-        version: 3,
+        version: 4,
         views: [
             {
-                mode: "Total (filled)",
-                resetType: "MAD",
-                milestones
+                mode: "filled",
+                resetType: "mad",
+                milestones: Object.fromEntries(milestones.map(m => [m, true]))
             }
         ]
     });
@@ -72,8 +71,8 @@ describe("Run tracking", () => {
         const game = new Game(evolve);
 
         const config = makeConfig(game, [
-            ["Built", "space", "foo", "Foo", 1, true],
-            ["Built", "space", "bar", "Bar", 2, true],
+            "built:space-foo:1",
+            "built:space-bar:2"
         ]);
 
         trackMilestones(game, config);
@@ -85,15 +84,15 @@ describe("Run tracking", () => {
         ++evolve.global.space.bar.count;
         nextDay(evolve);
         expect(loadLatestRun()?.milestones).toEqual({
-            "Foo": 2
+            "built:space-foo:1": 2
         });
 
         ++evolve.global.space.foo.count;
         ++evolve.global.space.bar.count;
         nextDay(evolve);
         expect(loadLatestRun()?.milestones).toEqual({
-            "Foo": 2,
-            "Bar": 3
+            "built:space-foo:1": 2,
+            "built:space-bar:2": 3
         });
     });
 
@@ -104,7 +103,7 @@ describe("Run tracking", () => {
         const mock = jest.spyOn(game, "built");
 
         const config = makeConfig(game, [
-            ["Built", "space", "foo", "Foo", 1, true]
+            "built:space-foo:1"
         ]);
 
         trackMilestones(game, config);

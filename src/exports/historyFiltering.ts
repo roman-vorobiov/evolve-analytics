@@ -3,7 +3,8 @@ import type { ViewConfig } from "../config";
 
 function getResetType(entry: HistoryEntry, history: HistoryManager) {
     const [milestoneID] = entry.milestones[entry.milestones.length - 1];
-    return history.getMilestone(milestoneID);
+    const milestone = history.getMilestone(milestoneID);
+    return milestone.slice(6); // strip away the leading "reset:"
 }
 
 function shouldIncludeRun(entry: HistoryEntry, view: ViewConfig, history: HistoryManager) {

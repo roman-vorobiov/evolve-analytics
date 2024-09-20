@@ -8,9 +8,9 @@ import type { ViewConfig } from "../src/config";
 
 function makeView(fields: Partial<ViewConfig>): ViewConfig {
     return {
-        mode: "Total",
-        resetType: "MAD",
-        milestones: [],
+        mode: "total",
+        resetType: "mad",
+        milestones: {},
         ...fields
     };
 }
@@ -20,18 +20,18 @@ describe("Export", () => {
         it("should filter by reset type", () => {
             const game = new Game(makeGameState({}));
             const history = new HistoryManager(game, {
-                milestones: { "Foo": 0, "MAD": 1, "Bioseed": 2 },
+                milestones: { "tech:club": 0, "reset:mad": 1, "reset:bioseed": 2 },
                 runs: [
                     { run: 1, universe: "standard", milestones: [[1, 10]] },
                     { run: 2, universe: "heavy", milestones: [[2, 10]] }
                 ]
             });
 
-            expect(applyFilters(history, makeView({ resetType: "MAD" }))).toEqual([
+            expect(applyFilters(history, makeView({ resetType: "mad" }))).toEqual([
                 history.runs[0]
             ]);
 
-            expect(applyFilters(history, makeView({ resetType: "Bioseed" }))).toEqual([
+            expect(applyFilters(history, makeView({ resetType: "bioseed" }))).toEqual([
                 history.runs[1]
             ]);
         });
@@ -39,7 +39,7 @@ describe("Export", () => {
         it("should filter by universe", () => {
             const game = new Game(makeGameState({}));
             const history = new HistoryManager(game, {
-                milestones: { "Foo": 0, "MAD": 1 },
+                milestones: { "tech:club": 0, "reset:mad": 1 },
                 runs: [
                     { run: 1, universe: "standard", milestones: [[1, 10]] },
                     { run: 2, universe: "heavy", milestones: [[1, 10]] },
@@ -63,7 +63,7 @@ describe("Export", () => {
         it("should filter last N runs", () => {
             const game = new Game(makeGameState({}));
             const history = new HistoryManager(game, {
-                milestones: { "Foo": 0, "MAD": 1 },
+                milestones: { "tech:club": 0, "reset:mad": 1 },
                 runs: [
                     { run: 1, universe: "heavy", milestones: [[1, 10]] },
                     { run: 2, universe: "standard", milestones: [[1, 10]] },
@@ -80,7 +80,7 @@ describe("Export", () => {
         it("should apply the numRuns filter after the others", () => {
             const game = new Game(makeGameState({}));
             const history = new HistoryManager(game, {
-                milestones: { "Foo": 0, "MAD": 1 },
+                milestones: { "tech:club": 0, "reset:mad": 1 },
                 runs: [
                     { run: 1, universe: "standard", milestones: [[1, 10]] },
                     { run: 2, universe: "heavy", milestones: [[1, 10]] },

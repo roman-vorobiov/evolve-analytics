@@ -9,8 +9,10 @@ export function lastChild(node: JQuery) {
     return children[length - 1];
 }
 
-export function makeSelect(options: string[], defaultValue?: string) {
-    const optionNodes = options.map(value => `<option ${value === defaultValue ? "selected" : ""}>${value}</option>`);
+export function makeSelect(options: [string, string][], defaultValue?: string) {
+    const optionNodes = options.map(([value, label]) => {
+        return `<option value="${value}" ${value === defaultValue ? "selected" : ""}>${label}</option>`;
+    });
 
     return $(`
         <select style="width: 100px">

@@ -1,4 +1,4 @@
-import type { resets } from "./enums";
+import type { resets, universes } from "./enums";
 
 declare const unsafeWindow: any;
 
@@ -22,7 +22,7 @@ export type Evolve = {
             days: number
         },
         race: {
-            universe: string,
+            universe: keyof typeof universes,
             servants?: object
         }
     }

@@ -975,7 +975,7 @@ const history = {
             "milestones": [[8, 78], [0, 97], [1, 200], [2, 268], [3, 381], [4, 520], [5, 564], [6, 576], [7, 599]]
         }
     ]
-}
+};
 
 function resetHistory() {
     localStorage.setItem("sneed.analytics.history", JSON.stringify(history));

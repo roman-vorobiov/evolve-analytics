@@ -1,69 +1,71 @@
-import { describe, expect, it, jest } from "@jest/globals";
-import { makeGameState } from "./fixture";
+import { describe, expect, it } from "@jest/globals";
 
-import { Game } from "../src/game";
-import { makeMilestoneChecker } from "../src/milestones";
+import { generateMilestoneNames, milestoneName } from "../src/milestones";
 
 describe("Milestones", () => {
-    describe("Factory", () => {
-        it("should generate the name for 'Built' milestone types", () => {
-            const game = new Game(makeGameState({}));
+    describe("Names", () => {
+        it("should generate a name for the 'built' milestones", () => {
+            const [name, discriminator] = milestoneName("built:interstellar-mining_droid:123");
 
-            const { name } = makeMilestoneChecker(game, ["Built", "", "", "Hello", 123, true])!;
-            expect(name).toBe("Hello");
+            expect(name).toBe("Alpha Mining Droid");
+            expect(discriminator).toBe("123");
         });
 
-        it("should generate the name for 'Researched' milestone types", () => {
-            const game = new Game(makeGameState({}));
+        it("should generate a name for the 'tech' milestones", () => {
+            const [name, discriminator] = milestoneName("tech:master_craftsman");
 
-            const { name } = makeMilestoneChecker(game, ["Researched", "", "Hello", true])!;
-            expect(name).toBe("Hello");
+            expect(name).toBe("Master Craftsman");
+            expect(discriminator).toBe("Research");
         });
 
-        it("should generate the name for 'Event' milestone types", () => {
-            const game = new Game(makeGameState({}));
+        it("should generate a name for the 'event' milestones", () => {
+            const [name, discriminator] = milestoneName("event:womlings");
 
-            const { name } = makeMilestoneChecker(game, ["Event", "Womlings arrival", true])!;
             expect(name).toBe("Womlings arrival");
+            expect(discriminator).toBe("Event");
         });
 
-        it("should not make a checker for the reset milestone types", () => {
-            const game = new Game(makeGameState({}));
+        it("should generate a name for the 'reset' milestones", () => {
+            const [name, discriminator] = milestoneName("reset:ascend");
 
-            const checker = makeMilestoneChecker(game, ["Reset", "Ascension", true]);
-            expect(checker).toBeUndefined();
-        });
-    });
-
-    describe("Built", () => {
-        it("should check if a building is built", () => {
-            const game = new Game(makeGameState({}));
-            game.built = jest.fn(() => false);
-
-            const milestone = makeMilestoneChecker(game, ["Built", "foo", "bar", "baz", 123, true])!;
-
-            expect(milestone.reached()).toBe(false);
-            expect(game.built).toHaveBeenCalledWith("foo", "bar", 123);
+            expect(name).toBe("Ascension");
+            expect(discriminator).toBe("Reset");
         });
 
-        it("should check if a tech is researched", () => {
-            const game = new Game(makeGameState({}));
-            game.researched = jest.fn(() => false);
+        it("should not disambiguate if there are no conflicts", () => {
+            const names = generateMilestoneNames([
+                "built:interstellar-mining_droid:123",
+                "tech:master_craftsman"
+            ]);
 
-            const milestone = makeMilestoneChecker(game, ["Researched", "foo", "bar", true])!;
-
-            expect(milestone.reached()).toBe(false);
-            expect(game.researched).toHaveBeenCalledWith("foo");
+            expect(names).toEqual([
+                "Alpha Mining Droid",
+                "Master Craftsman"
+            ]);
         });
 
-        it("should check if womlings arrived", () => {
-            const game = new Game(makeGameState({}));
-            game.womlingsArrived = jest.fn(() => false);
+        it("should disambiguate if the same building has different counts", () => {
+            const names = generateMilestoneNames([
+                "built:interstellar-mining_droid:123",
+                "built:interstellar-mining_droid:456",
+            ]);
 
-            const milestone = makeMilestoneChecker(game, ["Event", "Womlings arrival", true])!;
+            expect(names).toEqual([
+                "Alpha Mining Droid (123)",
+                "Alpha Mining Droid (456)"
+            ]);
+        });
 
-            expect(milestone.reached()).toBe(false);
-            expect(game.womlingsArrived).toHaveBeenCalled();
+        it("should disambiguate if the base name is the same", () => {
+            const names = generateMilestoneNames([
+                "built:city-apartment:123",
+                "tech:apartment",
+            ]);
+
+            expect(names).toEqual([
+                "Apartment (123)",
+                "Apartment (Research)"
+            ]);
         });
     });
 });

@@ -1,70 +1,57 @@
+import { buildings, techs, events, resets } from "./enums";
+import { patternMatch } from "./utils";
 import type { Game } from "./game";
 
-export type BuiltMilestone = ["Built", /*tab*/ string, /*id*/ string, /*name*/ string, /*count*/ number];
-export type ResearchedMilestone = ["Researched", /*id*/ string, /*name*/ string];
-export type EventMilestone = ["Event", /*name*/ string];
-export type ResetMilestone = ["Reset", /*name*/ string];
-
-export type Milestone = [...(BuiltMilestone | ResearchedMilestone | EventMilestone | ResetMilestone), /*enabled*/ boolean];
-
 export type MilestoneChecker = {
-    name: string,
+    milestone: string,
     reached: () => boolean
 }
 
-export function milestoneType(milestone: Milestone) {
-    return milestone[0];
+export function makeMilestoneChecker(game: Game, milestone: string): MilestoneChecker | undefined {
+    const impl = patternMatch(milestone, [
+        [/built:(.+?)-(.+?):(\d+)/, (tab, id, count) => () => game.built(tab, id, Number(count))],
+        [/tech:(.+)/, (id) => () => game.researched(id)],
+        [/event:womlings/, () => () => game.womlingsArrived()]
+    ]);
+
+    return {
+        milestone,
+        reached: impl ?? (() => false)
+    };
 }
 
-export function milestoneEnabled(milestone: Milestone) {
-    return milestone[milestone.length - 1] as boolean;
+export function milestoneName(milestone: string): [string, string] {
+    const name: [string, string] | undefined = patternMatch(milestone, [
+        [/built:(.+?):(\d+)/, (id, count) => [buildings[id], count]],
+        [/tech:(.+)/, (id) => [techs[id], "Research"]],
+        [/event:(.+)/, (id) => [events[id as keyof typeof events], "Event"]],
+        [/reset:(.+)/, (reset) => [resets[reset as keyof typeof resets], "Reset"]]
+    ]);
+
+    return name ?? [milestone, "Unknown"];
 }
 
-export function milestoneName(milestone: Milestone): string {
-    if (milestone[0] === "Built") {
-        return milestone[3];
-    }
-    else if (milestone[0] === "Researched") {
-        return milestone[2];
-    }
-    else if (milestone[0] === "Event") {
-        return milestone[1];
-    }
-    else if (milestone[0] === "Reset") {
-        return milestone[1];
-    }
-    else {
-        return "Unknown";
-    }
-}
+export function generateMilestoneNames(milestones: string[]): string[] {
+    const candidates: Record<string, [number, string][]> = {};
 
-export function makeMilestoneChecker(game: Game, milestone: Milestone): MilestoneChecker | undefined {
-    if (milestone[0] === "Built") {
-        const [, tab, id, name, count] = milestone;
-
-        return {
-            name,
-            reached: () => game.built(tab, id, count)
-        };
+    for (let i = 0; i != milestones.length; ++i) {
+        const [name, discriminator] = milestoneName(milestones[i]);
+        (candidates[name] ??= []).push([i, discriminator]);
     }
-    else if (milestone[0] === "Researched") {
-        const [, id, name] = milestone;
 
-        return {
-            name,
-            reached: () => game.researched(id)
-        };
+    const names = new Array<string>(milestones.length);
+
+    for (const [name, discriminators] of Object.entries(candidates)) {
+        // The only milestone with this name - no need for disambiguation
+        if (discriminators.length === 1) {
+            names[discriminators[0][0]] = name;
+        }
+        else {
+            for (const [i, discriminator] of discriminators) {
+                names[i] = `${name} (${discriminator})`;
+            }
+        }
     }
-    else if (milestone[0] === "Event") {
-        const [, name] = milestone;
 
-        const impl = {
-            "Womlings arrival": () => game.womlingsArrived()
-        };
-
-        return {
-            name,
-            reached: impl[name as keyof typeof impl] ?? (() => false)
-        };
-    }
+    return names;
 }

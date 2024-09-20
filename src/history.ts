@@ -40,7 +40,7 @@ export class HistoryManager {
 
         const milestones: MilestoneReference[] = [
             ...Object.entries(runStats.milestones).map(([milestone, days]) => [this.getMilestoneID(milestone), days]) as MilestoneReference[],
-            [this.getMilestoneID(resetType), runStats.totalDays]
+            [this.getMilestoneID(`reset:${resetType}`), runStats.totalDays]
         ];
 
         this.history.runs.push({

@@ -1,4 +1,4 @@
-import { universes } from "../enums";
+import { resets, universes } from "../enums";
 import { makeGraph } from "./graph";
 import { makeViewSettings } from "./viewSettings";
 import { makeMilestoneSettings } from "./milestoneSettings";
@@ -6,7 +6,7 @@ import type { ConfigManager, View } from "../config";
 import type { HistoryManager } from "../history";
 
 function viewTitle(view: View) {
-    let title = view.resetType;
+    let title = resets[view.resetType];
     if (view.universe !== undefined) {
         title += ` (${universes[view.universe as keyof typeof universes]})`;
     }

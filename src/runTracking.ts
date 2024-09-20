@@ -1,13 +1,14 @@
 import { saveCurrentRun, loadLatestRun, discardLatestRun } from "./database";
 import { makeMilestoneChecker, type MilestoneChecker } from "./milestones";
+import type { resets, universes } from "./enums";
 import type { Game } from "./game";
 import type { ConfigManager } from "./config";
 import type { HistoryManager } from "./history";
 
 export type LatestRun = {
     run: number,
-    universe: string,
-    resets: Record<string, number>,
+    universe: keyof typeof universes,
+    resets: Partial<Record<keyof typeof resets, number>>,
     totalDays: number,
     milestones: Record<string, number>
 }
@@ -16,17 +17,11 @@ export function inferResetType(runStats: LatestRun, game: Game) {
     const resetCounts = game.resetCounts;
 
     // Find which reset got incremented
-    const reset = Object.keys(resetCounts).find(reset => {
+    const reset = Object.keys(resetCounts).find((reset: keyof typeof resets) => {
         return resetCounts[reset] === (runStats.resets[reset] ?? 0) + 1;
     });
 
-    // The game does not differentiate between Black Hole and Vacuum Collapse resets
-    if (reset === "Black Hole" && runStats.universe === "magic") {
-        return "Vacuum Collapse";
-    }
-    else {
-        return reset ?? "Unknown";
-    }
+    return reset ?? "unknown";
 }
 
 export function isCurrentRun(runStats: LatestRun, game: Game) {
@@ -69,14 +64,14 @@ function makeNewRunStats(game: Game): LatestRun {
 function checkMilestoneConditions(checkers: MilestoneChecker[], runStats: LatestRun) {
     const newlyCompleted = [];
 
-    for (const milestone of checkers) {
+    for (const { milestone, reached} of checkers) {
         // Don't check completed milestones
-        if (milestone.name in runStats.milestones) {
+        if (milestone in runStats.milestones) {
             continue;
         }
 
-        if (milestone.reached()) {
-            newlyCompleted.push(milestone.name);
+        if (reached()) {
+            newlyCompleted.push(milestone);
         }
     }
 
