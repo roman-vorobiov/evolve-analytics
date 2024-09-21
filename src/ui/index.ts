@@ -12,7 +12,7 @@ function addMainToggle(config: ConfigManager) {
 }
 
 export function bootstrapUIComponents(config: ConfigManager, history: HistoryManager) {
-    $("head").append(styles);
+    $("head").append(`<style type="text/css">${styles}</style>`);
 
     addMainToggle(config);
 
