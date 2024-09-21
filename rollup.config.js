@@ -1,6 +1,23 @@
+import { createFilter } from "@rollup/pluginutils";
 import typescript from "@rollup/plugin-typescript";
 import tla from "rollup-plugin-tla";
 import { promises as fs } from "fs";
+
+function css() {
+    const filter = createFilter(["**/*.css"], []);
+
+    const indent = "    ";
+
+    return {
+        name: "css",
+        transform(code, id) {
+            if (filter(id)) {
+                const indented = code.replace(/^(?!\s*$)/gm, indent.repeat(2));
+                return `export default \`\n${indented}${indent}\`;`;
+            }
+        }
+    };
+}
 
 export default {
     input: "src/index.ts",
@@ -10,7 +27,7 @@ export default {
         banner: () => fs.readFile("evolve_analytics.meta.js", "utf-8")
     },
     external: ["jqueryui"],
-    plugins: [typescript(), tla()],
+    plugins: [typescript(), css(), tla()],
     watch: {
         include: "src/**"
     }
