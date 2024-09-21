@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.3.0
+// @version      0.3.2
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -1052,6 +1052,48 @@
         }
         return result;
     }
+
+    class WeakCallback {
+        static references = new WeakMap();
+        impl;
+        constructor(key, impl) {
+            (WeakCallback.references.get(key) ?? WeakCallback.references.set(key, []).get(key)).push(impl);
+            this.impl = new WeakRef(impl);
+        }
+        call(arg) {
+            this.impl.deref()?.(arg);
+        }
+    }
+    function weakFor(ref, callback) {
+        if (callback !== undefined) {
+            const wrapper = new WeakCallback(ref, callback);
+            return (arg) => wrapper.call(arg);
+        }
+        else {
+            return (callback) => weakFor(ref, callback);
+        }
+    }
+    function invokeFor(ref, callback) {
+        if (callback !== undefined) {
+            const key = new WeakRef(ref);
+            return (arg) => {
+                if (arg === key.deref()) {
+                    callback(arg);
+                }
+            };
+        }
+        else {
+            return (callback) => invokeFor(ref, callback);
+        }
+    }
+    function compose(decorators, callback) {
+        let wrapper = callback;
+        for (const decorator of decorators) {
+            wrapper = decorator(callback);
+        }
+        return wrapper;
+    }
+
     function patternMatch(value, cases) {
         for (const [pattern, fn] of cases) {
             const match = value.match(pattern);
@@ -1374,29 +1416,16 @@
     }
 
     class Subscribable {
-        callbacks;
-        constructor() {
-            Object.defineProperty(this, "callbacks", {
-                value: {},
-                enumerable: false,
-            });
-        }
-        on(event, ...args) {
-            const [key, callback] = args.length === 2 ? args : [this, args[0]];
-            const map = this.callbacks[event] ??= new WeakMap();
-            const list = map.get(key) ?? (map.set(key, []), map.get(key));
-            list.push(callback);
+        callbacks = {};
+        on(event, callback) {
+            (this.callbacks[event] ??= []).push(callback);
         }
         emit(event, arg) {
-            if (arg !== undefined) {
-                this.invoke(event, arg, arg);
-                this.invoke("*", arg, arg);
-            }
-            this.invoke(event, this, arg);
-            this.invoke("*", this, arg);
+            this.invoke(event, arg);
+            this.invoke("*", arg);
         }
-        invoke(event, key, arg) {
-            this.callbacks[event]?.get(key)?.forEach(cb => cb(arg));
+        invoke(event, arg) {
+            this.callbacks[event]?.forEach(cb => cb(arg));
         }
     }
 
@@ -1460,8 +1489,14 @@
                 this.milestones = this.collectMilestones();
             });
         }
-        get version() {
-            return this.config.version;
+        get recordRuns() {
+            return this.config.recordRuns ?? true;
+        }
+        set recordRuns(value) {
+            if (value !== this.config.recordRuns) {
+                this.config.recordRuns = value;
+                this.emit("updated", this);
+            }
         }
         addView() {
             const view = {
@@ -1494,7 +1529,7 @@
         }
     }
     function getConfig(game) {
-        const config = loadConfig() ?? { version: 4, views: [] };
+        const config = loadConfig() ?? { version: 5, paused: false, views: [] };
         return new ConfigManager(game, config);
     }
 
@@ -1512,9 +1547,14 @@
     function isPreviousRun(runStats, game) {
         return runStats.run === game.runNumber - 1;
     }
-    function processLatestRun(game, history) {
+    function processLatestRun(game, config, history) {
         const latestRun = loadLatestRun();
         if (latestRun === null) {
+            return;
+        }
+        // Don't commit the last run if history is paused
+        if (!config.recordRuns) {
+            discardLatestRun();
             return;
         }
         // If it's not the current run, discard it so that we can start tracking from scratch
@@ -1556,6 +1596,9 @@
             checkers = config.milestones.map(m => makeMilestoneChecker(game, m));
         });
         game.onGameDay(day => {
+            if (!config.recordRuns) {
+                return;
+            }
             currentRunStats.totalDays = day;
             const newlyCompleted = checkMilestoneConditions(checkers, currentRunStats);
             for (const milestone of newlyCompleted) {
@@ -1620,47 +1663,43 @@
         return new HistoryManager(game, history);
     }
 
-    function makeStyles() {
-        return $(`
-        <style type="text/css">
-            html.dark .bg-dark {
-                background: #181818
-            }
+    var styles = `
+        html.dark .bg-dark {
+            background: #181818
+        }
 
-            html.light .bg-dark {
-                background: #dddddd
-            }
+        html.light .bg-dark {
+            background: #dddddd
+        }
 
-            html.darkNight .bg-dark {
-                background: #181818
-            }
+        html.darkNight .bg-dark {
+            background: #181818
+        }
 
-            html.gruvboxLight .bg-dark {
-                background: #a89984
-            }
+        html.gruvboxLight .bg-dark {
+            background: #a89984
+        }
 
-            html.gruvboxDark .bg-dark {
-                background: #1d2021
-            }
+        html.gruvboxDark .bg-dark {
+            background: #1d2021
+        }
 
-            html.orangeSoda .bg-dark {
-                background: #181818
-            }
+        html.orangeSoda .bg-dark {
+            background: #181818
+        }
 
-            html.dracula .bg-dark {
-                background: #1a1c24
-            }
+        html.dracula .bg-dark {
+            background: #1a1c24
+        }
 
-            .w-fit {
-                width: fit-content
-            }
+        .w-fit {
+            width: fit-content
+        }
 
-            .crossed {
-                text-decoration: line-through
-            }
-        </style>
-    `);
-    }
+        .crossed {
+            text-decoration: line-through
+        }
+    `;
 
     function getResetType(entry, history) {
         const [milestoneID] = entry.milestones[entry.milestones.length - 1];
@@ -1861,6 +1900,25 @@
         return node;
     }
 
+    function waitFor(query) {
+        return new Promise(resolve => {
+            const node = $(query);
+            if (node.length !== 0) {
+                return resolve(node);
+            }
+            const observer = new MutationObserver(() => {
+                const node = $(query);
+                if (node.length !== 0) {
+                    observer.disconnect();
+                    resolve(node);
+                }
+            });
+            observer.observe(document.body, {
+                childList: true,
+                subtree: true
+            });
+        });
+    }
     function lastChild(node) {
         const children = node.children();
         const length = children.length;
@@ -1916,6 +1974,21 @@
         if (defaultValue !== undefined) {
             node.attr("value", defaultValue);
         }
+        return node;
+    }
+    function makeToggle(label, initialState, onStateChange) {
+        const node = $(`
+        <label class="switch setting is-rounded">
+            <input type="checkbox" ${initialState ? "checked" : ""}>
+            <span class="check"></span>
+            <span class="control-label">
+                <span aria-label="${label}">${label}</span>
+            </span>
+        </label>
+    `);
+        node.find("input").on("change", function () {
+            onStateChange(this.checked);
+        });
         return node;
     }
 
@@ -2003,22 +2076,21 @@
     function makeViewTab(id, view, config, history) {
         const controlNode = $(`<li><a href="#${id}">${viewTitle(view)}</a></li>`);
         const contentNode = $(`<div id="${id}" class="vscroll" style="height: calc(100vh - 10rem)"></div>`);
-        const removeViewNode = $(`<button class="button right" style="margin-right: 1em">Delete View</button>`).on("click", () => {
-            config.removeView(view);
-        });
+        const removeViewNode = $(`<button class="button right" style="margin-right: 1em">Delete View</button>`)
+            .on("click", () => { config.removeView(view); });
         contentNode
             .append(makeViewSettings(view).css("margin-bottom", "1em"))
             .append(makeMilestoneSettings(view).css("margin-bottom", "1em"))
             .append(makeGraph(history, view))
             .append(removeViewNode);
-        config.on("viewUpdated", view, (updatedView) => {
+        config.on("viewUpdated", compose([weakFor(view), invokeFor(view)], (updatedView) => {
             controlNode.find("> a").text(viewTitle(updatedView));
             contentNode.find("figure:last").replaceWith(makeGraph(history, updatedView));
-        });
+        }));
         return [controlNode, contentNode];
     }
 
-    function makeAnalyticsTab(config, history) {
+    function buildAnalyticsTab(config, history) {
         const tabControlNode = $(`
         <li role="tab" aria-controls="analytics-content" aria-selected="false">
             <a id="analytics-label" tabindex="0" data-unsp-sanitized="clean">Analytics</a>
@@ -2052,12 +2124,12 @@
             analyticsPanel.append(contentNode);
             analyticsPanel.tabs("refresh");
             analyticsPanel.tabs({ active: count - 1 });
-            config.on("viewRemoved", view, () => {
+            config.on("viewRemoved", compose([weakFor(view), invokeFor(view)], () => {
                 controlNode.remove();
                 contentNode.remove();
                 analyticsPanel.tabs("refresh");
                 analyticsPanel.tabs({ active: 0 });
-            });
+            }));
         }
         function hidden(node) {
             return node.attr("tabindex") === "-1";
@@ -2092,9 +2164,16 @@
         analyticsPanel.tabs({ active: 0 });
     }
 
-    function bootstrapAnalyticsTab(config, history) {
-        $("head").append(makeStyles());
-        makeAnalyticsTab(config, history);
+    function addMainToggle(config) {
+        waitFor("#settings").then(() => {
+            const toggleNode = makeToggle("Record runs", config.recordRuns, (checked) => { config.recordRuns = checked; });
+            toggleNode.insertAfter("#settings > .switch.setting:last");
+        });
+    }
+    function bootstrapUIComponents(config, history) {
+        $("head").append(`<style type="text/css">${styles}</style>`);
+        addMainToggle(config);
+        buildAnalyticsTab(config, history);
     }
 
     migrate();
@@ -2102,8 +2181,8 @@
     const game = new Game(evolve);
     const config = getConfig(game);
     const history = initializeHistory(game);
-    processLatestRun(game, history);
+    processLatestRun(game, config, history);
     trackMilestones(game, config);
-    bootstrapAnalyticsTab(config, history);
+    bootstrapUIComponents(config, history);
 
 })();
