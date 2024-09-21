@@ -6,7 +6,7 @@ import type { HistoryManager } from "../history";
 
 function addMainToggle(config: ConfigManager) {
     waitFor("#settings").then(() => {
-        const toggleNode = makeToggle("Record runs", config.recordRuns, (checked) => { config.recordRuns = checked; });
+        const toggleNode = makeToggle("Record Runs", config.recordRuns, (checked) => { config.recordRuns = checked; });
         toggleNode.insertAfter("#settings > .switch.setting:last");
     });
 }
