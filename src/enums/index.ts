@@ -1,5 +1,5 @@
 export { buildings } from "./buildings";
-
+export { segments as buildingSegments } from "./segments";
 export { techs } from "./research";
 
 export const events = {

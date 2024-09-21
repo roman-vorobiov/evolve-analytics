@@ -1,4 +1,4 @@
-import { buildings, techs, events, resets } from "./enums";
+import { buildings, buildingSegments, techs, events, resets } from "./enums";
 import { patternMatch } from "./utils";
 import type { Game } from "./game";
 
@@ -20,36 +20,37 @@ export function makeMilestoneChecker(game: Game, milestone: string): MilestoneCh
     };
 }
 
-export function milestoneName(milestone: string): [string, string] {
-    const name: [string, string] | undefined = patternMatch(milestone, [
-        [/built:(.+?):(\d+)/, (id, count) => [buildings[id], count]],
-        [/tech:(.+)/, (id) => [techs[id], "Research"]],
-        [/event:(.+)/, (id) => [events[id as keyof typeof events], "Event"]],
-        [/reset:(.+)/, (reset) => [resets[reset as keyof typeof resets], "Reset"]]
+export function milestoneName(milestone: string): [string, string, boolean] {
+    const name: [string, string, boolean] | undefined = patternMatch(milestone, [
+        [/built:(.+?):(\d+)/, (id, count) => [buildings[id], count, Number(count) !== (buildingSegments[id] ?? 1)]],
+        [/tech:(.+)/, (id) => [techs[id], "Research", false]],
+        [/event:(.+)/, (id) => [events[id as keyof typeof events], "Event", false]],
+        [/reset:(.+)/, (reset) => [resets[reset as keyof typeof resets], "Reset", false]]
     ]);
 
-    return name ?? [milestone, "Unknown"];
+    return name ?? [milestone, "Unknown", false];
 }
 
 export function generateMilestoneNames(milestones: string[]): string[] {
-    const candidates: Record<string, [number, string][]> = {};
+    const candidates: Record<string, [number, string, boolean][]> = {};
 
     for (let i = 0; i != milestones.length; ++i) {
-        const [name, discriminator] = milestoneName(milestones[i]);
-        (candidates[name] ??= []).push([i, discriminator]);
+        const [name, discriminator, force] = milestoneName(milestones[i]);
+        (candidates[name] ??= []).push([i, discriminator, force]);
     }
 
     const names = new Array<string>(milestones.length);
 
     for (const [name, discriminators] of Object.entries(candidates)) {
-        // The only milestone with this name - no need for disambiguation
-        if (discriminators.length === 1) {
-            names[discriminators[0][0]] = name;
-        }
-        else {
+        // Add a discriminator if there are multiple milestones with the same name
+        // Or if the count of a "built" milestone differs from the segment number of the building
+        if (discriminators.length > 1 || discriminators[0][2]) {
             for (const [i, discriminator] of discriminators) {
                 names[i] = `${name} (${discriminator})`;
             }
+        }
+        else {
+            names[discriminators[0][0]] = name;
         }
     }
 

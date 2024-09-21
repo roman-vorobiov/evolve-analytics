@@ -34,7 +34,7 @@ describe("Milestones", () => {
 
         it("should not disambiguate if there are no conflicts", () => {
             const names = generateMilestoneNames([
-                "built:interstellar-mining_droid:123",
+                "built:interstellar-mining_droid:1",
                 "tech:master_craftsman"
             ]);
 
@@ -65,6 +65,34 @@ describe("Milestones", () => {
             expect(names).toEqual([
                 "Apartment (123)",
                 "Apartment (Research)"
+            ]);
+        });
+
+        it("should disambiguate if the count does not match the number of segments", () => {
+            const names = generateMilestoneNames([
+                "built:city-apartment:123",
+                "built:arpa-lhc:456",
+                "built:interstellar-stargate:100"
+            ]);
+
+            expect(names).toEqual([
+                "Apartment (123)",
+                "Supercollider (456)",
+                "Blackhole Stargate (100)"
+            ]);
+        });
+
+        it("should nto disambiguate if the count matches the number of segments", () => {
+            const names = generateMilestoneNames([
+                "built:city-apartment:1",
+                "built:arpa-lhc:1",
+                "built:interstellar-stargate:200"
+            ]);
+
+            expect(names).toEqual([
+                "Apartment",
+                "Supercollider",
+                "Blackhole Stargate"
             ]);
         });
     });
