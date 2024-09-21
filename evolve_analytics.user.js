@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.3.3
+// @version      0.3.4
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -387,6 +387,30 @@
         "arpa-roid_eject": "Asteroid Redirect",
         "arpa-syphon": "Mana Syphon",
         "arpa-tp_depot": "Depot",
+    };
+
+    const segments = {
+        "space-terraformer": 100,
+        "space-jump_gate": 100,
+        "starDock-seeder": 100,
+        "space-world_collider": 1859,
+        "space-mass_relay": 100,
+        "space-ai_core": 100,
+        "tauceti-ringworld": 1000,
+        "tauceti-jump_gate": 100,
+        "tauceti-alien_station": 100,
+        "tauceti-matrioshka_brain": 1000,
+        "tauceti-ignition_device": 10,
+        "interstellar-dyson": 100,
+        "interstellar-dyson_sphere": 100,
+        "interstellar-orichalcum_sphere": 100,
+        "interstellar-stellar_engine": 100,
+        "interstellar-stargate": 200,
+        "interstellar-space_elevator": 100,
+        "interstellar-gravity_dome": 100,
+        "interstellar-ascension_machine": 100,
+        "portal-east_tower": 388,
+        "portal-west_tower": 388,
     };
 
     const techs = {
@@ -1130,29 +1154,30 @@
     }
     function milestoneName(milestone) {
         const name = patternMatch(milestone, [
-            [/built:(.+?):(\d+)/, (id, count) => [buildings[id], count]],
-            [/tech:(.+)/, (id) => [techs[id], "Research"]],
-            [/event:(.+)/, (id) => [events[id], "Event"]],
-            [/reset:(.+)/, (reset) => [resets[reset], "Reset"]]
+            [/built:(.+?):(\d+)/, (id, count) => [buildings[id], count, Number(count) !== (segments[id] ?? 1)]],
+            [/tech:(.+)/, (id) => [techs[id], "Research", false]],
+            [/event:(.+)/, (id) => [events[id], "Event", false]],
+            [/reset:(.+)/, (reset) => [resets[reset], "Reset", false]]
         ]);
-        return name ?? [milestone, "Unknown"];
+        return name ?? [milestone, "Unknown", false];
     }
     function generateMilestoneNames(milestones) {
         const candidates = {};
         for (let i = 0; i != milestones.length; ++i) {
-            const [name, discriminator] = milestoneName(milestones[i]);
-            (candidates[name] ??= []).push([i, discriminator]);
+            const [name, discriminator, force] = milestoneName(milestones[i]);
+            (candidates[name] ??= []).push([i, discriminator, force]);
         }
         const names = new Array(milestones.length);
         for (const [name, discriminators] of Object.entries(candidates)) {
-            // The only milestone with this name - no need for disambiguation
-            if (discriminators.length === 1) {
-                names[discriminators[0][0]] = name;
-            }
-            else {
+            // Add a discriminator if there are multiple milestones with the same name
+            // Or if the count of a "built" milestone differs from the segment number of the building
+            if (discriminators.length > 1 || discriminators[0][2]) {
                 for (const [i, discriminator] of discriminators) {
                     names[i] = `${name} (${discriminator})`;
                 }
+            }
+            else {
+                names[discriminators[0][0]] = name;
             }
         }
         return names;
@@ -1699,6 +1724,10 @@
         .crossed {
             text-decoration: line-through
         }
+
+        g[aria-label='tip'] g text {
+            color: #4a4a4a;
+        }
     `;
 
     function getResetType(entry, history) {
@@ -1887,15 +1916,7 @@
             const milestone = milestones[$(this).index() - 1];
             view.toggleMilestone(milestone);
         });
-        const plot = $(node).find("> svg");
-        plot.attr("width", "100%");
-        plot.prepend(`
-        <style>
-            g[aria-label='tip'] g text {
-                color: #4a4a4a;
-            }
-        </style>
-    `);
+        $(node).find("> svg").attr("width", "100%");
         $(node).css("margin", "0");
         return node;
     }
