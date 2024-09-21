@@ -32,10 +32,16 @@ export function isPreviousRun(runStats: LatestRun, game: Game) {
     return runStats.run === game.runNumber - 1;
 }
 
-export function processLatestRun(game: Game, history: HistoryManager) {
+export function processLatestRun(game: Game, config: ConfigManager, history: HistoryManager) {
     const latestRun = loadLatestRun();
 
     if (latestRun === null) {
+        return;
+    }
+
+    // Don't commit the last run if history is paused
+    if (!config.recordRuns) {
+        discardLatestRun();
         return;
     }
 
@@ -87,6 +93,10 @@ export function trackMilestones(game: Game, config: ConfigManager) {
     });
 
     game.onGameDay(day => {
+        if (!config.recordRuns) {
+            return;
+        }
+
         currentRunStats.totalDays = day;
 
         const newlyCompleted = checkMilestoneConditions(checkers, currentRunStats);

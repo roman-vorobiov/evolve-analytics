@@ -118,4 +118,22 @@ describe("Run tracking", () => {
         nextDay(evolve);
         expect(mock).toHaveBeenCalledTimes(2);
     });
+
+    it("should not do anything when paused", () => {
+        const evolve = makeGameState({});
+        const game = new Game(evolve);
+        const config = makeConfig(game, []);
+
+        trackMilestones(game, config);
+
+        expect(loadLatestRun()).toBe(null);
+
+        nextDay(evolve);
+        expect(loadLatestRun()?.totalDays).toEqual(2);
+
+        config.recordRuns = false;
+
+        nextDay(evolve);
+        expect(loadLatestRun()?.totalDays).toEqual(2);
+    });
 });

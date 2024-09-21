@@ -1,9 +1,10 @@
 import { makeViewTab } from "./viewTab";
 import { lastChild } from "./utils";
+import { weakFor, invokeFor, compose } from "../utils";
 import type { ConfigManager, View } from "../config";
 import type { HistoryManager } from "../history";
 
-export function makeAnalyticsTab(config: ConfigManager, history: HistoryManager) {
+export function buildAnalyticsTab(config: ConfigManager, history: HistoryManager) {
     const tabControlNode = $(`
         <li role="tab" aria-controls="analytics-content" aria-selected="false">
             <a id="analytics-label" tabindex="0" data-unsp-sanitized="clean">Analytics</a>
@@ -44,12 +45,12 @@ export function makeAnalyticsTab(config: ConfigManager, history: HistoryManager)
         analyticsPanel.tabs("refresh");
         analyticsPanel.tabs({ active: count - 1 });
 
-        config.on("viewRemoved", view, () => {
+        config.on("viewRemoved", compose([weakFor(view), invokeFor(view)], () => {
             controlNode.remove();
             contentNode.remove();
             analyticsPanel.tabs("refresh");
             analyticsPanel.tabs({ active: 0 });
-        });
+        }));
     }
 
     function hidden(node: JQuery) {

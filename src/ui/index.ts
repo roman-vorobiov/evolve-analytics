@@ -1,10 +1,20 @@
 import styles from "./styles.css";
-import { makeAnalyticsTab } from "./analyticsTab";
+import { buildAnalyticsTab } from "./analyticsTab";
+import { waitFor, makeToggle } from "./utils";
 import type { ConfigManager } from "../config";
 import type { HistoryManager } from "../history";
 
-export function bootstrapAnalyticsTab(config: ConfigManager, history: HistoryManager) {
+function addMainToggle(config: ConfigManager) {
+    waitFor("#settings").then(() => {
+        const toggleNode = makeToggle("Record runs", config.recordRuns, (checked) => { config.recordRuns = checked; });
+        toggleNode.insertAfter("#settings > .switch.setting:last");
+    });
+}
+
+export function bootstrapUIComponents(config: ConfigManager, history: HistoryManager) {
     $("head").append(styles);
 
-    makeAnalyticsTab(config, history);
+    addMainToggle(config);
+
+    buildAnalyticsTab(config, history);
 }

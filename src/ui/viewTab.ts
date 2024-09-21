@@ -1,4 +1,5 @@
 import { resets, universes } from "../enums";
+import { weakFor, invokeFor, compose } from "../utils";
 import { makeGraph } from "./graph";
 import { makeViewSettings } from "./viewSettings";
 import { makeMilestoneSettings } from "./milestoneSettings";
@@ -18,9 +19,8 @@ export function makeViewTab(id: string, view: View, config: ConfigManager, histo
     const controlNode = $(`<li><a href="#${id}">${viewTitle(view)}</a></li>`);
     const contentNode = $(`<div id="${id}" class="vscroll" style="height: calc(100vh - 10rem)"></div>`);
 
-    const removeViewNode = $(`<button class="button right" style="margin-right: 1em">Delete View</button>`).on("click", () => {
-        config.removeView(view);
-    });
+    const removeViewNode = $(`<button class="button right" style="margin-right: 1em">Delete View</button>`)
+        .on("click", () => { config.removeView(view); });
 
     contentNode
         .append(makeViewSettings(view).css("margin-bottom", "1em"))
@@ -28,10 +28,10 @@ export function makeViewTab(id: string, view: View, config: ConfigManager, histo
         .append(makeGraph(history, view))
         .append(removeViewNode);
 
-    config.on("viewUpdated", view, (updatedView) => {
+    config.on("viewUpdated", compose([weakFor(view), invokeFor(view)], (updatedView) => {
         controlNode.find("> a").text(viewTitle(updatedView));
         contentNode.find("figure:last").replaceWith(makeGraph(history, updatedView));
-    });
+    }));
 
     return [controlNode, contentNode];
 }

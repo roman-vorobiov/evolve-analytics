@@ -20,6 +20,7 @@ export type View = ViewConfig & {
 
 export type Config = {
     version: number,
+    recordRuns?: boolean,
     views: ViewConfig[]
 }
 
@@ -89,8 +90,15 @@ export class ConfigManager extends Subscribable {
         });
     }
 
-    get version() {
-        return this.config.version;
+    get recordRuns() {
+        return this.config.recordRuns ?? true;
+    }
+
+    set recordRuns(value: boolean) {
+        if (value !== this.config.recordRuns) {
+            this.config.recordRuns = value;
+            this.emit("updated", this);
+        }
     }
 
     addView() {
@@ -131,6 +139,6 @@ export class ConfigManager extends Subscribable {
 }
 
 export function getConfig(game: Game) {
-    const config = loadConfig() ?? { version: 4, views: [] };
+    const config = loadConfig() ?? { version: 5, paused: false, views: [] };
     return new ConfigManager(game, config);
 }

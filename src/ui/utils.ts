@@ -3,6 +3,28 @@ import "jqueryui";
 
 declare const $: typeof JQuery;
 
+export function waitFor(query: string) {
+    return new Promise(resolve => {
+        const node = $(query);
+        if (node.length !== 0) {
+            return resolve(node);
+        }
+
+        const observer = new MutationObserver(() => {
+            const node = $(query);
+            if (node.length !== 0) {
+                observer.disconnect();
+                resolve(node);
+            }
+        });
+
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+    });
+}
+
 export function lastChild(node: JQuery) {
     const children = node.children();
     const length = children.length;
@@ -74,6 +96,24 @@ export function makeNumberInput(placeholder: string, defaultValue?: number) {
     if (defaultValue !== undefined) {
         node.attr("value", defaultValue);
     }
+
+    return node;
+}
+
+export function makeToggle(label: string, initialState: boolean, onStateChange: (value: boolean) => void) {
+    const node = $(`
+        <label class="switch setting is-rounded">
+            <input type="checkbox" ${initialState ? "checked" : ""}>
+            <span class="check"></span>
+            <span class="control-label">
+                <span aria-label="${label}">${label}</span>
+            </span>
+        </label>
+    `);
+
+    node.find("input").on("change", function() {
+        onStateChange(this.checked);
+    });
 
     return node;
 }
