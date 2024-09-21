@@ -130,15 +130,7 @@ export function makeGraph(history: HistoryManager, view: View) {
         view.toggleMilestone(milestone);
     });
 
-    const plot = $(node).find("> svg");
-    plot.attr("width", "100%");
-    plot.prepend(`
-        <style>
-            g[aria-label='tip'] g text {
-                color: #4a4a4a;
-            }
-        </style>
-    `);
+    $(node).find("> svg").attr("width", "100%");
 
     $(node).css("margin", "0");
 

@@ -33,3 +33,7 @@ html.dracula .bg-dark {
 .crossed {
     text-decoration: line-through
 }
+
+g[aria-label='tip'] g text {
+    color: #4a4a4a;
+}
