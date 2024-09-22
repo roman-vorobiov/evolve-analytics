@@ -4,7 +4,7 @@ import { makeGraph } from "./graph";
 import { makeViewSettings } from "./viewSettings";
 import { makeMilestoneSettings } from "./milestoneSettings";
 import type { ConfigManager, View } from "../config";
-import type { HistoryManager } from "../history";
+import type { HistoryEntry, HistoryManager } from "../history";
 
 function viewTitle(view: View) {
     let title = resets[view.resetType];
@@ -22,15 +22,28 @@ export function makeViewTab(id: string, view: View, config: ConfigManager, histo
     const removeViewNode = $(`<button class="button right" style="margin-right: 1em">Delete View</button>`)
         .on("click", () => { config.removeView(view); });
 
+    let selectedRun: HistoryEntry | null = null;
+
+    const discardRunNode = $(`<button class="button" style="margin-right: 1em">Discard Run</button>`)
+        .on("click", () => { history.discardRun(selectedRun!); })
+        .hide();
+
+    function onRunSelection(run: HistoryEntry | null) {
+        selectedRun = run;
+        discardRunNode.toggle(selectedRun !== null);
+    }
+
     contentNode
         .append(makeViewSettings(view).css("margin-bottom", "1em"))
         .append(makeMilestoneSettings(view).css("margin-bottom", "1em"))
-        .append(makeGraph(history, view))
+        .append(makeGraph(history, view, onRunSelection))
+        .append(discardRunNode)
         .append(removeViewNode);
 
     config.on("viewUpdated", compose([weakFor(view), invokeFor(view)], (updatedView) => {
         controlNode.find("> a").text(viewTitle(updatedView));
-        contentNode.find("figure:last").replaceWith(makeGraph(history, updatedView));
+        contentNode.find("figure:last").replaceWith(makeGraph(history, updatedView, onRunSelection));
+        onRunSelection(null);
     }));
 
     return [controlNode, contentNode];

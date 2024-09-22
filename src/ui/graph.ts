@@ -91,7 +91,7 @@ function* milestoneMarks(plotPoints: PlotPoint[], key: "day" | "segment", histor
     yield* pointerMarsk(plotPoints, key, history);
 }
 
-export function makeGraph(history: HistoryManager, view: View) {
+export function makeGraph(history: HistoryManager, view: View, onSelect: (run: HistoryEntry | null) => void) {
     const filteredRuns = applyFilters(history, view);
     const plotPoints = asPlotPoints(filteredRuns, history, view);
 
@@ -134,6 +134,15 @@ export function makeGraph(history: HistoryManager, view: View) {
         y: { grid: true, domain: yScale },
         color: { legend: true, domain: generateMilestoneNames(milestones) },
         marks
+    });
+
+    node.addEventListener("mousedown", () => {
+        if (node.value) {
+            onSelect(filteredRuns[node.value.run]);
+        }
+        else {
+            onSelect(null);
+        }
     });
 
     const legendMilestones = $(node).find("> div > span");

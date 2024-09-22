@@ -1,5 +1,6 @@
 import { saveHistory, loadHistory } from "./database";
 import { inferResetType, type LatestRun } from "./runTracking";
+import { Subscribable } from "./subscribable";
 import { rotateMap } from "./utils"
 import type { Game } from "./game";
 
@@ -16,15 +17,21 @@ export type RunHistory = {
     runs: HistoryEntry[]
 }
 
-export class HistoryManager {
+export class HistoryManager extends Subscribable {
     private game: Game;
     private history: RunHistory;
     public milestones: Record<number, string>;
 
     constructor(game: Game, history: RunHistory) {
+        super();
+
         this.game = game;
         this.history = history;
         this.milestones = rotateMap(history.milestones);
+
+        this.on("*", () => {
+            saveHistory(this.history);
+        });
     }
 
     get milestoneIDs() {
@@ -33,6 +40,14 @@ export class HistoryManager {
 
     get runs() {
         return this.history.runs;
+    }
+
+    discardRun(run: HistoryEntry) {
+        const idx = this.runs.indexOf(run);
+        if (idx !== -1) {
+            this.history.runs.splice(idx, 1);
+            this.emit("updated", this);
+        }
     }
 
     commitRun(runStats: LatestRun) {
@@ -49,7 +64,7 @@ export class HistoryManager {
             milestones
         });
 
-        saveHistory(this.history);
+        this.emit("updated", this);
     }
 
     getMilestone(id: number): string {

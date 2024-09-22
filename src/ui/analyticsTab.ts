@@ -92,5 +92,12 @@ export function buildAnalyticsTab(config: ConfigManager, history: HistoryManager
     }
     config.on("viewAdded", addViewTab);
 
+    // Redraw each view whenever history is updated
+    history.on("updated", () => {
+        for (const view of config.views) {
+            config.emit("viewUpdated", view);
+        }
+    });
+
     analyticsPanel.tabs({ active: 0 });
 }

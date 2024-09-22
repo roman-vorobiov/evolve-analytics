@@ -19,8 +19,28 @@ describe("History", () => {
             const history = new HistoryManager(game, blankHistory());
 
             history.commitRun({ run: 123, universe: "standard", resets: {}, totalDays: 456, milestones: {} });
+            history.commitRun({ run: 124, universe: "standard", resets: {}, totalDays: 789, milestones: {} });
 
-            expect(loadHistory()).not.toBe(null);
+            expect(loadHistory()).toEqual({
+                milestones: {
+                    "reset:bioseed": 0
+                },
+                runs: [
+                    { run: 123, universe: "standard", milestones: [[0, 456]] },
+                    { run: 124, universe: "standard", milestones: [[0, 789]] }
+                ]
+            });
+
+            history.discardRun(history.runs[0]);
+
+            expect(loadHistory()).toEqual({
+                milestones: {
+                    "reset:bioseed": 0
+                },
+                runs: [
+                    { run: 124, universe: "standard", milestones: [[0, 789]] }
+                ]
+            });
         });
 
         it("should add the reset point as a milestone", () => {
