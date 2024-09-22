@@ -2,7 +2,7 @@ import { applyFilters } from "../exports/historyFiltering";
 import { asPlotPoints, type PlotPoint } from "../exports/plotPoints";
 import { generateMilestoneNames } from "../milestones";
 import type { View } from "../config";
-import type { HistoryManager } from "../history";
+import type { HistoryEntry, HistoryManager } from "../history";
 
 import type { default as PlotType } from "@observablehq/plot";
 
@@ -35,17 +35,17 @@ function lastRunEntries(plotPoints: PlotPoint[]): PlotPoint[] {
     return timestamps.reverse();
 }
 
-function timestamps(plotPoints: PlotPoint[], key: "day" | "segment") {
+function* timestamps(plotPoints: PlotPoint[], key: "day" | "segment") {
     const lastRunTimestamps = lastRunEntries(plotPoints).map(e => e[key]);
 
-    return Plot.axisY(lastRunTimestamps, {
+    yield Plot.axisY(lastRunTimestamps, {
         anchor: "right",
         label: null
     });
 }
 
-function areaMarks(plotPoints: PlotPoint[]) {
-    return Plot.areaY(plotPoints, {
+function* areaMarks(plotPoints: PlotPoint[]) {
+    yield Plot.areaY(plotPoints, {
         x: "run",
         y: "dayDiff",
         fill: "milestone",
@@ -53,16 +53,42 @@ function areaMarks(plotPoints: PlotPoint[]) {
     });
 }
 
-function lineMarks(plotPoints: PlotPoint[], key: "day" | "segment") {
-    return Plot.lineY(plotPoints, {
+function* lineMarks(plotPoints: PlotPoint[], key: "day" | "segment") {
+    yield Plot.line(plotPoints, {
         x: "run",
         y: key,
         stroke: "milestone",
         // Draw the event lines on top of the other ones
-        sort: (entry: PlotPoint) => entry.dayDiff === undefined ? 1 : 0,
-        marker: "dot",
-        tip: { format: { x: false } }
+        sort: (entry: PlotPoint) => entry.dayDiff === undefined ? 1 : 0
     });
+}
+
+function* pointerMarsk(plotPoints: PlotPoint[], key: "day" | "segment", history: HistoryEntry[]) {
+    yield Plot.ruleX(plotPoints, Plot.pointerX({
+        x: "run",
+        py: key
+    }));
+
+    yield Plot.dot(plotPoints, Plot.pointerX({
+        x: "run",
+        y: key,
+        fill: "currentColor",
+        r: 2
+    }));
+
+    yield Plot.text(plotPoints, Plot.pointerX({
+        px: "run",
+        py: key,
+        dy: -17,
+        frameAnchor: "top-left",
+        text: (p: PlotPoint) => `Run #${history[p.run].run}: ${p.milestone} in ${p[key]} day(s)`
+    }));
+}
+
+function* milestoneMarks(plotPoints: PlotPoint[], key: "day" | "segment", history: HistoryEntry[]) {
+    yield* lineMarks(plotPoints, key);
+    yield* timestamps(plotPoints, key);
+    yield* pointerMarsk(plotPoints, key, history);
 }
 
 export function makeGraph(history: HistoryManager, view: View) {
@@ -71,23 +97,20 @@ export function makeGraph(history: HistoryManager, view: View) {
 
     const marks = [
         Plot.axisY({ anchor: "left", label: "days" }),
-        Plot.axisX([], { label: null }),
         Plot.ruleY([0])
     ];
 
     switch (view.mode) {
         case "filled":
-            marks.push(areaMarks(plotPoints));
+            marks.push(...areaMarks(plotPoints));
             // fall-through
 
         case "total":
-            marks.push(lineMarks(plotPoints, "day"));
-            marks.push(timestamps(plotPoints, "day"));
+            marks.push(...milestoneMarks(plotPoints, "day", filteredRuns));
             break;
 
         case "segmented":
-            marks.push(lineMarks(plotPoints, "segment"));
-            marks.push(timestamps(plotPoints, "segment"));
+            marks.push(...milestoneMarks(plotPoints, "segment", filteredRuns));
             break;
     }
 
@@ -107,6 +130,7 @@ export function makeGraph(history: HistoryManager, view: View) {
 
     const node = Plot.plot({
         width: 800,
+        x: { axis: null },
         y: { grid: true, domain: yScale },
         color: { legend: true, domain: generateMilestoneNames(milestones) },
         marks

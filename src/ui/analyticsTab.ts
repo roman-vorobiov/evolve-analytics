@@ -6,13 +6,13 @@ import type { HistoryManager } from "../history";
 
 export function buildAnalyticsTab(config: ConfigManager, history: HistoryManager) {
     const tabControlNode = $(`
-        <li role="tab" aria-controls="analytics-content" aria-selected="false">
+        <li role="tab" aria-controls="analytics-content" aria-selected="true">
             <a id="analytics-label" tabindex="0" data-unsp-sanitized="clean">Analytics</a>
         </li>
     `);
 
     const tabContentNode = $(`
-        <div class="tab-item" role="tabpanel" id="analytics" aria-labelledby="analytics-label" tabindex="-1" style="display: none;">
+        <div class="tab-item" role="tabpanel" id="analytics" aria-labelledby="analytics-label" tabindex="0">
             <div id="analyticsPanel" class="tab-item">
                 <nav class="tabs">
                     <ul role="tablist" class="hscroll" style="margin-left: 0; width: 100%">
