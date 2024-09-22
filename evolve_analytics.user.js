@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.3.4
+// @version      0.4.0
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -1635,20 +1635,31 @@
         });
     }
 
-    class HistoryManager {
+    class HistoryManager extends Subscribable {
         game;
         history;
         milestones;
         constructor(game, history) {
+            super();
             this.game = game;
             this.history = history;
             this.milestones = rotateMap(history.milestones);
+            this.on("*", () => {
+                saveHistory(this.history);
+            });
         }
         get milestoneIDs() {
             return this.history.milestones;
         }
         get runs() {
             return this.history.runs;
+        }
+        discardRun(run) {
+            const idx = this.runs.indexOf(run);
+            if (idx !== -1) {
+                this.history.runs.splice(idx, 1);
+                this.emit("updated", this);
+            }
         }
         commitRun(runStats) {
             const resetType = inferResetType(runStats, this.game);
@@ -1661,7 +1672,7 @@
                 universe: runStats.universe,
                 milestones
             });
-            saveHistory(this.history);
+            this.emit("updated", this);
         }
         getMilestone(id) {
             return this.milestones[id];
@@ -1839,51 +1850,70 @@
         }
         return timestamps.reverse();
     }
-    function timestamps(plotPoints, key) {
+    function* timestamps(plotPoints, key) {
         const lastRunTimestamps = lastRunEntries(plotPoints).map(e => e[key]);
-        return Plot.axisY(lastRunTimestamps, {
+        yield Plot.axisY(lastRunTimestamps, {
             anchor: "right",
             label: null
         });
     }
-    function areaMarks(plotPoints) {
-        return Plot.areaY(plotPoints, {
+    function* areaMarks(plotPoints) {
+        yield Plot.areaY(plotPoints, {
             x: "run",
             y: "dayDiff",
             fill: "milestone",
             fillOpacity: 0.5
         });
     }
-    function lineMarks(plotPoints, key) {
-        return Plot.lineY(plotPoints, {
+    function* lineMarks(plotPoints, key) {
+        yield Plot.line(plotPoints, {
             x: "run",
             y: key,
             stroke: "milestone",
             // Draw the event lines on top of the other ones
-            sort: (entry) => entry.dayDiff === undefined ? 1 : 0,
-            marker: "dot",
-            tip: { format: { x: false } }
+            sort: (entry) => entry.dayDiff === undefined ? 1 : 0
         });
     }
-    function makeGraph(history, view) {
+    function* pointerMarsk(plotPoints, key, history) {
+        yield Plot.ruleX(plotPoints, Plot.pointerX({
+            x: "run",
+            py: key
+        }));
+        yield Plot.dot(plotPoints, Plot.pointerX({
+            x: "run",
+            y: key,
+            fill: "currentColor",
+            r: 2
+        }));
+        yield Plot.text(plotPoints, Plot.pointerX({
+            px: "run",
+            py: key,
+            dy: -17,
+            frameAnchor: "top-left",
+            text: (p) => `Run #${history[p.run].run}: ${p.milestone} in ${p[key]} day(s)`
+        }));
+    }
+    function* milestoneMarks(plotPoints, key, history) {
+        yield* lineMarks(plotPoints, key);
+        yield* timestamps(plotPoints, key);
+        yield* pointerMarsk(plotPoints, key, history);
+    }
+    function makeGraph(history, view, onSelect) {
         const filteredRuns = applyFilters(history, view);
         const plotPoints = asPlotPoints(filteredRuns, history, view);
         const marks = [
             Plot.axisY({ anchor: "left", label: "days" }),
-            Plot.axisX([], { label: null }),
             Plot.ruleY([0])
         ];
         switch (view.mode) {
             case "filled":
-                marks.push(areaMarks(plotPoints));
+                marks.push(...areaMarks(plotPoints));
             // fall-through
             case "total":
-                marks.push(lineMarks(plotPoints, "day"));
-                marks.push(timestamps(plotPoints, "day"));
+                marks.push(...milestoneMarks(plotPoints, "day", filteredRuns));
                 break;
             case "segmented":
-                marks.push(lineMarks(plotPoints, "segment"));
-                marks.push(timestamps(plotPoints, "segment"));
+                marks.push(...milestoneMarks(plotPoints, "segment", filteredRuns));
                 break;
         }
         const milestones = Object.keys(view.milestones);
@@ -1899,9 +1929,18 @@
         const yScale = calculateYScale(plotPoints, view);
         const node = Plot.plot({
             width: 800,
+            x: { axis: null },
             y: { grid: true, domain: yScale },
             color: { legend: true, domain: generateMilestoneNames(milestones) },
             marks
+        });
+        node.addEventListener("mousedown", () => {
+            if (node.value) {
+                onSelect(filteredRuns[node.value.run]);
+            }
+            else {
+                onSelect(null);
+            }
         });
         const legendMilestones = $(node).find("> div > span");
         legendMilestones
@@ -2099,26 +2138,36 @@
         const contentNode = $(`<div id="${id}" class="vscroll" style="height: calc(100vh - 10rem)"></div>`);
         const removeViewNode = $(`<button class="button right" style="margin-right: 1em">Delete View</button>`)
             .on("click", () => { config.removeView(view); });
+        let selectedRun = null;
+        const discardRunNode = $(`<button class="button" style="margin-right: 1em">Discard Run</button>`)
+            .on("click", () => { history.discardRun(selectedRun); })
+            .hide();
+        function onRunSelection(run) {
+            selectedRun = run;
+            discardRunNode.toggle(selectedRun !== null);
+        }
         contentNode
             .append(makeViewSettings(view).css("margin-bottom", "1em"))
             .append(makeMilestoneSettings(view).css("margin-bottom", "1em"))
-            .append(makeGraph(history, view))
+            .append(makeGraph(history, view, onRunSelection))
+            .append(discardRunNode)
             .append(removeViewNode);
         config.on("viewUpdated", compose([weakFor(view), invokeFor(view)], (updatedView) => {
             controlNode.find("> a").text(viewTitle(updatedView));
-            contentNode.find("figure:last").replaceWith(makeGraph(history, updatedView));
+            contentNode.find("figure:last").replaceWith(makeGraph(history, updatedView, onRunSelection));
+            onRunSelection(null);
         }));
         return [controlNode, contentNode];
     }
 
     function buildAnalyticsTab(config, history) {
         const tabControlNode = $(`
-        <li role="tab" aria-controls="analytics-content" aria-selected="false">
+        <li role="tab" aria-controls="analytics-content" aria-selected="true">
             <a id="analytics-label" tabindex="0" data-unsp-sanitized="clean">Analytics</a>
         </li>
     `);
         const tabContentNode = $(`
-        <div class="tab-item" role="tabpanel" id="analytics" aria-labelledby="analytics-label" tabindex="-1" style="display: none;">
+        <div class="tab-item" role="tabpanel" id="analytics" aria-labelledby="analytics-label" tabindex="0">
             <div id="analyticsPanel" class="tab-item">
                 <nav class="tabs">
                     <ul role="tablist" class="hscroll" style="margin-left: 0; width: 100%">
@@ -2182,6 +2231,12 @@
             addViewTab(view);
         }
         config.on("viewAdded", addViewTab);
+        // Redraw each view whenever history is updated
+        history.on("updated", () => {
+            for (const view of config.views) {
+                config.emit("viewUpdated", view);
+            }
+        });
         analyticsPanel.tabs({ active: 0 });
     }
 
