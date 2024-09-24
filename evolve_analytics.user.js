@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.4.1
+// @version      0.5.0
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -1059,7 +1059,9 @@
     const viewModes = {
         "total": "Total",
         "filled": "Total (filled)",
-        "segmented": "Segmented"
+        "bars": "Total (bars)",
+        "segmented": "Segmented",
+        "barsSegmented": "Segmented (bars)"
     };
 
     function transformMap(obj, fn) {
@@ -1527,7 +1529,7 @@
             const view = {
                 resetType: "ascend",
                 universe: this.game.universe,
-                mode: "filled",
+                mode: "bars",
                 milestones: { "reset:ascend": true }
             };
             const proxy = makeViewProxy(this, view);
@@ -1872,7 +1874,43 @@
             sort: (entry) => entry.dayDiff === undefined ? 1 : 0
         });
     }
-    function* pointerMarsk(plotPoints, key, history) {
+    function* barMarks(plotPoints, key) {
+        yield Plot.barY(plotPoints, {
+            x: "run",
+            y: key,
+            z: "milestone",
+            fill: "milestone",
+            fillOpacity: 0.5,
+            // Don't display event milestones as segments - use only the ticks
+            filter: (entry) => entry.dayDiff !== undefined
+        });
+        // Plot.stackY outputs the middle between y1 and y2 as y for whatever reason - use y2 to place ticks on top
+        function stack(options) {
+            const convert = ({ y1, y2, ...options }) => ({ ...options, y: y2 });
+            return convert(Plot.stackY(options));
+        }
+        yield Plot.tickY(plotPoints, stack({
+            x: "run",
+            y: key,
+            z: "milestone",
+            stroke: "milestone",
+            filter: (entry) => entry.dayDiff !== undefined
+        }));
+        yield Plot.tickY(plotPoints, {
+            x: "run",
+            y: "segment",
+            stroke: "milestone",
+            filter: (entry) => entry.dayDiff === undefined
+        });
+    }
+    function* linePointerMarks(plotPoints, key, history) {
+        yield Plot.text(plotPoints, Plot.pointerX({
+            px: "run",
+            py: key,
+            dy: -17,
+            frameAnchor: "top-left",
+            text: (p) => `Run #${history[p.run].run}: ${p.milestone} in ${p[key]} day(s)`
+        }));
         yield Plot.ruleX(plotPoints, Plot.pointerX({
             x: "run",
             py: key
@@ -1883,18 +1921,27 @@
             fill: "currentColor",
             r: 2
         }));
-        yield Plot.text(plotPoints, Plot.pointerX({
-            px: "run",
-            py: key,
+    }
+    function* rectPointerMarks(plotPoints, history) {
+        plotPoints = plotPoints.filter((entry) => entry.dayDiff !== undefined);
+        // Transform pointer position from the point to the segment
+        function toSegment(options) {
+            const convert = ({ x, y, ...options }) => ({ px: x, py: y, ...options });
+            return convert(Plot.stackY(options));
+        }
+        yield Plot.text(plotPoints, Plot.pointerX(toSegment({
+            x: "run",
+            y: "segment",
             dy: -17,
             frameAnchor: "top-left",
-            text: (p) => `Run #${history[p.run].run}: ${p.milestone} in ${p[key]} day(s)`
-        }));
-    }
-    function* milestoneMarks(plotPoints, key, history) {
-        yield* lineMarks(plotPoints, key);
-        yield* timestamps(plotPoints, key);
-        yield* pointerMarsk(plotPoints, key, history);
+            text: (p) => `Run #${history[p.run].run}: ${p.milestone} in ${p.day} day(s)`
+        })));
+        yield Plot.barY(plotPoints, Plot.pointerX(Plot.stackY({
+            x: "run",
+            y: "segment",
+            fill: "milestone",
+            fillOpacity: 0.5
+        })));
     }
     function makeGraph(history, view, onSelect) {
         const filteredRuns = applyFilters(history, view);
@@ -1904,14 +1951,32 @@
             Plot.ruleY([0])
         ];
         switch (view.mode) {
+            // Same as "barsSegmented" but milestones become a part of the segment on top when hidden
+            case "bars":
+                marks.push(...barMarks(plotPoints, "dayDiff"));
+                marks.push(...timestamps(plotPoints, "day"));
+                marks.push(...rectPointerMarks(plotPoints, filteredRuns));
+                break;
+            // Vertical bars composed of individual segments stacked on top of each other
+            case "barsSegmented":
+                marks.push(...barMarks(plotPoints, "segment"));
+                marks.push(...rectPointerMarks(plotPoints, filteredRuns));
+                break;
+            // Same as "total" but with the areas between the lines filled
             case "filled":
                 marks.push(...areaMarks(plotPoints));
             // fall-through
+            // Horizontal lines for each milestone timestamp
             case "total":
-                marks.push(...milestoneMarks(plotPoints, "day", filteredRuns));
+                marks.push(...lineMarks(plotPoints, "day"));
+                marks.push(...timestamps(plotPoints, "day"));
+                marks.push(...linePointerMarks(plotPoints, "day", filteredRuns));
                 break;
+            // Horizontal lines for each milestone duration
             case "segmented":
-                marks.push(...milestoneMarks(plotPoints, "segment", filteredRuns));
+                marks.push(...lineMarks(plotPoints, "segment"));
+                marks.push(...timestamps(plotPoints, "segment"));
+                marks.push(...linePointerMarks(plotPoints, "segment", filteredRuns));
                 break;
         }
         const milestones = Object.keys(view.milestones);
@@ -2061,7 +2126,7 @@
             .css("width", "150px")
             .on("change", function () { view.universe = this.value === "any" ? undefined : this.value; });
         const modeInput = makeSelect(Object.entries(viewModes), view.mode)
-            .css("width", "100px")
+            .css("width", "150px")
             .on("change", function () { view.mode = this.value; });
         const daysScaleInput = makeNumberInput("Auto", view.daysScale)
             .on("change", function () { view.daysScale = Number(this.value) || undefined; });
