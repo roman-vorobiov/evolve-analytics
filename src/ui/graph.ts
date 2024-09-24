@@ -65,7 +65,48 @@ function* lineMarks(plotPoints: PlotPoint[], key: "day" | "segment") {
     });
 }
 
-function* pointerMarsk(plotPoints: PlotPoint[], key: "day" | "segment", history: HistoryEntry[]) {
+function* barMarks(plotPoints: PlotPoint[], key: "dayDiff" | "segment") {
+    yield Plot.barY(plotPoints, {
+        x: "run",
+        y: key,
+        z: "milestone",
+        fill: "milestone",
+        fillOpacity: 0.5,
+        // Don't display event milestones as segments - use only the ticks
+        filter: (entry: PlotPoint) => entry.dayDiff !== undefined
+    });
+
+    // Plot.stackY outputs the middle between y1 and y2 as y for whatever reason - use y2 to place ticks on top
+    function stack(options: any) {
+        const convert = ({ y1, y2, ...options }: any) => ({ ...options, y: y2 });
+        return convert(Plot.stackY(options));
+    }
+
+    yield Plot.tickY(plotPoints, stack({
+        x: "run",
+        y: key,
+        z: "milestone",
+        stroke: "milestone",
+        filter: (entry: PlotPoint) => entry.dayDiff !== undefined
+    }));
+
+    yield Plot.tickY(plotPoints, {
+        x: "run",
+        y: "segment",
+        stroke: "milestone",
+        filter: (entry: PlotPoint) => entry.dayDiff === undefined
+    });
+}
+
+function* linePointerMarks(plotPoints: PlotPoint[], key: "day" | "segment", history: HistoryEntry[]) {
+    yield Plot.text(plotPoints, Plot.pointerX({
+        px: "run",
+        py: key,
+        dy: -17,
+        frameAnchor: "top-left",
+        text: (p: PlotPoint) => `Run #${history[p.run].run}: ${p.milestone} in ${p[key]} day(s)`
+    }));
+
     yield Plot.ruleX(plotPoints, Plot.pointerX({
         x: "run",
         py: key
@@ -77,20 +118,31 @@ function* pointerMarsk(plotPoints: PlotPoint[], key: "day" | "segment", history:
         fill: "currentColor",
         r: 2
     }));
-
-    yield Plot.text(plotPoints, Plot.pointerX({
-        px: "run",
-        py: key,
-        dy: -17,
-        frameAnchor: "top-left",
-        text: (p: PlotPoint) => `Run #${history[p.run].run}: ${p.milestone} in ${p[key]} day(s)`
-    }));
 }
 
-function* milestoneMarks(plotPoints: PlotPoint[], key: "day" | "segment", history: HistoryEntry[]) {
-    yield* lineMarks(plotPoints, key);
-    yield* timestamps(plotPoints, key);
-    yield* pointerMarsk(plotPoints, key, history);
+function* rectPointerMarks(plotPoints: PlotPoint[], history: HistoryEntry[]) {
+    plotPoints = plotPoints.filter((entry: PlotPoint) => entry.dayDiff !== undefined);
+
+    // Transform pointer position from the point to the segment
+    function toSegment(options: any) {
+        const convert = ({ x, y, ...options }: any) => ({ px: x, py: y, ...options });
+        return convert(Plot.stackY(options));
+    }
+
+    yield Plot.text(plotPoints, Plot.pointerX(toSegment({
+        x: "run",
+        y: "segment",
+        dy: -17,
+        frameAnchor: "top-left",
+        text: (p: PlotPoint) => `Run #${history[p.run].run}: ${p.milestone} in ${p.day} day(s)`
+    })));
+
+    yield Plot.barY(plotPoints, Plot.pointerX(Plot.stackY({
+        x: "run",
+        y: "segment",
+        fill: "milestone",
+        fillOpacity: 0.5
+    })));
 }
 
 export function makeGraph(history: HistoryManager, view: View, onSelect: (run: HistoryEntry | null) => void) {
@@ -103,16 +155,36 @@ export function makeGraph(history: HistoryManager, view: View, onSelect: (run: H
     ];
 
     switch (view.mode) {
+        // Same as "barsSegmented" but milestones become a part of the segment on top when hidden
+        case "bars":
+            marks.push(...barMarks(plotPoints, "dayDiff"));
+            marks.push(...timestamps(plotPoints, "day"));
+            marks.push(...rectPointerMarks(plotPoints, filteredRuns));
+            break;
+
+        // Vertical bars composed of individual segments stacked on top of each other
+        case "barsSegmented":
+            marks.push(...barMarks(plotPoints, "segment"));
+            marks.push(...rectPointerMarks(plotPoints, filteredRuns));
+            break;
+
+        // Same as "total" but with the areas between the lines filled
         case "filled":
             marks.push(...areaMarks(plotPoints));
             // fall-through
 
+        // Horizontal lines for each milestone timestamp
         case "total":
-            marks.push(...milestoneMarks(plotPoints, "day", filteredRuns));
+            marks.push(...lineMarks(plotPoints, "day"));
+            marks.push(...timestamps(plotPoints, "day"));
+            marks.push(...linePointerMarks(plotPoints, "day", filteredRuns));
             break;
 
+        // Horizontal lines for each milestone duration
         case "segmented":
-            marks.push(...milestoneMarks(plotPoints, "segment", filteredRuns));
+            marks.push(...lineMarks(plotPoints, "segment"));
+            marks.push(...timestamps(plotPoints, "segment"));
+            marks.push(...linePointerMarks(plotPoints, "segment", filteredRuns));
             break;
     }
 

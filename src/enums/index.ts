@@ -32,5 +32,7 @@ export const universes = {
 export const viewModes = {
     "total": "Total",
     "filled": "Total (filled)",
-    "segmented": "Segmented"
+    "bars": "Total (bars)",
+    "segmented": "Segmented",
+    "barsSegmented": "Segmented (bars)"
 };

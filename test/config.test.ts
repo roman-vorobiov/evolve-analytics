@@ -96,7 +96,7 @@ describe("Config", () => {
         config.addView();
 
         expect(addedView).toEqual({
-            mode: "filled",
+            mode: "bars",
             resetType: "ascend",
             universe: "standard",
             milestones: {

@@ -16,7 +16,7 @@ export function makeViewSettings(view: View) {
         .on("change", function(this: HTMLSelectElement) { view.universe = this.value === "any" ? undefined : this.value as keyof typeof universes; });
 
     const modeInput = makeSelect(Object.entries(viewModes), view.mode)
-        .css("width", "100px")
+        .css("width", "150px")
         .on("change", function(this: HTMLSelectElement) { view.mode = this.value as keyof typeof viewModes; });
 
     const daysScaleInput = makeNumberInput("Auto", view.daysScale)

@@ -105,7 +105,7 @@ export class ConfigManager extends Subscribable {
         const view: ViewConfig = {
             resetType: "ascend",
             universe: this.game.universe,
-            mode: "filled",
+            mode: "bars",
             milestones: { "reset:ascend": true }
         };
 
