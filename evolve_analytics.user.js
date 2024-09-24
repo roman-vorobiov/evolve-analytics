@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.4.0
+// @version      0.4.1
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -1735,10 +1735,6 @@
         .crossed {
             text-decoration: line-through
         }
-
-        g[aria-label='tip'] g text {
-            color: #4a4a4a;
-        }
     `;
 
     function getResetType(entry, history) {
@@ -1861,6 +1857,7 @@
         yield Plot.areaY(plotPoints, {
             x: "run",
             y: "dayDiff",
+            z: "milestone",
             fill: "milestone",
             fillOpacity: 0.5
         });
@@ -1869,6 +1866,7 @@
         yield Plot.line(plotPoints, {
             x: "run",
             y: key,
+            z: "milestone",
             stroke: "milestone",
             // Draw the event lines on top of the other ones
             sort: (entry) => entry.dayDiff === undefined ? 1 : 0
