@@ -48,6 +48,7 @@ function* areaMarks(plotPoints: PlotPoint[]) {
     yield Plot.areaY(plotPoints, {
         x: "run",
         y: "dayDiff",
+        z: "milestone",
         fill: "milestone",
         fillOpacity: 0.5
     });
@@ -57,6 +58,7 @@ function* lineMarks(plotPoints: PlotPoint[], key: "day" | "segment") {
     yield Plot.line(plotPoints, {
         x: "run",
         y: key,
+        z: "milestone",
         stroke: "milestone",
         // Draw the event lines on top of the other ones
         sort: (entry: PlotPoint) => entry.dayDiff === undefined ? 1 : 0
