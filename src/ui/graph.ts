@@ -120,7 +120,7 @@ function* linePointerMarks(plotPoints: PlotPoint[], key: "day" | "segment", hist
     }));
 }
 
-function* rectPointerMarks(plotPoints: PlotPoint[], history: HistoryEntry[]) {
+function* rectPointerMarks(plotPoints: PlotPoint[], key: "dayDiff" | "segment", history: HistoryEntry[]) {
     plotPoints = plotPoints.filter((entry: PlotPoint) => entry.dayDiff !== undefined);
 
     // Transform pointer position from the point to the segment
@@ -131,7 +131,7 @@ function* rectPointerMarks(plotPoints: PlotPoint[], history: HistoryEntry[]) {
 
     yield Plot.text(plotPoints, Plot.pointerX(toSegment({
         x: "run",
-        y: "segment",
+        y: key,
         dy: -17,
         frameAnchor: "top-left",
         text: (p: PlotPoint) => `Run #${history[p.run].run}: ${p.milestone} in ${p.day} day(s)`
@@ -139,7 +139,7 @@ function* rectPointerMarks(plotPoints: PlotPoint[], history: HistoryEntry[]) {
 
     yield Plot.barY(plotPoints, Plot.pointerX(Plot.stackY({
         x: "run",
-        y: "segment",
+        y: key,
         fill: "milestone",
         fillOpacity: 0.5
     })));
@@ -159,13 +159,13 @@ export function makeGraph(history: HistoryManager, view: View, onSelect: (run: H
         case "bars":
             marks.push(...barMarks(plotPoints, "dayDiff"));
             marks.push(...timestamps(plotPoints, "day"));
-            marks.push(...rectPointerMarks(plotPoints, filteredRuns));
+            marks.push(...rectPointerMarks(plotPoints, "dayDiff", filteredRuns));
             break;
 
         // Vertical bars composed of individual segments stacked on top of each other
         case "barsSegmented":
             marks.push(...barMarks(plotPoints, "segment"));
-            marks.push(...rectPointerMarks(plotPoints, filteredRuns));
+            marks.push(...rectPointerMarks(plotPoints, "segment", filteredRuns));
             break;
 
         // Same as "total" but with the areas between the lines filled
@@ -202,7 +202,7 @@ export function makeGraph(history: HistoryManager, view: View, onSelect: (run: H
 
     const yScale = calculateYScale(plotPoints, view);
 
-    const node = Plot.plot({
+    const plot = Plot.plot({
         width: 800,
         x: { axis: null },
         y: { grid: true, domain: yScale },
@@ -210,16 +210,16 @@ export function makeGraph(history: HistoryManager, view: View, onSelect: (run: H
         marks
     });
 
-    node.addEventListener("mousedown", () => {
-        if (node.value) {
-            onSelect(filteredRuns[node.value.run]);
+    plot.addEventListener("mousedown", () => {
+        if (plot.value) {
+            onSelect(filteredRuns[plot.value.run]);
         }
         else {
             onSelect(null);
         }
     });
 
-    const legendMilestones = $(node).find("> div > span");
+    const legendMilestones = $(plot).find("> div > span");
 
     legendMilestones
         .css("cursor", "pointer")
@@ -237,9 +237,9 @@ export function makeGraph(history: HistoryManager, view: View, onSelect: (run: H
         view.toggleMilestone(milestone);
     });
 
-    $(node).find("> svg").attr("width", "100%");
+    $(plot).find("> svg").attr("width", "100%");
 
-    $(node).css("margin", "0");
+    $(plot).css("margin", "0");
 
-    return node;
+    return plot;
 }
