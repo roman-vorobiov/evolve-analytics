@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.5.0
+// @version      0.5.1
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -1922,7 +1922,7 @@
             r: 2
         }));
     }
-    function* rectPointerMarks(plotPoints, history) {
+    function* rectPointerMarks(plotPoints, key, history) {
         plotPoints = plotPoints.filter((entry) => entry.dayDiff !== undefined);
         // Transform pointer position from the point to the segment
         function toSegment(options) {
@@ -1931,14 +1931,14 @@
         }
         yield Plot.text(plotPoints, Plot.pointerX(toSegment({
             x: "run",
-            y: "segment",
+            y: key,
             dy: -17,
             frameAnchor: "top-left",
             text: (p) => `Run #${history[p.run].run}: ${p.milestone} in ${p.day} day(s)`
         })));
         yield Plot.barY(plotPoints, Plot.pointerX(Plot.stackY({
             x: "run",
-            y: "segment",
+            y: key,
             fill: "milestone",
             fillOpacity: 0.5
         })));
@@ -1955,12 +1955,12 @@
             case "bars":
                 marks.push(...barMarks(plotPoints, "dayDiff"));
                 marks.push(...timestamps(plotPoints, "day"));
-                marks.push(...rectPointerMarks(plotPoints, filteredRuns));
+                marks.push(...rectPointerMarks(plotPoints, "dayDiff", filteredRuns));
                 break;
             // Vertical bars composed of individual segments stacked on top of each other
             case "barsSegmented":
                 marks.push(...barMarks(plotPoints, "segment"));
-                marks.push(...rectPointerMarks(plotPoints, filteredRuns));
+                marks.push(...rectPointerMarks(plotPoints, "segment", filteredRuns));
                 break;
             // Same as "total" but with the areas between the lines filled
             case "filled":
@@ -1990,22 +1990,22 @@
             });
         }
         const yScale = calculateYScale(plotPoints, view);
-        const node = Plot.plot({
+        const plot = Plot.plot({
             width: 800,
             x: { axis: null },
             y: { grid: true, domain: yScale },
             color: { legend: true, domain: generateMilestoneNames(milestones) },
             marks
         });
-        node.addEventListener("mousedown", () => {
-            if (node.value) {
-                onSelect(filteredRuns[node.value.run]);
+        plot.addEventListener("mousedown", () => {
+            if (plot.value) {
+                onSelect(filteredRuns[plot.value.run]);
             }
             else {
                 onSelect(null);
             }
         });
-        const legendMilestones = $(node).find("> div > span");
+        const legendMilestones = $(plot).find("> div > span");
         legendMilestones
             .css("cursor", "pointer")
             .css("font-size", "1rem");
@@ -2018,9 +2018,9 @@
             const milestone = milestones[$(this).index() - 1];
             view.toggleMilestone(milestone);
         });
-        $(node).find("> svg").attr("width", "100%");
-        $(node).css("margin", "0");
-        return node;
+        $(plot).find("> svg").attr("width", "100%");
+        $(plot).css("margin", "0");
+        return plot;
     }
 
     function waitFor(query) {
