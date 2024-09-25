@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.5.1
+// @version      0.5.2
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -1548,7 +1548,6 @@
         collectMilestones() {
             const uniqueMilestones = new Set(this.config.views.flatMap(v => {
                 return Object.entries(v.milestones)
-                    .filter(([, enabled]) => enabled)
                     .filter(([milestone]) => !milestone.startsWith("reset:"))
                     .map(([milestone]) => milestone);
             }));
