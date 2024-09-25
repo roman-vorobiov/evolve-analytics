@@ -70,7 +70,7 @@ describe("Config", () => {
         ]);
     });
 
-    it("should not collect disabled milestones", () => {
+    it("should collect disabled milestones", () => {
         const game = new Game(makeGameState({}));
         const config = new ConfigManager(game, makeConfig([
             [
@@ -82,6 +82,7 @@ describe("Config", () => {
         config.views[0].toggleMilestone("built:city-apartment:1");
 
         expect(config.milestones).toEqual([
+            "built:city-apartment:1",
             "built:space-spaceport:2"
         ]);
     });

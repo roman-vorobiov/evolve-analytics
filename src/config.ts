@@ -129,7 +129,6 @@ export class ConfigManager extends Subscribable {
     private collectMilestones() {
         const uniqueMilestones = new Set(this.config.views.flatMap(v => {
             return Object.entries(v.milestones)
-                .filter(([, enabled]) => enabled)
                 .filter(([milestone]) => !milestone.startsWith("reset:"))
                 .map(([milestone]) => milestone);
         }));
