@@ -3,6 +3,7 @@ import { weakFor, invokeFor, compose } from "../utils";
 import { makeGraph } from "./graph";
 import { makeViewSettings } from "./viewSettings";
 import { makeMilestoneSettings } from "./milestoneSettings";
+import { makeAdditionalInfoSettings } from "./additionalInfoSettings";
 import type { ConfigManager, View } from "../config";
 import type { HistoryEntry, HistoryManager } from "../history";
 
@@ -35,6 +36,7 @@ export function makeViewTab(id: string, view: View, config: ConfigManager, histo
 
     contentNode
         .append(makeViewSettings(view).css("margin-bottom", "1em"))
+        .append(makeAdditionalInfoSettings(view).css("margin-bottom", "1em"))
         .append(makeMilestoneSettings(view).css("margin-bottom", "1em"))
         .append(makeGraph(history, view, onRunSelection))
         .append(discardRunNode)

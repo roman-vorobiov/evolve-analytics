@@ -10,7 +10,8 @@ export type LatestRun = {
     universe: keyof typeof universes,
     resets: Partial<Record<keyof typeof resets, number>>,
     totalDays: number,
-    milestones: Record<string, number>
+    milestones: Record<string, number>,
+    raceName?: string
 }
 
 export function inferResetType(runStats: LatestRun, game: Game) {
@@ -67,21 +68,23 @@ function makeNewRunStats(game: Game): LatestRun {
     };
 }
 
-function checkMilestoneConditions(checkers: MilestoneChecker[], runStats: LatestRun) {
-    const newlyCompleted = [];
-
-    for (const { milestone, reached} of checkers) {
+function updateMilestones(runStats: LatestRun, checkers: MilestoneChecker[]) {
+    for (const { milestone, reached } of checkers) {
         // Don't check completed milestones
         if (milestone in runStats.milestones) {
             continue;
         }
 
         if (reached()) {
-            newlyCompleted.push(milestone);
+            // Since this callback is invoked at the beginning of a day,
+            // the milestone was reached the previous day
+            runStats.milestones[milestone] = runStats.totalDays - 1;
         }
     }
+}
 
-    return newlyCompleted;
+function updateAdditionalInfo(runStats: LatestRun, game: Game) {
+    runStats.raceName ??= game.raceName;
 }
 
 export function trackMilestones(game: Game, config: ConfigManager) {
@@ -99,12 +102,9 @@ export function trackMilestones(game: Game, config: ConfigManager) {
 
         currentRunStats.totalDays = day;
 
-        const newlyCompleted = checkMilestoneConditions(checkers, currentRunStats);
-        for (const milestone of newlyCompleted) {
-            // Since this callback is invoked at the beginning of a day,
-            // the milestone was reached the previous day
-            currentRunStats.milestones[milestone] = day - 1;
-        }
+        updateAdditionalInfo(currentRunStats, game);
+
+        updateMilestones(currentRunStats, checkers);
 
         saveCurrentRun(currentRunStats);
     });

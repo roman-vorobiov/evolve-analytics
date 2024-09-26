@@ -9,7 +9,8 @@ import { LatestRun, processLatestRun } from "../src/runTracking";
 
 function makeConfig(game: Game, options?: Partial<Config>): ConfigManager {
     return new ConfigManager(game, {
-        version: 4,
+        version: 5,
+        recordRuns: true,
         views: [],
         ...(options ?? {})
     });
@@ -31,7 +32,7 @@ describe("Latest run", () => {
         describe("Empty state", () => {
             const game = new Game(makeGameState({}));
             const config = makeConfig(game);
-            const history = new HistoryManager(game, blankHistory());
+            const history = new HistoryManager(game, config, blankHistory());
 
             beforeEach(() => {
                 processLatestRun(game, config, history);
@@ -60,7 +61,7 @@ describe("Latest run", () => {
             beforeEach(() => {
                 game = new Game(makeGameState({ reset: 122, days: 456 }));
                 config = makeConfig(game);
-                history = new HistoryManager(game, blankHistory());
+                history = new HistoryManager(game, config, blankHistory());
 
                 jest.spyOn(history, "commitRun");
 
@@ -89,7 +90,7 @@ describe("Latest run", () => {
             beforeEach(() => {
                 game = new Game(makeGameState({ reset: 123, days: 456 }));
                 config = makeConfig(game);
-                history = new HistoryManager(game, blankHistory());
+                history = new HistoryManager(game, config, blankHistory());
 
                 jest.spyOn(history, "commitRun");
 
@@ -118,7 +119,7 @@ describe("Latest run", () => {
             beforeEach(() => {
                 game = new Game(makeGameState({ reset: 123, days: 456 }));
                 config = makeConfig(game, { recordRuns: false });
-                history = new HistoryManager(game, blankHistory());
+                history = new HistoryManager(game, config, blankHistory());
 
                 jest.spyOn(history, "commitRun");
 
@@ -147,7 +148,7 @@ describe("Latest run", () => {
             beforeEach(() => {
                 game = new Game(makeGameState({ reset: 125, days: 456 }));
                 config = makeConfig(game);
-                history = new HistoryManager(game, blankHistory());
+                history = new HistoryManager(game, config, blankHistory());
 
                 jest.spyOn(history, "commitRun");
 

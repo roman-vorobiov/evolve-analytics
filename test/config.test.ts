@@ -2,7 +2,7 @@ import { describe, expect, it, beforeEach } from "@jest/globals";
 import { LocalStorageMock, makeGameState } from "./fixture";
 
 import { Game } from "../src/game";
-import { ConfigManager } from "../src/config";
+import { ConfigManager, type Config } from "../src/config";
 import type { View, ViewConfig } from "../src/config";
 
 function makeView(milestones: string[]): ViewConfig {
@@ -10,13 +10,15 @@ function makeView(milestones: string[]): ViewConfig {
         mode: "filled",
         resetType: "blackhole",
         universe: "standard",
-        milestones: Object.fromEntries(milestones.map(m => [m, true]))
+        milestones: Object.fromEntries(milestones.map(m => [m, true])),
+        additionalInfo: []
     };
 }
 
-function makeConfig(milestoneSets: string[][]) {
+function makeConfig(milestoneSets: string[][]): Config {
     return {
         version: 4,
+        recordRuns: true,
         views: milestoneSets.map(makeView)
     }
 }
@@ -102,7 +104,8 @@ describe("Config", () => {
             universe: "standard",
             milestones: {
                 "reset:ascend": true
-            }
+            },
+            additionalInfo: []
         });
     });
 
@@ -143,7 +146,8 @@ describe("Config", () => {
             universe: "magic",
             milestones: {
                 "reset:blackhole": true
-            }
+            },
+            additionalInfo: []
         });
     });
 
@@ -167,7 +171,8 @@ describe("Config", () => {
             milestones: {
                 "reset:blackhole": true,
                 "tech:club": true
-            }
+            },
+            additionalInfo: []
         });
     });
 
@@ -188,7 +193,8 @@ describe("Config", () => {
             mode: "filled",
             resetType: "blackhole",
             universe: "standard",
-            milestones: {}
+            milestones: {},
+            additionalInfo: []
         });
     });
 
@@ -211,7 +217,8 @@ describe("Config", () => {
             universe: "standard",
             milestones: {
                 "reset:blackhole": false
-            }
+            },
+            additionalInfo: []
         });
     });
 
@@ -242,7 +249,8 @@ describe("Config", () => {
             universe: "standard",
             milestones: {
                 "reset:matrix": true
-            }
+            },
+            additionalInfo: []
         });
     });
 

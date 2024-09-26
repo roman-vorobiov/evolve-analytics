@@ -1,15 +1,18 @@
 import { saveHistory, loadHistory } from "./database";
 import { inferResetType, type LatestRun } from "./runTracking";
+import { shouldIncludeRun } from "./exports/historyFiltering";
 import { Subscribable } from "./subscribable";
 import { rotateMap } from "./utils"
 import type { Game } from "./game";
+import type { ConfigManager } from "./config";
 
 export type MilestoneReference = [number, number];
 
 export type HistoryEntry = {
     run: number,
     universe: string,
-    milestones: MilestoneReference[]
+    milestones: MilestoneReference[],
+    raceName?: string
 }
 
 export type RunHistory = {
@@ -19,13 +22,15 @@ export type RunHistory = {
 
 export class HistoryManager extends Subscribable {
     private game: Game;
+    private config: ConfigManager;
     private history: RunHistory;
     public milestones: Record<number, string>;
 
-    constructor(game: Game, history: RunHistory) {
+    constructor(game: Game, config: ConfigManager, history: RunHistory) {
         super();
 
         this.game = game;
+        this.config = config;
         this.history = history;
         this.milestones = rotateMap(history.milestones);
 
@@ -58,12 +63,15 @@ export class HistoryManager extends Subscribable {
             [this.getMilestoneID(`reset:${resetType}`), runStats.totalDays]
         ];
 
-        this.history.runs.push({
+        const entry: HistoryEntry = {
             run: runStats.run,
             universe: runStats.universe,
             milestones
-        });
+        };
 
+        this.augmentEntry(entry, runStats);
+
+        this.history.runs.push(entry);
         this.emit("updated", this);
     }
 
@@ -84,6 +92,15 @@ export class HistoryManager extends Subscribable {
 
         return id;
     }
+
+    private augmentEntry(entry: HistoryEntry, runStats: LatestRun) {
+        const views = this.config.views.filter(v => shouldIncludeRun(entry, v, this));
+        const infoKeys = [...new Set(views.flatMap(v => v.additionalInfo))];
+
+        for (const key of infoKeys) {
+            entry[key] = runStats[key];
+        }
+    }
 }
 
 export function blankHistory(): RunHistory {
@@ -93,8 +110,8 @@ export function blankHistory(): RunHistory {
     }
 }
 
-export function initializeHistory(game: Game): HistoryManager {
+export function initializeHistory(game: Game, config: ConfigManager): HistoryManager {
     const history = loadHistory() ?? blankHistory();
 
-    return new HistoryManager(game, history);
+    return new HistoryManager(game, config, history);
 }

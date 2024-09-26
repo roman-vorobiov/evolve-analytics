@@ -100,6 +100,21 @@ export function makeNumberInput(placeholder: string, defaultValue?: number) {
     return node;
 }
 
+export function makeCheckbox(id: string, label: string, initialState: boolean, onStateChange: (value: boolean) => void) {
+    const node = $(`
+        <form>
+            <input type="checkbox" id="${id}" ${initialState ? "checked" : ""}>
+            <label for="${id}">${label}</label>
+        </form>
+    `);
+
+    node.find("input").on("change", function() {
+        onStateChange(this.checked);
+    });
+
+    return node;
+}
+
 export function makeToggle(label: string, initialState: boolean, onStateChange: (value: boolean) => void) {
     const node = $(`
         <label class="switch setting is-rounded">

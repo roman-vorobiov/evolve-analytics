@@ -21,6 +21,14 @@ export class Game {
         return this.evolve.global.race.universe;
     }
 
+    get raceName() {
+        return this.evolve.races[this.evolve.global.race.species].name;
+    }
+
+    get finishedEvolution() {
+        return this.evolve.global.race.species !== "protoplasm"
+    }
+
     get resetCounts(): Record<keyof typeof resets, number> {
         return transformMap(resets, ([reset]) => [reset, this.evolve.global.stats[reset] ?? 0]);
     }

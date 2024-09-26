@@ -3,7 +3,19 @@ import { LocalStorageMock, makeGameState } from "./fixture";
 
 import { loadHistory } from "../src/database";
 import { Game } from "../src/game";
-import { HistoryManager, blankHistory, type HistoryEntry } from "../src/history";
+import { HistoryManager, blankHistory, type RunHistory, type HistoryEntry } from "../src/history";
+import { ConfigManager } from "../src/config";
+import type { LatestRun } from "../src/runTracking";
+
+function makeHistory(game: Game, history: RunHistory): HistoryManager {
+    const config = new ConfigManager(game, {
+        version: 5,
+        recordRuns: true,
+        views: []
+    });
+
+    return new HistoryManager(game, config, history);
+}
 
 describe("History", () => {
     beforeEach(() => {
@@ -16,7 +28,7 @@ describe("History", () => {
     describe("New entry", () => {
         it("should update the storage", () => {
             const game = new Game(makeGameState({ bioseed: 1 }));
-            const history = new HistoryManager(game, blankHistory());
+            const history = makeHistory(game, blankHistory());
 
             history.commitRun({ run: 123, universe: "standard", resets: {}, totalDays: 456, milestones: {} });
             history.commitRun({ run: 124, universe: "standard", resets: {}, totalDays: 789, milestones: {} });
@@ -45,7 +57,7 @@ describe("History", () => {
 
         it("should add the reset point as a milestone", () => {
             const game = new Game(makeGameState({ bioseed: 1 }));
-            const history = new HistoryManager(game, blankHistory());
+            const history = makeHistory(game, blankHistory());
 
             history.commitRun({ run: 123, universe: "standard", resets: {}, totalDays: 456, milestones: {} });
 
@@ -64,7 +76,7 @@ describe("History", () => {
 
         it("should reuse existing milestone IDs", () => {
             const game = new Game(makeGameState({ bioseed: 1 }));
-            const history = new HistoryManager(game, {
+            const history = makeHistory(game, {
                 milestones: {
                     "reset:bioseed": 789
                 },
@@ -88,7 +100,7 @@ describe("History", () => {
 
         it("should add all milestones", () => {
             const game = new Game(makeGameState({ bioseed: 1 }));
-            const history = new HistoryManager(game, {
+            const history = makeHistory(game, {
                 milestones: {
                     "tech:club": 0
                 },
@@ -120,9 +132,55 @@ describe("History", () => {
             });
         });
 
+        describe("Additional info", () => {
+            let game: Game;
+            let config: ConfigManager;
+            let history: HistoryManager;
+            let run: LatestRun;
+
+            beforeEach(() => {
+                game = new Game(makeGameState({ bioseed: 1 }));
+
+                config = new ConfigManager(game, {
+                    version: 5,
+                    recordRuns: true,
+                    views: []
+                });
+
+                history = new HistoryManager(game, config, blankHistory());
+
+                run = {
+                    run: 123,
+                    universe: "magic",
+                    raceName: "Hello",
+                    resets: {},
+                    totalDays: 456,
+                    milestones: {}
+                };
+            });
+
+            it("should not add info if no matching views request it", () => {
+                const view = config.addView();
+                view.toggleAdditionalInfo("raceName");
+
+                history.commitRun(run);
+                expect(history.runs[0].raceName).toBeUndefined();
+            });
+
+            it("should add info if a matching view requests it", () => {
+                const view = config.addView();
+                view.universe = "magic";
+                view.resetType = "bioseed";
+                view.toggleAdditionalInfo("raceName");
+
+                history.commitRun(run);
+                expect(history.runs[0].raceName).toBe("Hello");
+            });
+        });
+
         it("should not affect existing runs", () => {
             const game = new Game(makeGameState({ bioseed: 1 }));
-            const history = new HistoryManager(game, {
+            const history = makeHistory(game, {
                 milestones: {
                     "tech:club": 0,
                     "reset:mad": 1

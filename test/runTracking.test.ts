@@ -4,7 +4,7 @@ import { LocalStorageMock } from "./fixture";
 import { loadLatestRun } from "../src/database";
 import { Game } from "../src/game";
 import { trackMilestones } from "../src/runTracking";
-import { ConfigManager } from "../src/config";
+import { ConfigManager, type ViewConfig } from "../src/config";
 import type { Evolve, BuildingInfoTabs } from "../src/evolve";
 
 function nextDay(evolve: Evolve) {
@@ -14,7 +14,10 @@ function nextDay(evolve: Evolve) {
 }
 
 function makeGameState(buildings: Partial<BuildingInfoTabs>): Evolve {
-    return <Evolve> {
+    return {
+        races: {
+            foo: { name: "Foo" }
+        },
         global: {
             stats: {
                 reset: 123,
@@ -22,21 +25,24 @@ function makeGameState(buildings: Partial<BuildingInfoTabs>): Evolve {
                 days: 1
             },
             race: {
+                species: "foo",
                 universe: "standard"
             },
             ...buildings
         }
-    };
+    } as any as Evolve;
 }
 
 function makeConfig(game: Game, milestones: string[]): ConfigManager {
     return new ConfigManager(game, {
         version: 4,
+        recordRuns: true,
         views: [
             {
                 mode: "filled",
                 resetType: "mad",
-                milestones: Object.fromEntries(milestones.map(m => [m, true]))
+                milestones: Object.fromEntries(milestones?.map(m => [m, true]) ?? []),
+                additionalInfo: []
             }
         ]
     });
@@ -135,5 +141,18 @@ describe("Run tracking", () => {
 
         nextDay(evolve);
         expect(loadLatestRun()?.totalDays).toEqual(2);
+    });
+
+    it("should gather additional info", () => {
+        const evolve = makeGameState({});
+        const game = new Game(evolve);
+        const config = makeConfig(game, []);
+
+        trackMilestones(game, config);
+
+        expect(loadLatestRun()).toBe(null);
+
+        nextDay(evolve);
+        expect(loadLatestRun()?.raceName).toEqual("Foo");
     });
 });

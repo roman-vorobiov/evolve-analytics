@@ -1,6 +1,6 @@
 import { saveConfig, loadConfig } from "./database";
 import { Subscribable } from "./subscribable";
-import type { resets, universes, viewModes } from "./enums";
+import type { resets, universes, viewModes, additionalInformation } from "./enums";
 import type { Game } from "./game";
 
 export type ViewConfig = {
@@ -9,18 +9,20 @@ export type ViewConfig = {
     mode: keyof typeof viewModes,
     daysScale?: number,
     numRuns?: number,
-    milestones: Record<string, boolean>
+    milestones: Record<string, boolean>,
+    additionalInfo: Array<keyof typeof additionalInformation>
 }
 
 export type View = ViewConfig & {
     toggleMilestone(milestone: string): void;
     addMilestone(milestone: string): void;
     removeMilestone(milestone: string): void;
+    toggleAdditionalInfo(key: keyof typeof additionalInformation): void;
 }
 
 export type Config = {
     version: number,
-    recordRuns?: boolean,
+    recordRuns: boolean,
     views: ViewConfig[]
 }
 
@@ -48,6 +50,18 @@ function makeViewProxy(config: ConfigManager, view: ViewConfig): View {
                         delete view.milestones[milestone];
                         config.emit("viewUpdated", receiver);
                     }
+                };
+            }
+            if (prop === "toggleAdditionalInfo") {
+                return (key: keyof typeof additionalInformation) => {
+                    const idx = view.additionalInfo.indexOf(key);
+                    if (idx !== -1) {
+                        view.additionalInfo.splice(idx, 1);
+                    }
+                    else {
+                        view.additionalInfo.push(key);
+                    }
+                    config.emit("viewUpdated", receiver);
                 };
             }
             else {
@@ -91,7 +105,7 @@ export class ConfigManager extends Subscribable {
     }
 
     get recordRuns() {
-        return this.config.recordRuns ?? true;
+        return this.config.recordRuns;
     }
 
     set recordRuns(value: boolean) {
@@ -101,12 +115,18 @@ export class ConfigManager extends Subscribable {
         }
     }
 
+    get additionalInfoToTrack() {
+        const unique = new Set(this.views.flatMap(v => v.additionalInfo));
+        return [...unique];
+    }
+
     addView() {
         const view: ViewConfig = {
             resetType: "ascend",
             universe: this.game.universe,
             mode: "bars",
-            milestones: { "reset:ascend": true }
+            milestones: { "reset:ascend": true },
+            additionalInfo: []
         };
 
         const proxy = makeViewProxy(this, view);
@@ -115,6 +135,8 @@ export class ConfigManager extends Subscribable {
         this.views.push(proxy);
 
         this.emit("viewAdded", proxy);
+
+        return proxy;
     }
 
     removeView(view: View) {
@@ -138,6 +160,6 @@ export class ConfigManager extends Subscribable {
 }
 
 export function getConfig(game: Game) {
-    const config = loadConfig() ?? { version: 5, paused: false, views: [] };
+    const config = loadConfig() ?? { version: 5, recordRuns: false, views: [] };
     return new ConfigManager(game, config);
 }

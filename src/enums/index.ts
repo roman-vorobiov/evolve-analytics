@@ -36,3 +36,7 @@ export const viewModes = {
     "segmented": "Segmented",
     "barsSegmented": "Segmented (bars)"
 };
+
+export const additionalInformation = {
+    "raceName": "Race Name"
+};

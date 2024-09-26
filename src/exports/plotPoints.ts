@@ -8,7 +8,8 @@ export type PlotPoint = {
     milestone: string,
     day: number,
     dayDiff?: number, // days since the last enabled non-event milestone
-    segment: number // days since the last non-event milestone
+    segment: number, // days since the last non-event milestone
+    raceName?: string
 }
 
 function makeMilestoneNamesMapping(history: HistoryManager, view: ViewConfig): Record<number, string> {
@@ -29,11 +30,13 @@ export function asPlotPoints(filteredRuns: HistoryEntry[], history: HistoryManag
     const entries: PlotPoint[] = [];
 
     for (let i = 0; i !== filteredRuns.length; ++i) {
+        const run = filteredRuns[i];
+
         // Events have their separate segmentation logic
         const events: MilestoneReference[] = [];
         const nonEvents: MilestoneReference[] = [];
 
-        for (const [milestoneID, day] of filteredRuns[i].milestones) {
+        for (const [milestoneID, day] of run.milestones) {
             if (!(milestoneID in milestones)) {
                 continue;
             }
@@ -53,6 +56,7 @@ export function asPlotPoints(filteredRuns: HistoryEntry[], history: HistoryManag
 
             entries.push({
                 run: i,
+                raceName: run.raceName,
                 milestone: milestoneNames[milestoneID],
                 day,
                 segment: day
@@ -76,6 +80,7 @@ export function asPlotPoints(filteredRuns: HistoryEntry[], history: HistoryManag
 
             entries.push({
                 run: i,
+                raceName: run.raceName,
                 milestone: milestoneNames[milestoneID],
                 day,
                 dayDiff,

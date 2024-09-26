@@ -1,8 +1,7 @@
 import { buildings, resets, techs, universes, viewModes } from "../enums";
-import { saveConfig, saveHistory, loadHistory, saveCurrentRun, loadLatestRun, discardLatestRun } from "../database";
 import { milestoneName } from "../milestones";
 import { rotateMap, transformMap, lazyLoad } from "../utils";
-import type { Config as Config4 } from "../config";
+import type { Config4 } from "./4";
 import type { HistoryEntry, RunHistory } from "../history";
 import type { LatestRun as LatestRun4 } from "../runTracking";
 
@@ -13,7 +12,7 @@ type ResetMilestone = ["Reset", /*name*/ string];
 
 type Milestone = [...(BuiltMilestone | ResearchedMilestone | EventMilestone | ResetMilestone), /*enabled*/ boolean];
 
-type ViewConfig = {
+type ViewConfig3 = {
     resetType: string,
     universe?: keyof typeof universes,
     mode: string,
@@ -22,12 +21,12 @@ type ViewConfig = {
     milestones: Milestone[]
 }
 
-type Config = {
+export type Config3 = {
     version: number,
-    views: ViewConfig[]
+    views: ViewConfig3[]
 }
 
-export function migrateConfig(config: Config): Config4 {
+export function migrateConfig(config: Config3): Config4 {
     const resetIDs = rotateMap(resets);
     const viewModeIDs = rotateMap(viewModes);
 
@@ -164,7 +163,7 @@ export function migrateHistory(history: RunHistory, config: Config4): RunHistory
     };
 }
 
-type LatestRun = {
+export type LatestRun3 = {
     run: number,
     universe: keyof typeof universes,
     resets: Record<string, number>,
@@ -172,7 +171,7 @@ type LatestRun = {
     milestones: Record<string, number>
 }
 
-export function migrateLatestRun(latestRun: LatestRun, config: Config4, history: RunHistory): LatestRun4 | undefined {
+export function migrateLatestRun(latestRun: LatestRun3, config: Config4, history: RunHistory): LatestRun4 | null {
     const resetIDs = rotateMap(resets);
 
     const newRun: LatestRun4 = {
@@ -189,7 +188,7 @@ export function migrateLatestRun(latestRun: LatestRun, config: Config4, history:
 
     const lastRecordedRun = history.runs[history.runs.length - 1];
     if (lastRecordedRun === undefined) {
-        return;
+        return null;
     }
 
     const milestones = rotateMap(history.milestones);
@@ -211,7 +210,7 @@ export function migrateLatestRun(latestRun: LatestRun, config: Config4, history:
     });
 
     if (views.length === 0) {
-        return;
+        return null;
     }
 
     const milestonesByName = Object.fromEntries(views.flatMap(v => Object.keys(v.milestones).map(m => [milestoneName(m)[0], m])));
@@ -227,26 +226,24 @@ export function migrateLatestRun(latestRun: LatestRun, config: Config4, history:
     });
 
     if ("" in newRun.milestones) {
-        return;
+        return null;
     }
 
     return newRun;
 }
 
-export function migrate(config: Config) {
+export function migrate3(config: Config3, history: RunHistory | null, latestRun: LatestRun3 | null): [Config4, RunHistory | null, LatestRun4 | null] {
     const newConfig = migrateConfig(config);
-    saveConfig(newConfig);
 
-    const history = loadHistory();
-    const newHistory = migrateHistory(history!, newConfig);
-    saveHistory(newHistory);
+    let newHistory: RunHistory | null = null;
+    if (history !== null) {
+        newHistory = migrateHistory(history, newConfig);
+    }
 
-    const latestRun = loadLatestRun();
-    const newLatestRun = migrateLatestRun(latestRun! as any, newConfig, newHistory);
-    if (newLatestRun !== undefined) {
-        saveCurrentRun(newLatestRun);
+    let newLatestRun: LatestRun3 | null = null;
+    if (latestRun !== null && newHistory !== null) {
+        newLatestRun = migrateLatestRun(latestRun, newConfig, newHistory);
     }
-    else {
-        discardLatestRun();
-    }
+
+    return [newConfig, newHistory, newLatestRun];
 }

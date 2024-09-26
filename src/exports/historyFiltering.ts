@@ -7,7 +7,7 @@ function getResetType(entry: HistoryEntry, history: HistoryManager) {
     return milestone.slice(6); // strip away the leading "reset:"
 }
 
-function shouldIncludeRun(entry: HistoryEntry, view: ViewConfig, history: HistoryManager) {
+export function shouldIncludeRun(entry: HistoryEntry, view: ViewConfig, history: HistoryManager) {
     if (view.universe !== undefined && entry.universe !== view.universe) {
         return false;
     }

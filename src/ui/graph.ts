@@ -98,13 +98,23 @@ function* barMarks(plotPoints: PlotPoint[], key: "dayDiff" | "segment") {
     });
 }
 
+function tipText(point: PlotPoint, key: "day" | "dayDiff" | "segment", history: HistoryEntry[]) {
+    let prefix = `Run #${history[point.run].run}`;
+
+    if (point.raceName !== undefined) {
+        prefix += ` (${point.raceName})`;
+    }
+
+    return `${prefix}: ${point.milestone} in ${point[key]} day(s)`;
+}
+
 function* linePointerMarks(plotPoints: PlotPoint[], key: "day" | "segment", history: HistoryEntry[]) {
     yield Plot.text(plotPoints, Plot.pointerX({
         px: "run",
         py: key,
         dy: -17,
         frameAnchor: "top-left",
-        text: (p: PlotPoint) => `Run #${history[p.run].run}: ${p.milestone} in ${p[key]} day(s)`
+        text: (p: PlotPoint) => tipText(p, key, history)
     }));
 
     yield Plot.ruleX(plotPoints, Plot.pointerX({
@@ -134,7 +144,7 @@ function* rectPointerMarks(plotPoints: PlotPoint[], key: "dayDiff" | "segment", 
         y: key,
         dy: -17,
         frameAnchor: "top-left",
-        text: (p: PlotPoint) => `Run #${history[p.run].run}: ${p.milestone} in ${p.day} day(s)`
+        text: (p: PlotPoint) => tipText(p, key, history)
     })));
 
     yield Plot.barY(plotPoints, Plot.pointerX(Plot.stackY({
