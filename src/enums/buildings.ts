@@ -374,6 +374,11 @@ export const buildings: Record<string, string> = {
     "portal-cooling_tower": "Lake Cooling Tower",
     "portal-bireme": "Lake Bireme Warship",
     "portal-transport": "Lake Transport",
+    "portal-oven": "Lake Cooker (Fasting)",
+    "portal-oven_complete": "Lake Cooker (Fasting, Complete)",
+    "portal-dish_soul_steeper": "Lake Soul Steeper (Fasting)",
+    "portal-dish_life_infuser": "Lake Life Infuser (Fasting)",
+    "portal-devilish_dish": "Lake Devilish Dish (Fasting)",
 
     "portal-spire_mission": "Spire Mission",
     "portal-purifier": "Spire Purifier",
