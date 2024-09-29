@@ -269,4 +269,20 @@ describe("Config", () => {
 
         expect(modifiedView).toBeUndefined();
     });
+
+    it("should remember last opened view", () => {
+        const game = new Game(makeGameState({}));
+        const config = new ConfigManager(game, makeConfig([]));
+
+        const view1 = config.addView();
+        const view2 = config.addView();
+
+        expect(config.openViewIndex).toBeUndefined();
+
+        config.onViewOpened(view2);
+        expect(config.openViewIndex).toBe(1);
+
+        config.onViewOpened(view1);
+        expect(config.openViewIndex).toBe(0);
+    });
 });

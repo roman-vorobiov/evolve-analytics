@@ -40,6 +40,10 @@ export function buildAnalyticsTab(config: ConfigManager, history: HistoryManager
 
         const [controlNode, contentNode] = makeViewTab(id, view, config, history);
 
+        controlNode.on("click", () => {
+            config.onViewOpened(view);
+        });
+
         controlNode.insertBefore(lastChild(analyticsPanel.find("> nav > ul")));
         analyticsPanel.append(contentNode);
         analyticsPanel.tabs("refresh");
@@ -99,5 +103,5 @@ export function buildAnalyticsTab(config: ConfigManager, history: HistoryManager
         }
     });
 
-    analyticsPanel.tabs({ active: 0 });
+    analyticsPanel.tabs({ active: config.openViewIndex ?? 0 });
 }

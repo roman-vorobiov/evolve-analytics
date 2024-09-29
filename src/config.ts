@@ -23,6 +23,7 @@ export type View = ViewConfig & {
 export type Config = {
     version: number,
     recordRuns: boolean,
+    lastOpenViewIndex?: number,
     views: ViewConfig[]
 }
 
@@ -118,6 +119,18 @@ export class ConfigManager extends Subscribable {
     get additionalInfoToTrack() {
         const unique = new Set(this.views.flatMap(v => v.additionalInfo));
         return [...unique];
+    }
+
+    get openViewIndex() {
+        return this.config.lastOpenViewIndex;
+    }
+
+    onViewOpened(view: View) {
+        const idx = this.views.indexOf(view);
+        this.config.lastOpenViewIndex = idx === -1 ? undefined : idx;
+
+        // don't emit an event as this is purely a visual thing
+        saveConfig(this.config);
     }
 
     addView() {
