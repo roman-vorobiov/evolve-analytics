@@ -9,7 +9,7 @@ export function makeAdditionalInfoSettings(view: View) {
 
     for (const [key, value] of Object.entries(additionalInformation)) {
         const enabled = view.additionalInfo.includes(key as any);
-        node.append(makeCheckbox(key, value, enabled, () => { view.toggleAdditionalInfo(key as any); }));
+        node.append(makeCheckbox(value, enabled, () => { view.toggleAdditionalInfo(key as any); }));
     }
 
     return node;

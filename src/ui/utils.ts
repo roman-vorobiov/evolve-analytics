@@ -100,12 +100,12 @@ export function makeNumberInput(placeholder: string, defaultValue?: number) {
     return node;
 }
 
-export function makeCheckbox(id: string, label: string, initialState: boolean, onStateChange: (value: boolean) => void) {
+export function makeCheckbox(label: string, initialState: boolean, onStateChange: (value: boolean) => void) {
     const node = $(`
-        <form>
-            <input type="checkbox" id="${id}" ${initialState ? "checked" : ""}>
-            <label for="${id}">${label}</label>
-        </form>
+        <label>
+            <input type="checkbox" ${initialState ? "checked" : ""}>
+            ${label}
+        </label>
     `);
 
     node.find("input").on("change", function() {
