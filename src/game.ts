@@ -22,7 +22,9 @@ export class Game {
     }
 
     get raceName() {
-        return this.evolve.races[this.evolve.global.race.species].name;
+        if (this.finishedEvolution) {
+            return this.evolve.races[this.evolve.global.race.species].name;
+        }
     }
 
     get finishedEvolution() {

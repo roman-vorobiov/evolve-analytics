@@ -7,6 +7,7 @@ import type { RecursivePartial } from "../src/utils";
 
 function makeGameState(global: RecursivePartial<Evolve["global"]>): Evolve {
     return <Evolve> {
+        races: {},
         global
     }
 }
@@ -37,6 +38,22 @@ describe("Game queries", () => {
         const game = new Game(makeGameState({ race: { universe: "heavy" } }));
 
         expect(game.universe).toBe("heavy");
+    });
+
+    it("should provide current race name", () => {
+        const evolve = makeGameState({ race: { species: "entish" } });
+        evolve.races["entish"] = { name: "Ent" };
+        const game = new Game(evolve);
+
+        expect(game.raceName).toBe("Ent");
+    });
+
+    it("should not provide a race name during the evolution stage", () => {
+        const evolve = makeGameState({ race: { species: "protoplasm" } });
+        evolve.races["protoplasm"] = { name: "Protoplasm" };
+        const game = new Game(evolve);
+
+        expect(game.raceName).toBeUndefined();
     });
 
     it("should provide reset counts", () => {
