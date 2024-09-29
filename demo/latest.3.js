@@ -1,8 +1,8 @@
 const latestRun = {
-    run: 626,
-    universe: "heavy",
-    totalDays: 179,
-    resets: {
+    "run": 626,
+    "universe": "heavy",
+    "totalDays": 179,
+    "resets": {
         "MAD": 234,
         "Bioseed": 47,
         "Cataclysm": 2,
@@ -15,7 +15,7 @@ const latestRun = {
         "Garden of Eden": 1,
         "Terraform": 1
     },
-    milestones: {
+    "milestones": {
         "Womlings arrival": 10,
         "Launch Facility": 96
     }
