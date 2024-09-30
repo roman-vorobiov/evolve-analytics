@@ -1,12 +1,13 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.6.0
+// @version      0.6.1
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
 // @require      https://cdn.jsdelivr.net/npm/d3@7
 // @require      https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6
+// @require      https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.min.js
 // @require      https://code.jquery.com/jquery-3.7.1.min.js
 // @require      https://code.jquery.com/ui/1.12.1/jquery-ui.min.js
 // @grant        none
@@ -2300,6 +2301,46 @@
         return node;
     }
 
+    async function withCSSOverrides(overrides, callback) {
+        const overridesList = [];
+        for (const [query, props] of Object.entries(overrides)) {
+            const nodes = $(query);
+            for (const [rule, value] of Object.entries(props)) {
+                for (const node of nodes) {
+                    overridesList.push({ node, rule, original: node.style[rule], override: value });
+                }
+            }
+        }
+        for (const { node, rule, override } of overridesList) {
+            $(node).css(rule, override);
+        }
+        const result = await callback();
+        for (const { node, rule, original } of overridesList) {
+            $(node).css(rule, original);
+        }
+        return result;
+    }
+    async function copyToClipboard(node) {
+        const isParent = (element) => node.closest(element).length !== 0;
+        const isChild = (element) => $(element).closest(node).length !== 0;
+        const cssOverrides = {
+            "html": { width: "1000px", height: "550px" },
+            "#mainColumn": { width: "100%" },
+            ".vscroll": { height: "100%" },
+            ".tab-item": { padding: "0" }
+        };
+        const blob = await withCSSOverrides(cssOverrides, () => {
+            return htmlToImage.toBlob($("html")[0], {
+                width: 1000,
+                height: 550,
+                skipFonts: true,
+                filter: element => isParent(element) || isChild(element)
+            });
+        });
+        await navigator.clipboard.write([
+            new ClipboardItem({ "image/png": blob })
+        ]);
+    }
     function viewTitle(view) {
         let title = resets[view.resetType];
         if (view.universe !== undefined) {
@@ -2310,23 +2351,31 @@
     function makeViewTab(id, view, config, history) {
         const controlNode = $(`<li><a href="#${id}">${viewTitle(view)}</a></li>`);
         const contentNode = $(`<div id="${id}" class="vscroll" style="height: calc(100vh - 10rem)"></div>`);
-        const removeViewNode = $(`<button class="button right" style="margin-right: 1em">Delete View</button>`)
+        const removeViewNode = $(`<button class="button">Delete View</button>`)
             .on("click", () => { config.removeView(view); });
         let selectedRun = null;
-        const discardRunNode = $(`<button class="button" style="margin-right: 1em">Discard Run</button>`)
+        const discardRunNode = $(`<button class="button">Discard Run</button>`)
             .on("click", () => { history.discardRun(selectedRun); })
             .hide();
+        const asImageNode = $(`<button class="button">Copy as PNG</button>`)
+            .on("click", async () => {
+            const figure = contentNode.find("> figure");
+            await copyToClipboard(figure);
+        });
         function onRunSelection(run) {
             selectedRun = run;
             discardRunNode.toggle(selectedRun !== null);
         }
+        const buttonsContainerNode = $(`<div style="display: flex; justify-content: space-between"></div>`)
+            .append(asImageNode)
+            .append(discardRunNode)
+            .append(removeViewNode);
         contentNode
             .append(makeViewSettings(view).css("margin-bottom", "1em"))
             .append(makeAdditionalInfoSettings(view).css("margin-bottom", "1em"))
             .append(makeMilestoneSettings(view).css("margin-bottom", "1em"))
             .append(makeGraph(history, view, onRunSelection))
-            .append(discardRunNode)
-            .append(removeViewNode);
+            .append(buttonsContainerNode);
         config.on("viewUpdated", compose([weakFor(view), invokeFor(view)], (updatedView) => {
             controlNode.find("> a").text(viewTitle(updatedView));
             contentNode.find("figure:last").replaceWith(makeGraph(history, updatedView, onRunSelection));
