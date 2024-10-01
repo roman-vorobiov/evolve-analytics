@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.6.1
+// @version      0.6.2
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -1379,7 +1379,7 @@
 
     function migrate4(config) {
         return {
-            version: 5,
+            version: 6,
             recordRuns: config.recordRuns ?? true,
             views: config.views.map(view => {
                 return {
@@ -1402,7 +1402,7 @@
             [config, history, latestRun] = migrate3(config, loadHistory(), loadLatestRun());
             migrated = true;
         }
-        if (config.version < 5) {
+        if (config.version < 6) {
             config = migrate4(config);
             migrated = true;
         }
@@ -1626,7 +1626,7 @@
         }
     }
     function getConfig(game) {
-        const config = loadConfig() ?? { version: 5, recordRuns: false, views: [] };
+        const config = loadConfig() ?? { version: 6, recordRuns: true, views: [] };
         return new ConfigManager(game, config);
     }
 
