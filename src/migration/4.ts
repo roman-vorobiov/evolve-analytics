@@ -22,8 +22,8 @@ export function migrate4(config: Config4): Config6 {
         recordRuns: config.recordRuns ?? true,
         views: config.views.map(view => {
             return {
-                ...view,
-                additionalInfo: []
+                additionalInfo: [],
+                ...view
             };
         })
     };
