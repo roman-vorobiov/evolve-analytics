@@ -18,7 +18,7 @@ export function migrate() {
         migrated = true;
     }
 
-    if (config.version < 5) {
+    if (config.version < 6) {
         config = migrate4(config);
         migrated = true;
     }

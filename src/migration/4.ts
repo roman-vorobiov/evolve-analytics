@@ -1,5 +1,5 @@
 import type { resets, universes, viewModes } from "../enums";
-import type { Config as Config5 } from "../config";
+import type { Config as Config6 } from "../config";
 
 export type ViewConfig4 = {
     resetType: keyof typeof resets,
@@ -16,9 +16,9 @@ export type Config4 = {
     views: ViewConfig4[]
 }
 
-export function migrate4(config: Config4): Config5 {
+export function migrate4(config: Config4): Config6 {
     return {
-        version: 5,
+        version: 6,
         recordRuns: config.recordRuns ?? true,
         views: config.views.map(view => {
             return {

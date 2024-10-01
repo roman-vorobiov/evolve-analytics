@@ -3,7 +3,7 @@ import { describe, expect, it } from "@jest/globals";
 import { migrate4 } from "../src/migration/4";
 
 describe("Migration", () => {
-    describe("4 -> 5", () => {
+    describe("4 -> 6", () => {
         it("should force the recordRuns field", () => {
             const oldConfig = {
                 version: 4,
@@ -11,7 +11,7 @@ describe("Migration", () => {
             };
 
             expect(migrate4(oldConfig as any)).toEqual({
-                version: 5,
+                version: 6,
                 recordRuns: true,
                 views: []
             });
@@ -30,7 +30,7 @@ describe("Migration", () => {
             };
 
             expect(migrate4(oldConfig as any)).toEqual({
-                version: 5,
+                version: 6,
                 recordRuns: true,
                 views: [
                     {
