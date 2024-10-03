@@ -80,7 +80,7 @@ export function makeViewTab(id: string, view: View, config: ConfigManager, histo
 
     const discardRunNode = $(`<button class="button">Discard Run</button>`)
         .on("click", () => { history.discardRun(selectedRun!); })
-        .hide();
+        .attr("disabled", "");
 
     const asImageNode = $(`<button class="button">Copy as PNG</button>`)
         .on("click", async () => {
@@ -90,7 +90,7 @@ export function makeViewTab(id: string, view: View, config: ConfigManager, histo
 
     function onRunSelection(run: HistoryEntry | null) {
         selectedRun = run;
-        discardRunNode.toggle(selectedRun !== null);
+        discardRunNode.attr("disabled", selectedRun === null ? "" : null);
     }
 
     const buttonsContainerNode = $(`<div style="display: flex; justify-content: space-between"></div>`)
