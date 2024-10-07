@@ -1,9 +1,10 @@
 import { resets, universes } from "../enums";
-import { weakFor, invokeFor, compose, transformMap } from "../utils";
+import { weakFor, invokeFor, compose } from "../utils";
 import { makeGraph } from "./graph";
 import { makeViewSettings } from "./viewSettings";
 import { makeMilestoneSettings } from "./milestoneSettings";
 import { makeAdditionalInfoSettings } from "./additionalInfoSettings";
+import { nextAnimationFrame } from "./utils";
 import type { ConfigManager, View } from "../config";
 import type { HistoryEntry, HistoryManager } from "../history";
 
@@ -83,9 +84,16 @@ export function makeViewTab(id: string, view: View, config: ConfigManager, histo
         .attr("disabled", "");
 
     const asImageNode = $(`<button class="button">Copy as PNG</button>`)
-        .on("click", async () => {
+        .on("click", async function() {
+            $(this).text("Rendering...");
+
+            // For some reason awaiting htmlToImage.toBlob prevents UI from updating
+            await nextAnimationFrame();
+
             const figure = contentNode.find("> figure");
             await copyToClipboard(figure);
+
+            $(this).text("Copy as PNG");
         });
 
     function onRunSelection(run: HistoryEntry | null) {

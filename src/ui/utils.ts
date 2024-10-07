@@ -25,6 +25,14 @@ export function waitFor(query: string) {
     });
 }
 
+export async function nextAnimationFrame() {
+    return new Promise((resolve) => {
+        requestAnimationFrame(() => {
+            requestAnimationFrame(resolve);
+        });
+    });
+}
+
 export function lastChild(node: JQuery) {
     const children = node.children();
     const length = children.length;
