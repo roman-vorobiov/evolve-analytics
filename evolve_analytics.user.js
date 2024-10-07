@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.6.4
+// @version      0.6.5
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -2132,6 +2132,13 @@
             });
         });
     }
+    async function nextAnimationFrame() {
+        return new Promise((resolve) => {
+            requestAnimationFrame(() => {
+                requestAnimationFrame(resolve);
+            });
+        });
+    }
     function lastChild(node) {
         const children = node.children();
         const length = children.length;
@@ -2358,9 +2365,13 @@
             .on("click", () => { history.discardRun(selectedRun); })
             .attr("disabled", "");
         const asImageNode = $(`<button class="button">Copy as PNG</button>`)
-            .on("click", async () => {
+            .on("click", async function () {
+            $(this).text("Rendering...");
+            // For some reason awaiting htmlToImage.toBlob prevents UI from updating
+            await nextAnimationFrame();
             const figure = contentNode.find("> figure");
             await copyToClipboard(figure);
+            $(this).text("Copy as PNG");
         });
         function onRunSelection(run) {
             selectedRun = run;
