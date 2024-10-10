@@ -1,5 +1,6 @@
 import { saveCurrentRun, loadLatestRun, discardLatestRun } from "./database";
 import { makeMilestoneChecker, type MilestoneChecker } from "./milestones";
+import { filterMap } from "./utils/map";
 import type { resets, universes } from "./enums";
 import type { Game } from "./game";
 import type { ConfigManager } from "./config";
@@ -25,12 +26,17 @@ export function inferResetType(runStats: LatestRun, game: Game) {
     return reset ?? "unknown";
 }
 
-export function isCurrentRun(runStats: LatestRun, game: Game) {
-    return runStats.run === game.runNumber && runStats.totalDays <= game.day;
+function isCurrentRun(runStats: LatestRun, game: Game) {
+    return runStats.run === game.runNumber;
 }
 
-export function isPreviousRun(runStats: LatestRun, game: Game) {
+function isPreviousRun(runStats: LatestRun, game: Game) {
     return runStats.run === game.runNumber - 1;
+}
+
+export function restoreToDay(run: LatestRun, day: number) {
+    run.milestones = filterMap(run.milestones, ([, timestamp]) => timestamp <= day);
+    run.totalDays = day;
 }
 
 export function processLatestRun(game: Game, config: ConfigManager, history: HistoryManager) {
@@ -40,21 +46,20 @@ export function processLatestRun(game: Game, config: ConfigManager, history: His
         return;
     }
 
-    // Don't commit the last run if history is paused
-    if (!config.recordRuns) {
-        discardLatestRun();
-        return;
+    if (isCurrentRun(latestRun, game)) {
+        // If it is the current run, check if we leaded an earlier save - discard any milestones "from the future"
+        restoreToDay(latestRun, game.day);
+        saveCurrentRun(latestRun);
     }
-
-    // If it's not the current run, discard it so that we can start tracking from scratch
-    if (!isCurrentRun(latestRun, game)) {
+    else {
+        // If it's not the current run, discard it so that we can start tracking from scratch
         discardLatestRun();
-    }
 
-    // The game refreshes the page after a reset
-    // Thus, if the latest run is the previous one, it can be comitted to history
-    if (isPreviousRun(latestRun, game)) {
-        history.commitRun(latestRun);
+        // The game refreshes the page after a reset
+        // Thus, if the latest run is the previous one, it can be comitted to history
+        if (isPreviousRun(latestRun, game) && config.recordRuns) {
+            history.commitRun(latestRun);
+        }
     }
 }
 
@@ -63,7 +68,7 @@ function makeNewRunStats(game: Game): LatestRun {
         run: game.runNumber,
         universe: game.universe,
         resets: game.resetCounts,
-        totalDays: 0,
+        totalDays: game.day,
         milestones: {}
     };
 }

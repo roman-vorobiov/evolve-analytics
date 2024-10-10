@@ -52,14 +52,14 @@ describe("Latest run", () => {
         });
 
         describe("Current run", () => {
-            const run: LatestRun = { run: 123, universe: "standard", resets: {}, totalDays: 456, milestones: {} };
+            const run: LatestRun = { run: 123, universe: "standard", resets: {}, totalDays: 456, milestones: { foo: 123, bar: 234 } };
 
             let game: Game;
             let config: ConfigManager;
             let history: HistoryManager;
 
             beforeEach(() => {
-                game = new Game(makeGameState({ reset: 122, days: 456 }));
+                game = new Game(makeGameState({ reset: 122, days: 123 }));
                 config = makeConfig(game);
                 history = new HistoryManager(game, config, blankHistory());
 
@@ -70,13 +70,17 @@ describe("Latest run", () => {
                 processLatestRun(game, config, history);
             });
 
-            it("should not discard the run", () => {
-                expect(loadLatestRun()).toEqual(run);
-            });
-
             it("should not commit the run to history", () => {
                 expect(history.commitRun).not.toHaveBeenCalled();
                 expect(loadHistory()).toBe(null);
+            });
+
+            it("should discard future milestones", () => {
+                expect(loadLatestRun()).toEqual({
+                    ...run,
+                    totalDays: 123,
+                    milestones: { foo: 123 }
+                });
             });
         });
 
