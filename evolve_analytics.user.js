@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.6.5
+// @version      0.6.6
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -1080,6 +1080,9 @@
     function transformMap(obj, fn) {
         return Object.fromEntries(Object.entries(obj).map(([k, v]) => fn([k, v])));
     }
+    function filterMap(obj, fn) {
+        return Object.fromEntries(Object.entries(obj).filter(fn));
+    }
     function rotateMap(obj) {
         return transformMap(obj, ([k, v]) => [v, k]);
     }
@@ -1639,29 +1642,33 @@
         return reset ?? "unknown";
     }
     function isCurrentRun(runStats, game) {
-        return runStats.run === game.runNumber && runStats.totalDays <= game.day;
+        return runStats.run === game.runNumber;
     }
     function isPreviousRun(runStats, game) {
         return runStats.run === game.runNumber - 1;
+    }
+    function restoreToDay(run, day) {
+        run.milestones = filterMap(run.milestones, ([, timestamp]) => timestamp <= day);
+        run.totalDays = day;
     }
     function processLatestRun(game, config, history) {
         const latestRun = loadLatestRun();
         if (latestRun === null) {
             return;
         }
-        // Don't commit the last run if history is paused
-        if (!config.recordRuns) {
-            discardLatestRun();
-            return;
+        if (isCurrentRun(latestRun, game)) {
+            // If it is the current run, check if we leaded an earlier save - discard any milestones "from the future"
+            restoreToDay(latestRun, game.day);
+            saveCurrentRun(latestRun);
         }
-        // If it's not the current run, discard it so that we can start tracking from scratch
-        if (!isCurrentRun(latestRun, game)) {
+        else {
+            // If it's not the current run, discard it so that we can start tracking from scratch
             discardLatestRun();
-        }
-        // The game refreshes the page after a reset
-        // Thus, if the latest run is the previous one, it can be comitted to history
-        if (isPreviousRun(latestRun, game)) {
-            history.commitRun(latestRun);
+            // The game refreshes the page after a reset
+            // Thus, if the latest run is the previous one, it can be comitted to history
+            if (isPreviousRun(latestRun, game) && config.recordRuns) {
+                history.commitRun(latestRun);
+            }
         }
     }
     function makeNewRunStats(game) {
@@ -1669,7 +1676,7 @@
             run: game.runNumber,
             universe: game.universe,
             resets: game.resetCounts,
-            totalDays: 0,
+            totalDays: game.day,
             milestones: {}
         };
     }
