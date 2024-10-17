@@ -24,7 +24,7 @@ export type Evolve = {
         },
         race: {
             species: string,
-            universe: keyof typeof universes,
+            universe: keyof typeof universes | "bigbang",
             servants?: object
         }
     }

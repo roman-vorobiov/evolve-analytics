@@ -18,7 +18,10 @@ export class Game {
     }
 
     get universe() {
-        return this.evolve.global.race.universe;
+        const value = this.evolve.global.race.universe;
+        if (value !== "bigbang") {
+            return value;
+        }
     }
 
     get raceName() {

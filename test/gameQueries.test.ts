@@ -40,6 +40,12 @@ describe("Game queries", () => {
         expect(game.universe).toBe("heavy");
     });
 
+    it("should not provide 'bigbang' as current universe", () => {
+        const game = new Game(makeGameState({ race: { universe: "bigbang" } }));
+
+        expect(game.universe).toBeUndefined();
+    });
+
     it("should provide current race name", () => {
         const evolve = makeGameState({ race: { species: "entish" } });
         evolve.races["entish"] = { name: "Ent" };

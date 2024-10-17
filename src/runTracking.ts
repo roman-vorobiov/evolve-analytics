@@ -8,7 +8,7 @@ import type { HistoryManager } from "./history";
 
 export type LatestRun = {
     run: number,
-    universe: keyof typeof universes,
+    universe?: keyof typeof universes,
     resets: Partial<Record<keyof typeof resets, number>>,
     totalDays: number,
     milestones: Record<string, number>,
@@ -89,6 +89,7 @@ function updateMilestones(runStats: LatestRun, checkers: MilestoneChecker[]) {
 }
 
 function updateAdditionalInfo(runStats: LatestRun, game: Game) {
+    runStats.universe ??= game.universe;
     runStats.raceName ??= game.raceName;
 }
 
