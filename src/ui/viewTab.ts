@@ -62,12 +62,18 @@ async function copyToClipboard(node: JQuery) {
 }
 
 function viewTitle(view: View) {
-    let title = resets[view.resetType];
-    if (view.universe !== undefined) {
-        title += ` (${universes[view.universe as keyof typeof universes]})`;
+    if (view.universe === "magic" && view.resetType === "blackhole") {
+        return "Vacuum Collapse";
     }
+    else {
+        let title = resets[view.resetType];
 
-    return title;
+        if (view.universe !== undefined) {
+            title += ` (${universes[view.universe as keyof typeof universes]})`;
+        }
+
+        return title;
+    }
 }
 
 export function makeViewTab(id: string, view: View, config: ConfigManager, history: HistoryManager) {

@@ -11,7 +11,8 @@ const history = {
         "event:womlings": 8,
         "tech:elerium_tech": 9,
         "built:space-iridium_ship:1": 10,
-        "tech:world_collider": 11
+        "tech:world_collider": 11,
+        "reset:blackhole": 12
     },
     "runs": [
         {
@@ -974,6 +975,36 @@ const history = {
             "run": 570,
             "universe": "heavy",
             "milestones": [[8, 78], [0, 97], [1, 200], [2, 268], [3, 381], [4, 520], [5, 564], [6, 576], [7, 599]]
+        },
+        {
+            "run": 571,
+            "universe": "heavy",
+            "milestones": [[12, 123]]
+        },
+        {
+            "run": 572,
+            "universe": "magic",
+            "milestones": [[12, 234]]
+        },
+        {
+            "run": 573,
+            "universe": "evil",
+            "milestones": [[12, 345]]
+        },
+        {
+            "run": 574,
+            "universe": "heavy",
+            "milestones": [[12, 456]]
+        },
+        {
+            "run": 575,
+            "universe": "magic",
+            "milestones": [[12, 567]]
+        },
+        {
+            "run": 576,
+            "universe": "evil",
+            "milestones": [[12, 678]]
         }
     ]
 };

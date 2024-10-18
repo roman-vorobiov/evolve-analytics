@@ -72,6 +72,27 @@ describe("Export", () => {
             ]);
         });
 
+        it("should not show vacuum collapse runs if universe is not specified", () => {
+            const game = new Game(makeGameState({}));
+            const history = makeHistory(game, {
+                milestones: { "reset:blackhole": 1 },
+                runs: [
+                    { run: 1, universe: "standard", milestones: [[1, 10]] },
+                    { run: 2, universe: "heavy", milestones: [[1, 10]] },
+                    { run: 3, universe: "magic", milestones: [[1, 10]] }
+                ]
+            });
+
+            expect(applyFilters(history, makeView({ resetType: "blackhole" }))).toEqual([
+                history.runs[0],
+                history.runs[1]
+            ]);
+
+            expect(applyFilters(history, makeView({ resetType: "blackhole", universe: "magic" }))).toEqual([
+                history.runs[2]
+            ]);
+        });
+
         it("should filter last N runs", () => {
             const game = new Game(makeGameState({}));
             const history = makeHistory(game, {

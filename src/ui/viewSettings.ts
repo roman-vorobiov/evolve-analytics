@@ -11,9 +11,25 @@ export function makeViewSettings(view: View) {
         .css("width", "150px")
         .on("change", function(this: HTMLInputElement) { view.resetType = this.value as keyof typeof resets; });
 
+    function updateResetTypes(universe: string) {
+        resetTypeInput.find(`> option[value="blackhole"]`).text(universe === "magic" ? "Vacuum Collapse" : "Black Hole");
+    }
+
+    // In case an existing view is blackhole + magic
+    updateResetTypes(view.universe ?? "any");
+
     const universeInput = makeSelect([["any", "Any"], ...Object.entries(universes)], view.universe ?? "any")
         .css("width", "150px")
-        .on("change", function(this: HTMLSelectElement) { view.universe = this.value === "any" ? undefined : this.value as keyof typeof universes; });
+        .on("change", function(this: HTMLSelectElement) {
+            updateResetTypes(this.value);
+
+            if (this.value === "any") {
+                view.universe = undefined;
+            }
+            else {
+                view.universe = this.value as keyof typeof universes;
+            }
+        });
 
     const modeInput = makeSelect(Object.entries(viewModes), view.mode)
         .css("width", "150px")
