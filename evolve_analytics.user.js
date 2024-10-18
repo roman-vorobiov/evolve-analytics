@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.6.6
+// @version      0.7.0
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -1239,7 +1239,7 @@
             })
         };
     }
-    function migrateHistory(history, config) {
+    function migrateHistory$1(history, config) {
         const oldNames = rotateMap(history.milestones);
         const newNames = Object.fromEntries(config.views.flatMap(v => Object.keys(v.milestones).map(m => [m, milestoneName(m)[0]])));
         function resetName(run) {
@@ -1319,7 +1319,7 @@
             runs: history.runs
         };
     }
-    function migrateLatestRun(latestRun, config, history) {
+    function migrateLatestRun$1(latestRun, config, history) {
         const resetIDs = rotateMap(resets);
         const newRun = {
             run: latestRun.run,
@@ -1371,11 +1371,11 @@
         const newConfig = migrateConfig(config);
         let newHistory = null;
         if (history !== null) {
-            newHistory = migrateHistory(history, newConfig);
+            newHistory = migrateHistory$1(history, newConfig);
         }
         let newLatestRun = null;
         if (latestRun !== null && newHistory !== null) {
-            newLatestRun = migrateLatestRun(latestRun, newConfig, newHistory);
+            newLatestRun = migrateLatestRun$1(latestRun, newConfig, newHistory);
         }
         return [newConfig, newHistory, newLatestRun];
     }
@@ -1393,6 +1393,42 @@
         };
     }
 
+    function migrateLatestRun(latestRun) {
+        if (latestRun.universe === "bigbang") {
+            delete latestRun.universe;
+        }
+    }
+    function migrateHistory(history) {
+        for (let i = 0; i !== history.runs.length; ++i) {
+            const run = history.runs[i];
+            const nextRun = history.runs[i + 1];
+            // The runs after a t3 reset may have gotten the "bigbang" universe as the page is refreshed into the universe selection
+            if (run.universe === "bigbang") {
+                if (nextRun === undefined) {
+                    // The last run is broken - mark migration as failed and try after the next run
+                    return false;
+                }
+                else if (nextRun.universe !== "bigbang") {
+                    // If the next run has a valid universe, this means we stayed in the same universe
+                    run.universe = nextRun.universe;
+                }
+                else {
+                    // If there are multiple t3 runs in a row, assume DE farming, which is usually done in magic
+                    run.universe = "magic";
+                }
+            }
+        }
+        return true;
+    }
+    function migrate6(config, history, latestRun) {
+        if (latestRun !== null) {
+            migrateLatestRun(latestRun);
+        }
+        if (migrateHistory(history)) {
+            config.version = 7;
+        }
+    }
+
     function migrate() {
         let config = loadConfig();
         let history = null;
@@ -1407,6 +1443,10 @@
         }
         if (config.version < 6) {
             config = migrate4(config);
+            migrated = true;
+        }
+        if (config.version === 6) {
+            migrate6(config, history ?? loadHistory(), latestRun ?? loadLatestRun());
             migrated = true;
         }
         if (migrated) {
@@ -1443,7 +1483,10 @@
             return this.evolve.global.stats.days;
         }
         get universe() {
-            return this.evolve.global.race.universe;
+            const value = this.evolve.global.race.universe;
+            if (value !== "bigbang") {
+                return value;
+            }
         }
         get raceName() {
             if (this.finishedEvolution) {
@@ -1629,7 +1672,7 @@
         }
     }
     function getConfig(game) {
-        const config = loadConfig() ?? { version: 6, recordRuns: true, views: [] };
+        const config = loadConfig() ?? { version: 7, recordRuns: true, views: [] };
         return new ConfigManager(game, config);
     }
 
@@ -1694,6 +1737,7 @@
         }
     }
     function updateAdditionalInfo(runStats, game) {
+        runStats.universe ??= game.universe;
         runStats.raceName ??= game.raceName;
     }
     function trackMilestones(game, config) {
@@ -1716,7 +1760,10 @@
     function getResetType(entry, history) {
         const [milestoneID] = entry.milestones[entry.milestones.length - 1];
         const milestone = history.getMilestone(milestoneID);
-        return milestone.slice(6); // strip away the leading "reset:"
+        const prefix = "reset:";
+        if (milestone.startsWith(prefix)) {
+            return milestone.slice(prefix.length);
+        }
     }
     function shouldIncludeRun(entry, view, history) {
         if (view.universe !== undefined && entry.universe !== view.universe) {
@@ -1724,6 +1771,10 @@
         }
         if (getResetType(entry, history) !== view.resetType) {
             return false;
+        }
+        // Don't show VC runs in generic Black Hole views
+        if (view.resetType === "blackhole" && view.universe === undefined) {
+            return entry.universe !== "magic";
         }
         return true;
     }
@@ -2238,9 +2289,22 @@
         const resetTypeInput = makeSelect(Object.entries(resets), view.resetType)
             .css("width", "150px")
             .on("change", function () { view.resetType = this.value; });
+        function updateResetTypes(universe) {
+            resetTypeInput.find(`> option[value="blackhole"]`).text(universe === "magic" ? "Vacuum Collapse" : "Black Hole");
+        }
+        // In case an existing view is blackhole + magic
+        updateResetTypes(view.universe ?? "any");
         const universeInput = makeSelect([["any", "Any"], ...Object.entries(universes)], view.universe ?? "any")
             .css("width", "150px")
-            .on("change", function () { view.universe = this.value === "any" ? undefined : this.value; });
+            .on("change", function () {
+            updateResetTypes(this.value);
+            if (this.value === "any") {
+                view.universe = undefined;
+            }
+            else {
+                view.universe = this.value;
+            }
+        });
         const modeInput = makeSelect(Object.entries(viewModes), view.mode)
             .css("width", "150px")
             .on("change", function () { view.mode = this.value; });
@@ -2356,11 +2420,16 @@
         ]);
     }
     function viewTitle(view) {
-        let title = resets[view.resetType];
-        if (view.universe !== undefined) {
-            title += ` (${universes[view.universe]})`;
+        if (view.universe === "magic" && view.resetType === "blackhole") {
+            return "Vacuum Collapse";
         }
-        return title;
+        else {
+            let title = resets[view.resetType];
+            if (view.universe !== undefined) {
+                title += ` (${universes[view.universe]})`;
+            }
+            return title;
+        }
     }
     function makeViewTab(id, view, config, history) {
         const controlNode = $(`<li><a href="#${id}">${viewTitle(view)}</a></li>`);
