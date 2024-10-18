@@ -3,6 +3,7 @@ import { inferResetType, type LatestRun } from "./runTracking";
 import { shouldIncludeRun } from "./exports/historyFiltering";
 import { Subscribable } from "./subscribable";
 import { rotateMap } from "./utils"
+import type { universes } from "./enums";
 import type { Game } from "./game";
 import type { ConfigManager } from "./config";
 
@@ -10,7 +11,7 @@ export type MilestoneReference = [number, number];
 
 export type HistoryEntry = {
     run: number,
-    universe: string,
+    universe: keyof typeof universes,
     milestones: MilestoneReference[],
     raceName?: string
 }
@@ -65,7 +66,7 @@ export class HistoryManager extends Subscribable {
 
         const entry: HistoryEntry = {
             run: runStats.run,
-            universe: runStats.universe,
+            universe: runStats.universe!,
             milestones
         };
 

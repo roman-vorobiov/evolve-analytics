@@ -1,9 +1,9 @@
 import { buildings, resets, techs, universes, viewModes } from "../enums";
 import { milestoneName } from "../milestones";
 import { rotateMap, transformMap, lazyLoad } from "../utils";
-import type { Config4 } from "./4";
 import type { HistoryEntry, RunHistory } from "../history";
-import type { LatestRun as LatestRun4 } from "../runTracking";
+import type { Config4 } from "./4";
+import type { LatestRun6 as LatestRun4 } from "./6";
 
 type BuiltMilestone = ["Built", /*tab*/ string, /*id*/ string, /*name*/ string, /*count*/ number];
 type ResearchedMilestone = ["Researched", /*id*/ string, /*name*/ string];
@@ -165,7 +165,7 @@ export function migrateHistory(history: RunHistory, config: Config4): RunHistory
 
 export type LatestRun3 = {
     run: number,
-    universe: keyof typeof universes,
+    universe: keyof typeof universes | "bigbang",
     resets: Record<string, number>,
     totalDays: number,
     milestones: Record<string, number>
