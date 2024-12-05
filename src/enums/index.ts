@@ -13,6 +13,7 @@ export const resets = {
     blackhole: "Black Hole",
     ascend: "Ascension",
     descend: "Demonic Infusion",
+    apotheosis: "Apotheosis",
     aiappoc: "AI Apocalypse",
     matrix: "Matrix",
     retire: "Retirement",

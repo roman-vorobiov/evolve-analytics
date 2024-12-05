@@ -20,4 +20,12 @@ export const segments: Record<string, number> = {
     "interstellar-ascension_machine": 100,
     "portal-east_tower": 388,
     "portal-west_tower": 388,
+    "eden-mech_station": 10,
+    "eden-rune_gate": 100,
+    "eden-fire_support_base": 100,
+    "eden-north_pier": 10,
+    "eden-south_pier": 10,
+    "eden-infuser": 25,
+    "eden-conduit": 25,
+    "eden-tomb": 10
 };
