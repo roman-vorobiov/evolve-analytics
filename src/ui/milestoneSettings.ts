@@ -8,7 +8,7 @@ export function makeMilestoneSettings(view: View) {
 
     const researchedTargetOptions = makeAutocompleteInput("Tech", Object.entries(techs).map(([id, name]) => ({ value: id, label: name })));
 
-    const eventTargetOptions = makeSelect(Object.entries(events)).css("width", "200px");
+    const eventTargetOptions = makeSelect(Object.entries(events));
 
     function selectOptions(type: string) {
         builtTargetOptions.toggle(type === "built");

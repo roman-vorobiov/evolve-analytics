@@ -8,7 +8,11 @@ import { ConfigManager, type ViewConfig } from "../src/config";
 
 function makeView(fields: Partial<ViewConfig>): ViewConfig {
     return {
-        mode: "total",
+        mode: "timestamp",
+        showBars: false,
+        showLines: true,
+        fillArea: false,
+        smoothness: 0,
         resetType: "mad",
         milestones: {},
         additionalInfo: [],

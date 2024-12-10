@@ -1,6 +1,7 @@
-import { buildings, resets, techs, universes, viewModes } from "../enums";
+import { buildings, resets, techs, universes } from "../enums";
 import { milestoneName } from "../milestones";
 import { rotateMap, transformMap, lazyLoad } from "../utils";
+import { viewModes7 as viewModes4 } from "./7";
 import type { HistoryEntry, RunHistory } from "../history";
 import type { Config4 } from "./4";
 import type { LatestRun6 as LatestRun4 } from "./6";
@@ -28,7 +29,7 @@ export type Config3 = {
 
 export function migrateConfig(config: Config3): Config4 {
     const resetIDs = rotateMap(resets);
-    const viewModeIDs = rotateMap(viewModes);
+    const viewModeIDs = rotateMap(viewModes4);
 
     function convertReset(resetName: string) {
         return resetName === "Vacuum Collapse" ? "blackhole" : resetIDs[resetName];

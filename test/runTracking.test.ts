@@ -39,7 +39,11 @@ function makeConfig(game: Game, milestones: string[]): ConfigManager {
         recordRuns: true,
         views: [
             {
-                mode: "filled",
+                mode: "timestamp",
+                showBars: false,
+                showLines: true,
+                fillArea: true,
+                smoothness: 0,
                 resetType: "mad",
                 milestones: Object.fromEntries(milestones?.map(m => [m, true]) ?? []),
                 additionalInfo: []

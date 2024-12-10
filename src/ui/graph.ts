@@ -8,16 +8,6 @@ import type { default as PlotType } from "@observablehq/plot";
 
 declare const Plot: typeof PlotType;
 
-function calculateYScale(plotPoints: PlotPoint[], view: View): [number, number] | undefined {
-    if (view.daysScale) {
-        return [0, view.daysScale];
-    }
-    else if (plotPoints.length === 0) {
-        // Default scale with empty history
-        return [0, 1000];
-    }
-}
-
 function lastRunEntries(plotPoints: PlotPoint[]): PlotPoint[] {
     const timestamps: PlotPoint[] = [];
 
@@ -35,6 +25,29 @@ function lastRunEntries(plotPoints: PlotPoint[]): PlotPoint[] {
     return timestamps.reverse();
 }
 
+function smooth(smoothness: number, history: HistoryEntry[], params: any) {
+    let avgWindowSize;
+    switch (smoothness) {
+        case 0:
+            avgWindowSize = 1;
+            break;
+
+        case 100:
+            avgWindowSize = history.length;
+            break;
+
+        default:
+            // Make the transformation from the smoothness % into the number of runs exponential
+            // because the average window has decreasingly less impact on the lines as it grows
+            const curveSteepness = 5;
+            const value = Math.exp(smoothness / 100 * curveSteepness - curveSteepness) * history.length;
+            avgWindowSize = Math.round(value) || 1;
+            break;
+    }
+
+    return Plot.windowY({ k: avgWindowSize }, params);
+}
+
 function* timestamps(plotPoints: PlotPoint[], key: "day" | "segment") {
     const lastRunTimestamps = lastRunEntries(plotPoints).map(e => e[key]);
 
@@ -44,25 +57,25 @@ function* timestamps(plotPoints: PlotPoint[], key: "day" | "segment") {
     });
 }
 
-function* areaMarks(plotPoints: PlotPoint[]) {
-    yield Plot.areaY(plotPoints, {
+function* areaMarks(plotPoints: PlotPoint[], history: HistoryEntry[], smoothness: number) {
+    yield Plot.areaY(plotPoints, smooth(smoothness, history, {
         x: "run",
         y: "dayDiff",
         z: "milestone",
         fill: "milestone",
         fillOpacity: 0.5
-    });
+    }));
 }
 
-function* lineMarks(plotPoints: PlotPoint[], key: "day" | "segment") {
-    yield Plot.line(plotPoints, {
+function* lineMarks(plotPoints: PlotPoint[], history: HistoryEntry[], key: "day" | "segment", smoothness: number) {
+    yield Plot.lineY(plotPoints, smooth(smoothness, history, {
         x: "run",
         y: key,
         z: "milestone",
         stroke: "milestone",
         // Draw the event lines on top of the other ones
         sort: (entry: PlotPoint) => entry.dayDiff === undefined ? 1 : 0
-    });
+    }));
 }
 
 function* barMarks(plotPoints: PlotPoint[], key: "dayDiff" | "segment") {
@@ -108,7 +121,7 @@ function tipText(point: PlotPoint, key: "day" | "dayDiff" | "segment", history: 
     return `${prefix}: ${point.milestone} in ${point[key]} day(s)`;
 }
 
-function* linePointerMarks(plotPoints: PlotPoint[], key: "day" | "segment", history: HistoryEntry[]) {
+function* linePointerMarks(plotPoints: PlotPoint[], history: HistoryEntry[], key: "day" | "segment") {
     yield Plot.text(plotPoints, Plot.pointerX({
         px: "run",
         py: key,
@@ -130,7 +143,7 @@ function* linePointerMarks(plotPoints: PlotPoint[], key: "day" | "segment", hist
     }));
 }
 
-function* rectPointerMarks(plotPoints: PlotPoint[], segmentKey: "dayDiff" | "segment", tipKey: "day" | "segment", history: HistoryEntry[]) {
+function* rectPointerMarks(plotPoints: PlotPoint[], history: HistoryEntry[], segmentKey: "dayDiff" | "segment", tipKey: "day" | "segment") {
     plotPoints = plotPoints.filter((entry: PlotPoint) => entry.dayDiff !== undefined);
 
     // Transform pointer position from the point to the segment
@@ -164,38 +177,49 @@ export function makeGraph(history: HistoryManager, view: View, onSelect: (run: H
         Plot.ruleY([0])
     ];
 
-    switch (view.mode) {
-        // Same as "barsSegmented" but milestones become a part of the segment on top when hidden
-        case "bars":
-            marks.push(...barMarks(plotPoints, "dayDiff"));
-            marks.push(...timestamps(plotPoints, "day"));
-            marks.push(...rectPointerMarks(plotPoints, "dayDiff", "day", filteredRuns));
-            break;
+    if (view.showBars) {
+        switch (view.mode) {
+            case "timestamp":
+                marks.push(...barMarks(plotPoints, "dayDiff"));
+                marks.push(...timestamps(plotPoints, "day"));
+                marks.push(...rectPointerMarks(plotPoints, filteredRuns, "dayDiff", "day"));
+                break;
 
-        // Vertical bars composed of individual segments stacked on top of each other
-        case "barsSegmented":
-            marks.push(...barMarks(plotPoints, "segment"));
-            marks.push(...rectPointerMarks(plotPoints, "segment", "segment", filteredRuns));
-            break;
+            case "duration":
+                marks.push(...barMarks(plotPoints, "segment"));
+                marks.push(...rectPointerMarks(plotPoints, filteredRuns, "segment", "segment"));
+                break;
 
-        // Same as "total" but with the areas between the lines filled
-        case "filled":
-            marks.push(...areaMarks(plotPoints));
-            // fall-through
+            default:
+                break;
+        }
+    }
 
-        // Horizontal lines for each milestone timestamp
-        case "total":
-            marks.push(...lineMarks(plotPoints, "day"));
-            marks.push(...timestamps(plotPoints, "day"));
-            marks.push(...linePointerMarks(plotPoints, "day", filteredRuns));
-            break;
+    if (view.showLines) {
+        switch (view.mode) {
+            case "timestamp":
+                if (view.fillArea) {
+                    marks.push(...areaMarks(plotPoints, filteredRuns, view.smoothness));
+                }
 
-        // Horizontal lines for each milestone duration
-        case "segmented":
-            marks.push(...lineMarks(plotPoints, "segment"));
-            marks.push(...timestamps(plotPoints, "segment"));
-            marks.push(...linePointerMarks(plotPoints, "segment", filteredRuns));
-            break;
+                marks.push(...lineMarks(plotPoints, filteredRuns, "day", view.smoothness));
+                marks.push(...timestamps(plotPoints, "day"));
+                break;
+
+            case "duration":
+                marks.push(...lineMarks(plotPoints, filteredRuns, "segment", view.smoothness));
+                marks.push(...timestamps(plotPoints, "segment"));
+                break;
+
+            default:
+                break;
+        }
+
+        // Don't show the lines' pointer if the bars' one is shown or if the lines are smoothed
+        if (!view.showBars && view.smoothness === 0) {
+            const key = view.mode === "timestamp" ? "day" : "segment";
+            marks.push(...linePointerMarks(plotPoints, filteredRuns, key));
+        }
     }
 
     const milestones: string[] = Object.keys(view.milestones);
@@ -210,7 +234,8 @@ export function makeGraph(history: HistoryManager, view: View, onSelect: (run: H
         });
     }
 
-    const yScale = calculateYScale(plotPoints, view);
+    // Default scale with empty history
+    const yScale = plotPoints.length === 0 ? [0, 1000] : undefined;
 
     const plot = Plot.plot({
         width: 800,

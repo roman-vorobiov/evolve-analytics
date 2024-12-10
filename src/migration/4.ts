@@ -1,10 +1,10 @@
-import type { resets, universes, viewModes } from "../enums";
-import type { Config as Config6 } from "../config";
+import type { resets, universes } from "../enums";
+import type { Config7 as Config6, viewModes7 as viewModes6 } from "./7";
 
 export type ViewConfig4 = {
     resetType: keyof typeof resets,
     universe?: keyof typeof universes,
-    mode: keyof typeof viewModes,
+    mode: keyof typeof viewModes6,
     daysScale?: number,
     numRuns?: number,
     milestones: Record<string, boolean>

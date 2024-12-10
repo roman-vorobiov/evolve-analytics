@@ -1,6 +1,6 @@
 # Evolve Analytics
 
-Inspired by Kewne's work on tracking milestones during runs, this userscript adds an "Analytics" tab to the evolve UI where you can see a breakdown of your evolve run times.
+Inspired by Kewne's work on tracking milestones during runs, this userscript adds the "Analytics" tab to the evolve UI where you can see the breakdown of your evolve runs.
 
 It does not require any other scripts to function.
 
@@ -22,6 +22,6 @@ You can click on the names of the milestones on the legend above the graph to to
 
 ## View modes
 
-The `Total` mode shows all milestones stacked on top of each other as parts of a single run. It also shows last run's times for each milestone on the right side of the graph.
+The `Timestamp` mode shows all milestones stacked on top of each other as parts of a single run. It also shows last run's times for each milestone on the right side of the graph.
 
-Alternatively, the `Segmented` mode shows how many days it took to reach a milestone since the last one.
+Alternatively, the `Duration` mode shows how many days it took to reach a milestone since the last one.

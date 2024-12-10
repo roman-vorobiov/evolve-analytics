@@ -72,6 +72,7 @@ describe("Game queries", () => {
             blackhole: 4,
             ascend: 2,
             descend: 3,
+            apotheosis: 0,
             aiappoc: 0,
             matrix: 0,
             retire: 0,

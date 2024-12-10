@@ -31,11 +31,8 @@ export const universes = {
 };
 
 export const viewModes = {
-    "total": "Total",
-    "filled": "Total (filled)",
-    "bars": "Total (bars)",
-    "segmented": "Segmented",
-    "barsSegmented": "Segmented (bars)"
+    "timestamp": "Timestamp",
+    "duration": "Duration"
 };
 
 export const additionalInformation = {

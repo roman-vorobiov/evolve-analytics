@@ -7,7 +7,10 @@ export type ViewConfig = {
     resetType: keyof typeof resets,
     universe?: keyof typeof universes,
     mode: keyof typeof viewModes,
-    daysScale?: number,
+    smoothness: number,
+    showBars: boolean,
+    showLines: boolean,
+    fillArea: boolean,
     numRuns?: number,
     milestones: Record<string, boolean>,
     additionalInfo: Array<keyof typeof additionalInformation>
@@ -137,7 +140,11 @@ export class ConfigManager extends Subscribable {
         const view: ViewConfig = {
             resetType: "ascend",
             universe: this.game.universe,
-            mode: "bars",
+            mode: "timestamp",
+            showBars: true,
+            showLines: false,
+            fillArea: false,
+            smoothness: 0,
             milestones: { "reset:ascend": true },
             additionalInfo: []
         };
@@ -173,6 +180,6 @@ export class ConfigManager extends Subscribable {
 }
 
 export function getConfig(game: Game) {
-    const config = loadConfig() ?? { version: 7, recordRuns: true, views: [] };
+    const config = loadConfig() ?? { version: 8, recordRuns: true, views: [] };
     return new ConfigManager(game, config);
 }

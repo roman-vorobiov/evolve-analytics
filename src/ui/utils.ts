@@ -45,7 +45,7 @@ export function makeSelect(options: [string, string][], defaultValue?: string) {
     });
 
     return $(`
-        <select style="width: 100px">
+        <select style="width: auto">
             ${optionNodes}
         </select>
     `);
@@ -99,7 +99,7 @@ export function makeSlimButton(text: string) {
 }
 
 export function makeNumberInput(placeholder: string, defaultValue?: number) {
-    const node = $(`<input style="width: 100px" type="number" placeholder="${placeholder}" min="1">`);
+    const node = $(`<input style="width: 60px" type="number" placeholder="${placeholder}" min="1">`);
 
     if (defaultValue !== undefined) {
         node.attr("value", defaultValue);
@@ -139,4 +139,35 @@ export function makeToggle(label: string, initialState: boolean, onStateChange: 
     });
 
     return node;
+}
+
+export function makeSlider([min, max]: [number, number], initialState: number, onStateChange: (value: number) => void) {
+    const node: JQuery<HTMLInputElement> = $(`
+        <input type="range" min="${min}" max="${max}" value="${initialState}">
+    `);
+
+    node.on("input", function() {
+        onStateChange(Number(this.value));
+    });
+
+    return node;
+}
+
+export function makeToggleableNumberInput(
+    label: string,
+    placeholder: string,
+    defaultValue: number | undefined,
+    onStateChange: (value: number | undefined) => void
+) {
+    const inputNode = makeNumberInput(placeholder, defaultValue)
+        .on("change", function(this: HTMLInputElement) { onStateChange(Number(this.value)); });
+
+    const toggleNode = makeCheckbox(label, defaultValue !== undefined, value => {
+        inputNode.prop("disabled", !value);
+        onStateChange(value ? Number(inputNode.val()) : undefined);
+    });
+
+    return $(`<div></div>`)
+        .append(toggleNode)
+        .append(inputNode);
 }

@@ -80,11 +80,15 @@ describe("Migration", () => {
         migrate();
 
         expect(loadConfig()).toEqual({
-            version: 7,
+            version: 8,
             recordRuns: true,
             views: [
                 {
-                    mode: "filled",
+                    mode: "timestamp",
+                    showBars: false,
+                    showLines: true,
+                    fillArea: true,
+                    smoothness: 0,
                     resetType: "ascend",
                     universe: "heavy",
                     numRuns: 50,
@@ -171,7 +175,7 @@ describe("Migration", () => {
         migrate();
 
         expect(loadConfig()).toEqual({
-            version: 7,
+            version: 8,
             recordRuns: true,
             views: []
         });

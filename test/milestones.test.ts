@@ -14,7 +14,7 @@ describe("Milestones", () => {
         it("should generate a name for the 'tech' milestones", () => {
             const [name, discriminator] = milestoneName("tech:master_craftsman");
 
-            expect(name).toBe("Master Craftsman");
+            expect(name).toBe("Master Crafter");
             expect(discriminator).toBe("Research");
         });
 
@@ -40,7 +40,7 @@ describe("Milestones", () => {
 
             expect(names).toEqual([
                 "Alpha Mining Droid",
-                "Master Craftsman"
+                "Master Crafter"
             ]);
         });
 

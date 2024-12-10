@@ -7,7 +7,11 @@ import type { View, ViewConfig } from "../src/config";
 
 function makeView(milestones: string[]): ViewConfig {
     return {
-        mode: "filled",
+        mode: "timestamp",
+        showBars: false,
+        showLines: true,
+        fillArea: true,
+        smoothness: 0,
         resetType: "blackhole",
         universe: "standard",
         milestones: Object.fromEntries(milestones.map(m => [m, true])),
@@ -99,7 +103,11 @@ describe("Config", () => {
         config.addView();
 
         expect(addedView).toEqual({
-            mode: "bars",
+            mode: "timestamp",
+            showBars: true,
+            showLines: false,
+            fillArea: false,
+            smoothness: 0,
             resetType: "ascend",
             universe: "standard",
             milestones: {
@@ -141,7 +149,11 @@ describe("Config", () => {
         config.views[0].universe = "magic";
 
         expect(modifiedView).toEqual({
-            mode: "filled",
+            mode: "timestamp",
+            showBars: false,
+            showLines: true,
+            fillArea: true,
+            smoothness: 0,
             resetType: "blackhole",
             universe: "magic",
             milestones: {
@@ -165,7 +177,11 @@ describe("Config", () => {
         config.views[0].addMilestone("tech:club");
 
         expect(modifiedView).toEqual({
-            mode: "filled",
+            mode: "timestamp",
+            showBars: false,
+            showLines: true,
+            fillArea: true,
+            smoothness: 0,
             resetType: "blackhole",
             universe: "standard",
             milestones: {
@@ -190,7 +206,11 @@ describe("Config", () => {
         config.views[0].removeMilestone("reset:blackhole");
 
         expect(modifiedView).toEqual({
-            mode: "filled",
+            mode: "timestamp",
+            showBars: false,
+            showLines: true,
+            fillArea: true,
+            smoothness: 0,
             resetType: "blackhole",
             universe: "standard",
             milestones: {},
@@ -212,7 +232,11 @@ describe("Config", () => {
         config.views[0].toggleMilestone("reset:blackhole");
 
         expect(modifiedView).toEqual({
-            mode: "filled",
+            mode: "timestamp",
+            showBars: false,
+            showLines: true,
+            fillArea: true,
+            smoothness: 0,
             resetType: "blackhole",
             universe: "standard",
             milestones: {
@@ -244,7 +268,11 @@ describe("Config", () => {
         });
 
         expect(modifiedView).toEqual({
-            mode: "filled",
+            mode: "timestamp",
+            showBars: false,
+            showLines: true,
+            fillArea: true,
+            smoothness: 0,
             resetType: "matrix",
             universe: "standard",
             milestones: {
