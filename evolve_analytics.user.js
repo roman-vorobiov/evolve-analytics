@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.8.0
+// @version      0.9.0
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -1180,11 +1180,8 @@
         magic: "Magic"
     };
     const viewModes = {
-        "total": "Total",
-        "filled": "Total (filled)",
-        "bars": "Total (bars)",
-        "segmented": "Segmented",
-        "barsSegmented": "Segmented (bars)"
+        "timestamp": "Timestamp",
+        "duration": "Duration"
     };
     const additionalInformation = {
         "raceName": "Race Name"
@@ -1314,9 +1311,36 @@
         return names;
     }
 
+    const viewModes7 = {
+        "total": "Total",
+        "filled": "Total (filled)",
+        "bars": "Total (bars)",
+        "segmented": "Segmented",
+        "barsSegmented": "Segmented (bars)"
+    };
+    function migrateView(view) {
+        const newView = {
+            ...view,
+            mode: ["segmented", "barsSegmented"].includes(view.mode) ? "duration" : "timestamp",
+            smoothness: 0,
+            showBars: ["bars", "barsSegmented"].includes(view.mode),
+            showLines: ["total", "filled", "segmented"].includes(view.mode),
+            fillArea: view.mode === "filled"
+        };
+        delete newView.daysScale;
+        return newView;
+    }
+    function migrate7(config) {
+        return {
+            ...config,
+            version: 8,
+            views: config.views.map(migrateView)
+        };
+    }
+
     function migrateConfig(config) {
         const resetIDs = rotateMap(resets);
-        const viewModeIDs = rotateMap(viewModes);
+        const viewModeIDs = rotateMap(viewModes7);
         function convertReset(resetName) {
             return resetName === "Vacuum Collapse" ? "blackhole" : resetIDs[resetName];
         }
@@ -1562,6 +1586,10 @@
             migrate6(config, history ?? loadHistory(), latestRun ?? loadLatestRun());
             migrated = true;
         }
+        if (config.version === 7) {
+            config = migrate7(config);
+            migrated = true;
+        }
         if (migrated) {
             saveConfig(config);
             history !== null && saveHistory(history);
@@ -1757,7 +1785,11 @@
             const view = {
                 resetType: "ascend",
                 universe: this.game.universe,
-                mode: "bars",
+                mode: "timestamp",
+                showBars: true,
+                showLines: false,
+                fillArea: false,
+                smoothness: 0,
                 milestones: { "reset:ascend": true },
                 additionalInfo: []
             };
@@ -1785,7 +1817,7 @@
         }
     }
     function getConfig(game) {
-        const config = loadConfig() ?? { version: 7, recordRuns: true, views: [] };
+        const config = loadConfig() ?? { version: 8, recordRuns: true, views: [] };
         return new ConfigManager(game, config);
     }
 
@@ -2013,8 +2045,18 @@
             width: fit-content
         }
 
+        .w-full {
+            width: 100%
+        }
+
         .crossed {
             text-decoration: line-through
+        }
+
+        .flex-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px
         }
     `;
 
@@ -2081,15 +2123,6 @@
         return entries;
     }
 
-    function calculateYScale(plotPoints, view) {
-        if (view.daysScale) {
-            return [0, view.daysScale];
-        }
-        else if (plotPoints.length === 0) {
-            // Default scale with empty history
-            return [0, 1000];
-        }
-    }
     function lastRunEntries(plotPoints) {
         const timestamps = [];
         const lastRun = plotPoints[plotPoints.length - 1]?.run;
@@ -2102,6 +2135,25 @@
         }
         return timestamps.reverse();
     }
+    function smooth(smoothness, history, params) {
+        let avgWindowSize;
+        switch (smoothness) {
+            case 0:
+                avgWindowSize = 1;
+                break;
+            case 100:
+                avgWindowSize = history.length;
+                break;
+            default:
+                // Make the transformation from the smoothness % into the number of runs exponential
+                // because the average window has decreasingly less impact on the lines as it grows
+                const curveSteepness = 5;
+                const value = Math.exp(smoothness / 100 * curveSteepness - curveSteepness) * history.length;
+                avgWindowSize = Math.round(value) || 1;
+                break;
+        }
+        return Plot.windowY({ k: avgWindowSize }, params);
+    }
     function* timestamps(plotPoints, key) {
         const lastRunTimestamps = lastRunEntries(plotPoints).map(e => e[key]);
         yield Plot.axisY(lastRunTimestamps, {
@@ -2109,24 +2161,24 @@
             label: null
         });
     }
-    function* areaMarks(plotPoints) {
-        yield Plot.areaY(plotPoints, {
+    function* areaMarks(plotPoints, history, smoothness) {
+        yield Plot.areaY(plotPoints, smooth(smoothness, history, {
             x: "run",
             y: "dayDiff",
             z: "milestone",
             fill: "milestone",
             fillOpacity: 0.5
-        });
+        }));
     }
-    function* lineMarks(plotPoints, key) {
-        yield Plot.line(plotPoints, {
+    function* lineMarks(plotPoints, history, key, smoothness) {
+        yield Plot.lineY(plotPoints, smooth(smoothness, history, {
             x: "run",
             y: key,
             z: "milestone",
             stroke: "milestone",
             // Draw the event lines on top of the other ones
             sort: (entry) => entry.dayDiff === undefined ? 1 : 0
-        });
+        }));
     }
     function* barMarks(plotPoints, key) {
         yield Plot.barY(plotPoints, {
@@ -2164,7 +2216,7 @@
         }
         return `${prefix}: ${point.milestone} in ${point[key]} day(s)`;
     }
-    function* linePointerMarks(plotPoints, key, history) {
+    function* linePointerMarks(plotPoints, history, key) {
         yield Plot.text(plotPoints, Plot.pointerX({
             px: "run",
             py: key,
@@ -2183,7 +2235,7 @@
             r: 2
         }));
     }
-    function* rectPointerMarks(plotPoints, segmentKey, tipKey, history) {
+    function* rectPointerMarks(plotPoints, history, segmentKey, tipKey) {
         plotPoints = plotPoints.filter((entry) => entry.dayDiff !== undefined);
         // Transform pointer position from the point to the segment
         function toSegment(options) {
@@ -2211,34 +2263,38 @@
             Plot.axisY({ anchor: "left", label: "days" }),
             Plot.ruleY([0])
         ];
-        switch (view.mode) {
-            // Same as "barsSegmented" but milestones become a part of the segment on top when hidden
-            case "bars":
-                marks.push(...barMarks(plotPoints, "dayDiff"));
-                marks.push(...timestamps(plotPoints, "day"));
-                marks.push(...rectPointerMarks(plotPoints, "dayDiff", "day", filteredRuns));
-                break;
-            // Vertical bars composed of individual segments stacked on top of each other
-            case "barsSegmented":
-                marks.push(...barMarks(plotPoints, "segment"));
-                marks.push(...rectPointerMarks(plotPoints, "segment", "segment", filteredRuns));
-                break;
-            // Same as "total" but with the areas between the lines filled
-            case "filled":
-                marks.push(...areaMarks(plotPoints));
-            // fall-through
-            // Horizontal lines for each milestone timestamp
-            case "total":
-                marks.push(...lineMarks(plotPoints, "day"));
-                marks.push(...timestamps(plotPoints, "day"));
-                marks.push(...linePointerMarks(plotPoints, "day", filteredRuns));
-                break;
-            // Horizontal lines for each milestone duration
-            case "segmented":
-                marks.push(...lineMarks(plotPoints, "segment"));
-                marks.push(...timestamps(plotPoints, "segment"));
-                marks.push(...linePointerMarks(plotPoints, "segment", filteredRuns));
-                break;
+        if (view.showBars) {
+            switch (view.mode) {
+                case "timestamp":
+                    marks.push(...barMarks(plotPoints, "dayDiff"));
+                    marks.push(...timestamps(plotPoints, "day"));
+                    marks.push(...rectPointerMarks(plotPoints, filteredRuns, "dayDiff", "day"));
+                    break;
+                case "duration":
+                    marks.push(...barMarks(plotPoints, "segment"));
+                    marks.push(...rectPointerMarks(plotPoints, filteredRuns, "segment", "segment"));
+                    break;
+            }
+        }
+        if (view.showLines) {
+            switch (view.mode) {
+                case "timestamp":
+                    if (view.fillArea) {
+                        marks.push(...areaMarks(plotPoints, filteredRuns, view.smoothness));
+                    }
+                    marks.push(...lineMarks(plotPoints, filteredRuns, "day", view.smoothness));
+                    marks.push(...timestamps(plotPoints, "day"));
+                    break;
+                case "duration":
+                    marks.push(...lineMarks(plotPoints, filteredRuns, "segment", view.smoothness));
+                    marks.push(...timestamps(plotPoints, "segment"));
+                    break;
+            }
+            // Don't show the lines' pointer if the bars' one is shown or if the lines are smoothed
+            if (!view.showBars && view.smoothness === 0) {
+                const key = view.mode === "timestamp" ? "day" : "segment";
+                marks.push(...linePointerMarks(plotPoints, filteredRuns, key));
+            }
         }
         const milestones = Object.keys(view.milestones);
         // Try to order the milestones in the legend in the order in which they happened during the last run
@@ -2250,7 +2306,8 @@
                 return rIdx - lIdx;
             });
         }
-        const yScale = calculateYScale(plotPoints, view);
+        // Default scale with empty history
+        const yScale = plotPoints.length === 0 ? [0, 1000] : undefined;
         const plot = Plot.plot({
             width: 800,
             x: { axis: null },
@@ -2320,7 +2377,7 @@
             return `<option value="${value}" ${value === defaultValue ? "selected" : ""}>${label}</option>`;
         });
         return $(`
-        <select style="width: 100px">
+        <select style="width: auto">
             ${optionNodes}
         </select>
     `);
@@ -2361,7 +2418,7 @@
         return $(`<button class="button" style="height: 22px">${text}</button>`);
     }
     function makeNumberInput(placeholder, defaultValue) {
-        const node = $(`<input style="width: 100px" type="number" placeholder="${placeholder}" min="1">`);
+        const node = $(`<input style="width: 60px" type="number" placeholder="${placeholder}" min="1">`);
         if (defaultValue !== undefined) {
             node.attr("value", defaultValue);
         }
@@ -2394,50 +2451,108 @@
         });
         return node;
     }
+    function makeSlider([min, max], initialState, onStateChange) {
+        const node = $(`
+        <input type="range" min="${min}" max="${max}" value="${initialState}">
+    `);
+        node.on("input", function () {
+            onStateChange(Number(this.value));
+        });
+        return node;
+    }
+    function makeToggleableNumberInput(label, placeholder, defaultValue, onStateChange) {
+        const inputNode = makeNumberInput(placeholder, defaultValue)
+            .on("change", function () { onStateChange(Number(this.value)); });
+        const toggleNode = makeCheckbox(label, defaultValue !== undefined, value => {
+            inputNode.prop("disabled", !value);
+            onStateChange(value ? Number(inputNode.val()) : undefined);
+        });
+        return $(`<div></div>`)
+            .append(toggleNode)
+            .append(inputNode);
+    }
 
     function makeSetting(label, inputNode) {
         return $(`<div>`).append(`<span style="margin-right: 8px">${label}</span>`).append(inputNode);
     }
-    function makeViewSettings(view) {
-        const resetTypeInput = makeSelect(Object.entries(resets), view.resetType)
-            .css("width", "150px")
-            .on("change", function () { view.resetType = this.value; });
-        function updateResetTypes(universe) {
-            resetTypeInput.find(`> option[value="blackhole"]`).text(universe === "magic" ? "Vacuum Collapse" : "Black Hole");
+    function makeUniverseFilter(value) {
+        if (value === "any") {
+            return undefined;
         }
-        // In case an existing view is blackhole + magic
-        updateResetTypes(view.universe ?? "any");
+        else {
+            return value;
+        }
+    }
+    function makeViewSettings(view) {
+        const propertyListeners = {};
+        function onPropertyChange(props, handler) {
+            for (const prop of props) {
+                const handlers = propertyListeners[prop] ??= [];
+                handlers.push(handler);
+            }
+            handler();
+        }
+        function setValue(key, value) {
+            switch (key) {
+                case "universe":
+                    view.universe = makeUniverseFilter(value);
+                    break;
+                case "numRuns":
+                    view.numRuns = Number(value) || undefined;
+                    break;
+                default:
+                    view[key] = value;
+                    break;
+            }
+            propertyListeners[key]?.forEach(f => f());
+        }
+        const bindThis = (property) => {
+            return function () { setValue(property, this.value); };
+        };
+        const bind = (property) => {
+            return (value) => setValue(property, value);
+        };
+        const resetTypeInput = makeSelect(Object.entries(resets), view.resetType)
+            .on("change", bindThis("resetType"));
         const universeInput = makeSelect([["any", "Any"], ...Object.entries(universes)], view.universe ?? "any")
-            .css("width", "150px")
-            .on("change", function () {
-            updateResetTypes(this.value);
-            if (this.value === "any") {
-                view.universe = undefined;
-            }
-            else {
-                view.universe = this.value;
-            }
-        });
+            .on("change", bindThis("universe"));
+        const numRunsInput = makeToggleableNumberInput("Limit to last N runs", "All", view.numRuns, bind("numRuns"));
         const modeInput = makeSelect(Object.entries(viewModes), view.mode)
-            .css("width", "150px")
-            .on("change", function () { view.mode = this.value; });
-        const daysScaleInput = makeNumberInput("Auto", view.daysScale)
-            .on("change", function () { view.daysScale = Number(this.value) || undefined; });
-        const numRunsInput = makeNumberInput("All", view.numRuns)
-            .on("change", function () { view.numRuns = Number(this.value) || undefined; });
-        return $(`<div style="display: flex; flex-wrap: wrap; flex-direction: row; gap: 8px"></div>`)
+            .on("change", bindThis("mode"));
+        const showBarsToggle = makeCheckbox("Bars", view.showBars, bind("showBars"));
+        const showLinesToggle = makeCheckbox("Lines", view.showLines, bind("showLines"));
+        const fillAreaToggle = makeCheckbox("Fill area", view.fillArea, bind("fillArea"));
+        const avgWindowSlider = makeSetting("Smoothness", makeSlider([0, 100], view.smoothness, bind("smoothness")));
+        onPropertyChange(["universe"], () => {
+            const resetName = view.universe === "magic" ? "Vacuum Collapse" : "Black Hole";
+            resetTypeInput.find(`> option[value="blackhole"]`).text(resetName);
+        });
+        onPropertyChange(["showLines", "mode"], () => {
+            fillAreaToggle.toggle(view.showLines && view.mode === "timestamp");
+        });
+        onPropertyChange(["showLines"], () => {
+            avgWindowSlider.toggle(view.showLines);
+        });
+        const filterSettings = $(`<div class="flex-container" style="flex-direction: row;"></div>`)
             .append(makeSetting("Reset type", resetTypeInput))
             .append(makeSetting("Universe", universeInput))
+            .append(numRunsInput);
+        const displaySettings = $(`<div class="flex-container" style="flex-direction: row;"></div>`)
             .append(makeSetting("Mode", modeInput))
-            .append(makeSetting("Days scale", daysScaleInput))
-            .append(makeSetting("Show last N runs", numRunsInput));
+            .append(showBarsToggle)
+            .append(showLinesToggle)
+            .append(fillAreaToggle)
+            .append(avgWindowSlider);
+        return $(`<div class="flex-container" style="flex-direction: column;"></div>`)
+            .append(filterSettings)
+            .append(displaySettings);
     }
 
     function makeMilestoneSettings(view) {
         const builtTargetOptions = makeAutocompleteInput("Building/Project", Object.entries(buildings).map(([id, name]) => ({ value: id, label: name })));
         const buildCountOption = makeNumberInput("Count", 1);
         const researchedTargetOptions = makeAutocompleteInput("Tech", Object.entries(techs).map(([id, name]) => ({ value: id, label: name })));
-        const eventTargetOptions = makeSelect(Object.entries(events)).css("width", "200px");
+        const eventTargetOptions = makeSelect(Object.entries(events));
         function selectOptions(type) {
             builtTargetOptions.toggle(type === "built");
             buildCountOption.toggle(type === "built");
