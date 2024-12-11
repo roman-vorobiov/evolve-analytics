@@ -167,6 +167,8 @@ export function makeToggleableNumberInput(
         onStateChange(value ? Number(inputNode.val()) : undefined);
     });
 
+    inputNode.prop("disabled", !toggleNode.val());
+
     return $(`<div></div>`)
         .append(toggleNode)
         .append(inputNode);
