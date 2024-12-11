@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.9.0
+// @version      0.9.1
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -2467,6 +2467,7 @@
             inputNode.prop("disabled", !value);
             onStateChange(value ? Number(inputNode.val()) : undefined);
         });
+        inputNode.prop("disabled", !toggleNode.val());
         return $(`<div></div>`)
             .append(toggleNode)
             .append(inputNode);
