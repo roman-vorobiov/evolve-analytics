@@ -1,4 +1,4 @@
-import { makeSelect, makeSlider, makeCheckbox, makeToggleableNumberInput } from "./utils";
+import { makeSelect, makeSlider, makeCheckbox, makeNumberInput, makeToggleableNumberInput } from "./utils";
 import { resets, universes, viewModes } from "../enums";
 import type { View, ViewConfig } from "../config";
 
@@ -34,7 +34,8 @@ export function makeViewSettings(view: View) {
                 break;
 
             case "numRuns":
-                view.numRuns = Number(value) || undefined;
+            case "daysScale":
+                view[key] = Number(value) || undefined;
                 break;
 
             default:
@@ -72,6 +73,9 @@ export function makeViewSettings(view: View) {
 
     const avgWindowSlider = makeSetting("Smoothness", makeSlider([0, 100], view.smoothness, bind("smoothness")));
 
+    const daysScaleInput = makeNumberInput("Auto", view.daysScale)
+        .on("change", bindThis("daysScale"));
+
     onPropertyChange(["universe"], () => {
         const resetName = view.universe === "magic" ? "Vacuum Collapse" : "Black Hole";
         resetTypeInput.find(`> option[value="blackhole"]`).text(resetName);
@@ -92,6 +96,7 @@ export function makeViewSettings(view: View) {
 
     const displaySettings = $(`<div class="flex-container" style="flex-direction: row;"></div>`)
         .append(makeSetting("Mode", modeInput))
+        .append(makeSetting("Days scale", daysScaleInput))
         .append(showBarsToggle)
         .append(showLinesToggle)
         .append(fillAreaToggle)

@@ -127,33 +127,5 @@ describe("Migration", () => {
                 ]
             });
         });
-
-        it("should discard daysScale field", () => {
-            const oldConfig = {
-                version: 7,
-                views: [
-                    {
-                        ...makeView("total"),
-                        daysScale: 123
-                    }
-                ]
-            };
-
-            expect(migrate7(oldConfig as any)).toEqual({
-                version: 8,
-                views: [
-                    {
-                        resetType: "ascension",
-                        mode: "timestamp",
-                        showBars: false,
-                        showLines: true,
-                        fillArea: false,
-                        smoothness: 0,
-                        milestones: {},
-                        additionalInfo: []
-                    }
-                ]
-            });
-        });
     });
 });

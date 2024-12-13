@@ -27,7 +27,7 @@ export type Config7 = {
 }
 
 function migrateView(view: ViewConfig7): ViewConfig8 {
-    const newView: ViewConfig8 = {
+    return {
         ...view,
         mode: ["segmented", "barsSegmented"].includes(view.mode) ? "duration" : "timestamp",
         smoothness: 0,
@@ -35,10 +35,6 @@ function migrateView(view: ViewConfig7): ViewConfig8 {
         showLines: ["total", "filled", "segmented"].includes(view.mode),
         fillArea: view.mode === "filled"
     };
-
-    delete (newView as any).daysScale;
-
-    return newView;
 }
 
 export function migrate7(config: Config7): Config8 {

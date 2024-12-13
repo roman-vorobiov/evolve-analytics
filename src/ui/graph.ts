@@ -8,6 +8,16 @@ import type { default as PlotType } from "@observablehq/plot";
 
 declare const Plot: typeof PlotType;
 
+function calculateYScale(plotPoints: PlotPoint[], view: View): [number, number] | undefined {
+    if (view.daysScale) {
+        return [0, view.daysScale];
+    }
+    else if (plotPoints.length === 0) {
+        // Default scale with empty history
+        return [0, 1000];
+    }
+}
+
 function lastRunEntries(plotPoints: PlotPoint[]): PlotPoint[] {
     const timestamps: PlotPoint[] = [];
 
@@ -234,13 +244,10 @@ export function makeGraph(history: HistoryManager, view: View, onSelect: (run: H
         });
     }
 
-    // Default scale with empty history
-    const yScale = plotPoints.length === 0 ? [0, 1000] : undefined;
-
     const plot = Plot.plot({
         width: 800,
         x: { axis: null },
-        y: { grid: true, domain: yScale },
+        y: { grid: true, domain: calculateYScale(plotPoints, view) },
         color: { legend: true, domain: generateMilestoneNames(milestones) },
         marks
     });

@@ -12,6 +12,7 @@ export type ViewConfig = {
     showLines: boolean,
     fillArea: boolean,
     numRuns?: number,
+    daysScale?: number,
     milestones: Record<string, boolean>,
     additionalInfo: Array<keyof typeof additionalInformation>
 }
