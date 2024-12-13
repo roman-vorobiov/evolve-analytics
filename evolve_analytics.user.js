@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.9.1
+// @version      0.9.2
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -1319,7 +1319,7 @@
         "barsSegmented": "Segmented (bars)"
     };
     function migrateView(view) {
-        const newView = {
+        return {
             ...view,
             mode: ["segmented", "barsSegmented"].includes(view.mode) ? "duration" : "timestamp",
             smoothness: 0,
@@ -1327,8 +1327,6 @@
             showLines: ["total", "filled", "segmented"].includes(view.mode),
             fillArea: view.mode === "filled"
         };
-        delete newView.daysScale;
-        return newView;
     }
     function migrate7(config) {
         return {
@@ -2123,6 +2121,15 @@
         return entries;
     }
 
+    function calculateYScale(plotPoints, view) {
+        if (view.daysScale) {
+            return [0, view.daysScale];
+        }
+        else if (plotPoints.length === 0) {
+            // Default scale with empty history
+            return [0, 1000];
+        }
+    }
     function lastRunEntries(plotPoints) {
         const timestamps = [];
         const lastRun = plotPoints[plotPoints.length - 1]?.run;
@@ -2306,12 +2313,10 @@
                 return rIdx - lIdx;
             });
         }
-        // Default scale with empty history
-        const yScale = plotPoints.length === 0 ? [0, 1000] : undefined;
         const plot = Plot.plot({
             width: 800,
             x: { axis: null },
-            y: { grid: true, domain: yScale },
+            y: { grid: true, domain: calculateYScale(plotPoints, view) },
             color: { legend: true, domain: generateMilestoneNames(milestones) },
             marks
         });
@@ -2499,7 +2504,8 @@
                     view.universe = makeUniverseFilter(value);
                     break;
                 case "numRuns":
-                    view.numRuns = Number(value) || undefined;
+                case "daysScale":
+                    view[key] = Number(value) || undefined;
                     break;
                 default:
                     view[key] = value;
@@ -2524,6 +2530,8 @@
         const showLinesToggle = makeCheckbox("Lines", view.showLines, bind("showLines"));
         const fillAreaToggle = makeCheckbox("Fill area", view.fillArea, bind("fillArea"));
         const avgWindowSlider = makeSetting("Smoothness", makeSlider([0, 100], view.smoothness, bind("smoothness")));
+        const daysScaleInput = makeNumberInput("Auto", view.daysScale)
+            .on("change", bindThis("daysScale"));
         onPropertyChange(["universe"], () => {
             const resetName = view.universe === "magic" ? "Vacuum Collapse" : "Black Hole";
             resetTypeInput.find(`> option[value="blackhole"]`).text(resetName);
@@ -2540,6 +2548,7 @@
             .append(numRunsInput);
         const displaySettings = $(`<div class="flex-container" style="flex-direction: row;"></div>`)
             .append(makeSetting("Mode", modeInput))
+            .append(makeSetting("Days scale", daysScaleInput))
             .append(showBarsToggle)
             .append(showLinesToggle)
             .append(fillAreaToggle)
