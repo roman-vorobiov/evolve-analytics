@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.9.2
+// @version      0.9.3
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -1186,6 +1186,14 @@
     const additionalInformation = {
         "raceName": "Race Name"
     };
+    function resetName(reset, universe) {
+        if (reset === "blackhole" && universe === "magic") {
+            return "Vacuum Collapse";
+        }
+        else {
+            return resets[reset];
+        }
+    }
 
     function transformMap(obj, fn) {
         return Object.fromEntries(Object.entries(obj).map(([k, v]) => fn([k, v])));
@@ -1280,19 +1288,19 @@
             reached: impl ?? (() => false)
         };
     }
-    function milestoneName(milestone) {
+    function milestoneName(milestone, universe) {
         const name = patternMatch(milestone, [
             [/built:(.+?):(\d+)/, (id, count) => [buildings[id], count, Number(count) !== (segments[id] ?? 1)]],
             [/tech:(.+)/, (id) => [techs[id], "Research", false]],
             [/event:(.+)/, (id) => [events[id], "Event", false]],
-            [/reset:(.+)/, (reset) => [resets[reset], "Reset", false]]
+            [/reset:(.+)/, (reset) => [resetName(reset, universe), "Reset", false]]
         ]);
         return name ?? [milestone, "Unknown", false];
     }
-    function generateMilestoneNames(milestones) {
+    function generateMilestoneNames(milestones, universe) {
         const candidates = {};
         for (let i = 0; i != milestones.length; ++i) {
-            const [name, discriminator, force] = milestoneName(milestones[i]);
+            const [name, discriminator, force] = milestoneName(milestones[i], universe);
             (candidates[name] ??= []).push([i, discriminator, force]);
         }
         const names = new Array(milestones.length);
@@ -2061,7 +2069,7 @@
     function makeMilestoneNamesMapping(history, view) {
         const milestones = Object.keys(view.milestones);
         const milestoneIDs = milestones.map(m => history.getMilestoneID(m));
-        const milestoneNames = generateMilestoneNames(milestones);
+        const milestoneNames = generateMilestoneNames(milestones, view.universe);
         return Object.fromEntries(zip(milestoneIDs, milestoneNames));
     }
     function asPlotPoints(filteredRuns, history, view) {
@@ -2317,7 +2325,7 @@
             width: 800,
             x: { axis: null },
             y: { grid: true, domain: calculateYScale(plotPoints, view) },
-            color: { legend: true, domain: generateMilestoneNames(milestones) },
+            color: { legend: true, domain: generateMilestoneNames(milestones, view.universe) },
             marks
         });
         plot.addEventListener("mousedown", () => {
