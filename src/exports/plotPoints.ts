@@ -15,7 +15,7 @@ export type PlotPoint = {
 function makeMilestoneNamesMapping(history: HistoryManager, view: ViewConfig): Record<number, string> {
     const milestones = Object.keys(view.milestones);
     const milestoneIDs = milestones.map(m => history.getMilestoneID(m));
-    const milestoneNames = generateMilestoneNames(milestones);
+    const milestoneNames = generateMilestoneNames(milestones, view.universe);
 
     return Object.fromEntries(zip(milestoneIDs, milestoneNames));
 }

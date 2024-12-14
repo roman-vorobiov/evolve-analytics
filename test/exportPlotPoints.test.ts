@@ -5,6 +5,7 @@ import { Game } from "../src/game";
 import { HistoryManager } from "../src/history";
 import { asPlotPoints, type PlotPoint } from "../src/exports/plotPoints";
 import { ConfigManager, type ViewConfig } from "../src/config";
+import type { universes } from "../src/enums";
 
 function makeView(fields: Partial<ViewConfig>): ViewConfig {
     return {
@@ -245,6 +246,33 @@ describe("Export", () => {
                 { run: 0, raceName: "Hello", milestone: "MAD", day: 34, dayDiff: 22, segment: 22 },
                 { run: 1, milestone: "Club", day: 56, dayDiff: 56, segment: 56 },
                 { run: 1, milestone: "MAD", day: 80, dayDiff: 24, segment: 24 }
+            ]);
+        });
+
+        it.each([
+            { universe: undefined, resetName: "Black Hole" },
+            { universe: "heavy", resetName: "Black Hole" },
+            { universe: "magic", resetName: "Vacuum Collapse" }
+        ])("should adjust reset names", ({ universe, resetName }) => {
+            const game = new Game(makeGameState({}));
+
+            const config = makeConfig(game, {
+                universe: universe as keyof typeof universes,
+                milestones: {
+                    "reset:blackhole": true
+                }
+            });
+
+            // Note that the name generation looks at the view's universe, not the runs themselves
+            const history = new HistoryManager(game, config, {
+                milestones: { "reset:blackhole": 0 },
+                runs: [
+                    { run: 123, universe: "standard", milestones: [[0, 12]] }
+                ]
+            });
+
+            expect(asPlotPoints(history.runs, history, config.views[0])).toEqual(<PlotPoint[]> [
+                { run: 0, milestone: resetName, day: 12, dayDiff: 12, segment: 12 },
             ]);
         });
     });

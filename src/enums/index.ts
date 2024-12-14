@@ -38,3 +38,12 @@ export const viewModes = {
 export const additionalInformation = {
     "raceName": "Race Name"
 };
+
+export function resetName(reset: keyof typeof resets, universe?: keyof typeof universes) {
+    if (reset === "blackhole" && universe === "magic") {
+        return "Vacuum Collapse";
+    }
+    else {
+        return resets[reset];
+    }
+}

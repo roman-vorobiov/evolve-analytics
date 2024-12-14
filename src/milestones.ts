@@ -1,5 +1,6 @@
-import { buildings, buildingSegments, techs, events, resets } from "./enums";
+import { resetName, buildings, buildingSegments, techs, events } from "./enums";
 import { patternMatch } from "./utils";
+import type { resets, universes } from "./enums";
 import type { Game } from "./game";
 
 export type MilestoneChecker = {
@@ -20,22 +21,22 @@ export function makeMilestoneChecker(game: Game, milestone: string): MilestoneCh
     };
 }
 
-export function milestoneName(milestone: string): [string, string, boolean] {
+export function milestoneName(milestone: string, universe?: keyof typeof universes): [string, string, boolean] {
     const name: [string, string, boolean] | undefined = patternMatch(milestone, [
         [/built:(.+?):(\d+)/, (id, count) => [buildings[id], count, Number(count) !== (buildingSegments[id] ?? 1)]],
         [/tech:(.+)/, (id) => [techs[id], "Research", false]],
         [/event:(.+)/, (id) => [events[id as keyof typeof events], "Event", false]],
-        [/reset:(.+)/, (reset) => [resets[reset as keyof typeof resets], "Reset", false]]
+        [/reset:(.+)/, (reset) => [resetName(reset as keyof typeof resets, universe), "Reset", false]]
     ]);
 
     return name ?? [milestone, "Unknown", false];
 }
 
-export function generateMilestoneNames(milestones: string[]): string[] {
+export function generateMilestoneNames(milestones: string[], universe?: keyof typeof universes): string[] {
     const candidates: Record<string, [number, string, boolean][]> = {};
 
     for (let i = 0; i != milestones.length; ++i) {
-        const [name, discriminator, force] = milestoneName(milestones[i]);
+        const [name, discriminator, force] = milestoneName(milestones[i], universe);
         (candidates[name] ??= []).push([i, discriminator, force]);
     }
 

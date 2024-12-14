@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 
 import { generateMilestoneNames, milestoneName } from "../src/milestones";
+import type { universes } from "../src/enums";
 
 describe("Milestones", () => {
     describe("Names", () => {
@@ -29,6 +30,17 @@ describe("Milestones", () => {
             const [name, discriminator] = milestoneName("reset:ascend");
 
             expect(name).toBe("Ascension");
+            expect(discriminator).toBe("Reset");
+        });
+
+        it.each([
+            { universe: undefined, resetName: "Black Hole" },
+            { universe: "heavy", resetName: "Black Hole" },
+            { universe: "magic", resetName: "Vacuum Collapse" }
+        ])("should adjust the name of the 'blackhole' reset", ({ universe, resetName }) => {
+            const [name, discriminator] = milestoneName("reset:blackhole", universe as keyof typeof universes);
+
+            expect(name).toBe(resetName);
             expect(discriminator).toBe("Reset");
         });
 

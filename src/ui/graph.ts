@@ -248,7 +248,7 @@ export function makeGraph(history: HistoryManager, view: View, onSelect: (run: H
         width: 800,
         x: { axis: null },
         y: { grid: true, domain: calculateYScale(plotPoints, view) },
-        color: { legend: true, domain: generateMilestoneNames(milestones) },
+        color: { legend: true, domain: generateMilestoneNames(milestones, view.universe) },
         marks
     });
 
