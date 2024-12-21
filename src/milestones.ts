@@ -35,7 +35,7 @@ export function milestoneName(milestone: string, universe?: keyof typeof univers
 export function generateMilestoneNames(milestones: string[], universe?: keyof typeof universes): string[] {
     const candidates: Record<string, [number, string, boolean][]> = {};
 
-    for (let i = 0; i != milestones.length; ++i) {
+    for (let i = 0; i !== milestones.length; ++i) {
         const [name, discriminator, force] = milestoneName(milestones[i], universe);
         (candidates[name] ??= []).push([i, discriminator, force]);
     }

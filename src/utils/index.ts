@@ -1,5 +1,4 @@
 export { transformMap, rotateMap, zip } from "./map";
-export { compose, invokeFor, weakFor } from "./functional";
 
 export type RecursivePartial<T> = {
     [P in keyof T]?:

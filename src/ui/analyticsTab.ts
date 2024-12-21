@@ -1,10 +1,11 @@
 import { makeViewTab } from "./viewTab";
 import { lastChild } from "./utils";
-import { weakFor, invokeFor, compose } from "../utils";
+import type { Game } from "../game";
 import type { ConfigManager, View } from "../config";
 import type { HistoryManager } from "../history";
+import type { LatestRun } from "../runTracking";
 
-export function buildAnalyticsTab(config: ConfigManager, history: HistoryManager) {
+export function buildAnalyticsTab(game: Game, config: ConfigManager, history: HistoryManager, currentRun: LatestRun) {
     const tabControlNode = $(`
         <li role="tab" aria-controls="analytics-content" aria-selected="true">
             <a id="analytics-label" tabindex="0" data-unsp-sanitized="clean">Analytics</a>
@@ -38,10 +39,10 @@ export function buildAnalyticsTab(config: ConfigManager, history: HistoryManager
         const count = controlParentNode.children().length;
         const id = `analytics-view-${count}`;
 
-        const [controlNode, contentNode] = makeViewTab(id, view, config, history);
+        const [controlNode, contentNode] = makeViewTab(id, game, view, config, history, currentRun);
 
         controlNode.on("click", () => {
-            config.onViewOpened(view);
+            config.viewOpened(view);
         });
 
         controlNode.insertBefore(lastChild(analyticsPanel.find("> nav > ul")));
@@ -49,12 +50,16 @@ export function buildAnalyticsTab(config: ConfigManager, history: HistoryManager
         analyticsPanel.tabs("refresh");
         analyticsPanel.tabs({ active: count - 1 });
 
-        config.on("viewRemoved", compose([weakFor(view), invokeFor(view)], () => {
+        config.on("viewRemoved", (removedView) => {
+            if (removedView !== view) {
+                return;
+            }
+
             controlNode.remove();
             contentNode.remove();
             analyticsPanel.tabs("refresh");
             analyticsPanel.tabs({ active: 0 });
-        }));
+        });
     }
 
     function hidden(node: JQuery) {

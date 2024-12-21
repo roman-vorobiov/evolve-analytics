@@ -1,12 +1,13 @@
 import { resets, universes } from "../enums";
-import { weakFor, invokeFor, compose } from "../utils";
 import { makeGraph } from "./graph";
 import { makeViewSettings } from "./viewSettings";
 import { makeMilestoneSettings } from "./milestoneSettings";
 import { makeAdditionalInfoSettings } from "./additionalInfoSettings";
 import { nextAnimationFrame } from "./utils";
+import type { Game } from "../game";
 import type { ConfigManager, View } from "../config";
 import type { HistoryEntry, HistoryManager } from "../history";
+import type { LatestRun } from "../runTracking";
 
 import type { default as htmltoimage } from "html-to-image";
 
@@ -76,7 +77,7 @@ function viewTitle(view: View) {
     }
 }
 
-export function makeViewTab(id: string, view: View, config: ConfigManager, history: HistoryManager) {
+export function makeViewTab(id: string, game: Game, view: View, config: ConfigManager, history: HistoryManager, currentRun: LatestRun) {
     const controlNode = $(`<li><a href="#${id}">${viewTitle(view)}</a></li>`);
     const contentNode = $(`<div id="${id}" class="vscroll" style="height: calc(100vh - 10rem)"></div>`);
 
@@ -116,14 +117,38 @@ export function makeViewTab(id: string, view: View, config: ConfigManager, histo
         .append(makeViewSettings(view).css("margin-bottom", "1em"))
         .append(makeAdditionalInfoSettings(view).css("margin-bottom", "1em"))
         .append(makeMilestoneSettings(view).css("margin-bottom", "1em"))
-        .append(makeGraph(history, view, onRunSelection))
+        .append(makeGraph(history, view, currentRun, onRunSelection))
         .append(buttonsContainerNode);
 
-    config.on("viewUpdated", compose([weakFor(view), invokeFor(view)], (updatedView) => {
+    function redrawGraph(updatedView: View) {
+        contentNode.find("figure:last").replaceWith(makeGraph(history, updatedView, currentRun, onRunSelection));
+    }
+
+    config.on("viewUpdated", (updatedView) => {
+        if (updatedView !== view) {
+            return;
+        }
+
         controlNode.find("> a").text(viewTitle(updatedView));
-        contentNode.find("figure:last").replaceWith(makeGraph(history, updatedView, onRunSelection));
+        redrawGraph(updatedView);
         onRunSelection(null);
-    }));
+    });
+
+    game.onGameDay(() => {
+        if (!config.recordRuns) {
+            return;
+        }
+
+        if (!view.includeCurrentRun) {
+            return;
+        }
+
+        if (view !== config.openView) {
+            return;
+        }
+
+        redrawGraph(view);
+    });
 
     return [controlNode, contentNode];
 }

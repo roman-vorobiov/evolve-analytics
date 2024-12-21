@@ -1,13 +1,18 @@
 import { resets } from "./enums";
 import { transformMap } from "./utils";
+import { Subscribable } from "./subscribable";
 import type { Evolve, BuildingInfoTabs, ArpaInfoTab } from "./evolve";
 
 import type { default as JQuery } from "jquery";
 
 declare const $: typeof JQuery;
 
-export class Game {
-    constructor(private evolve: Evolve) {}
+export class Game extends Subscribable {
+    private subscribed = false;
+
+    constructor(private evolve: Evolve) {
+        super();
+    }
 
     get runNumber() {
         return this.evolve.global.stats.reset + 1;
@@ -53,12 +58,22 @@ export class Game {
     }
 
     onGameDay(fn: (day: number) => void) {
+        this.on("newDay", fn);
+
+        if (!this.subscribed) {
+            this.subscribeToGameUpdates();
+            this.subscribed = true;
+        }
+    }
+
+    private subscribeToGameUpdates() {
         let previousDay: number | null = null;
         this.onGameTick(() => {
             const day = this.day;
 
             if (previousDay !== day) {
-                fn(day);
+                this.emit("newDay", this.day);
+
                 previousDay = day;
             }
         });

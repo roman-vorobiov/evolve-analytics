@@ -110,6 +110,7 @@ describe("Config", () => {
             smoothness: 0,
             resetType: "ascend",
             universe: "standard",
+            includeCurrentRun: false,
             milestones: {
                 "reset:ascend": true
             },
@@ -307,10 +308,10 @@ describe("Config", () => {
 
         expect(config.openViewIndex).toBeUndefined();
 
-        config.onViewOpened(view2);
+        config.viewOpened(view2);
         expect(config.openViewIndex).toBe(1);
 
-        config.onViewOpened(view1);
+        config.viewOpened(view1);
         expect(config.openViewIndex).toBe(0);
     });
 });

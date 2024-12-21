@@ -15,7 +15,7 @@ export function zip<T extends any[]>(...lists: [...T]) {
 
     const length = Math.min(...lists.map(l => l.length));
 
-    for (let i = 0; i != length; ++i) {
+    for (let i = 0; i !== length; ++i) {
         result.push(lists.map(l => l[i]));
     }
 

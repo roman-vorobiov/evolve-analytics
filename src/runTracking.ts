@@ -114,4 +114,6 @@ export function trackMilestones(game: Game, config: ConfigManager) {
 
         saveCurrentRun(currentRunStats);
     });
+
+    return currentRunStats;
 }

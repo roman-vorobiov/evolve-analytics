@@ -62,6 +62,8 @@ export function makeViewSettings(view: View) {
 
     const numRunsInput = makeToggleableNumberInput("Limit to last N runs", "All", view.numRuns, bind("numRuns"));
 
+    const showCurrentRunToggle = makeCheckbox("Show Current Run", view.includeCurrentRun ?? false, bind("includeCurrentRun"));
+
     const modeInput = makeSelect(Object.entries(viewModes), view.mode)
         .on("change", bindThis("mode"));
 
@@ -92,7 +94,8 @@ export function makeViewSettings(view: View) {
     const filterSettings = $(`<div class="flex-container" style="flex-direction: row;"></div>`)
         .append(makeSetting("Reset type", resetTypeInput))
         .append(makeSetting("Universe", universeInput))
-        .append(numRunsInput);
+        .append(numRunsInput)
+        .append(showCurrentRunToggle);
 
     const displaySettings = $(`<div class="flex-container" style="flex-direction: row;"></div>`)
         .append(makeSetting("Mode", modeInput))

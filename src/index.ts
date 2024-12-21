@@ -15,6 +15,6 @@ const history = initializeHistory(game, config);
 
 processLatestRun(game, config, history);
 
-trackMilestones(game, config);
+const currentRun = trackMilestones(game, config);
 
-bootstrapUIComponents(config, history);
+bootstrapUIComponents(game, config, history, currentRun);

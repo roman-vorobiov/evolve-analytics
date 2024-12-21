@@ -1,8 +1,9 @@
 import { applyFilters } from "../exports/historyFiltering";
-import { asPlotPoints, type PlotPoint } from "../exports/plotPoints";
+import { asPlotPoints, runAsPlotPoints, type PlotPoint } from "../exports/plotPoints";
 import { generateMilestoneNames } from "../milestones";
 import type { View } from "../config";
 import type { HistoryEntry, HistoryManager } from "../history";
+import type { LatestRun } from "../runTracking";
 
 import type { default as PlotType } from "@observablehq/plot";
 
@@ -12,7 +13,7 @@ function calculateYScale(plotPoints: PlotPoint[], view: View): [number, number] 
     if (view.daysScale) {
         return [0, view.daysScale];
     }
-    else if (plotPoints.length === 0) {
+    else if (plotPoints.length === 0 || (!view.showBars && !view.showLines)) {
         // Default scale with empty history
         return [0, 1000];
     }
@@ -59,7 +60,9 @@ function smooth(smoothness: number, history: HistoryEntry[], params: any) {
 }
 
 function* timestamps(plotPoints: PlotPoint[], key: "day" | "segment") {
-    const lastRunTimestamps = lastRunEntries(plotPoints).map(e => e[key]);
+    const lastRunTimestamps = lastRunEntries(plotPoints)
+        .filter(entry => !entry.pending)
+        .map(entry => entry[key]);
 
     yield Plot.axisY(lastRunTimestamps, {
         anchor: "right",
@@ -73,7 +76,8 @@ function* areaMarks(plotPoints: PlotPoint[], history: HistoryEntry[], smoothness
         y: "dayDiff",
         z: "milestone",
         fill: "milestone",
-        fillOpacity: 0.5
+        fillOpacity: 0.5,
+        filter: (entry: PlotPoint) => entry.dayDiff !== undefined
     }));
 }
 
@@ -122,13 +126,27 @@ function* barMarks(plotPoints: PlotPoint[], key: "dayDiff" | "segment") {
 }
 
 function tipText(point: PlotPoint, key: "day" | "dayDiff" | "segment", history: HistoryEntry[]) {
-    let prefix = `Run #${history[point.run].run}`;
+    let prefix;
+    if (point.run === history.length) {
+        prefix = "Current run";
+    }
+    else {
+        prefix = `Run #${history[point.run].run}`;
+    }
 
     if (point.raceName !== undefined) {
         prefix += ` (${point.raceName})`;
     }
 
-    return `${prefix}: ${point.milestone} in ${point[key]} day(s)`;
+    let suffix;
+    if (point.pending) {
+        suffix = `(in progress)`;
+    }
+    else {
+        suffix = `in ${point[key]} day(s)`;
+    }
+
+    return `${prefix}: ${point.milestone} ${suffix}`;
 }
 
 function* linePointerMarks(plotPoints: PlotPoint[], history: HistoryEntry[], key: "day" | "segment") {
@@ -154,8 +172,6 @@ function* linePointerMarks(plotPoints: PlotPoint[], history: HistoryEntry[], key
 }
 
 function* rectPointerMarks(plotPoints: PlotPoint[], history: HistoryEntry[], segmentKey: "dayDiff" | "segment", tipKey: "day" | "segment") {
-    plotPoints = plotPoints.filter((entry: PlotPoint) => entry.dayDiff !== undefined);
-
     // Transform pointer position from the point to the segment
     function toSegment(options: any) {
         const convert = ({ x, y, ...options }: any) => ({ px: x, py: y, ...options });
@@ -167,20 +183,40 @@ function* rectPointerMarks(plotPoints: PlotPoint[], history: HistoryEntry[], seg
         y: segmentKey,
         dy: -17,
         frameAnchor: "top-left",
-        text: (p: PlotPoint) => tipText(p, tipKey, history)
+        text: (p: PlotPoint) => tipText(p, tipKey, history),
+        filter: (entry: PlotPoint) => entry.dayDiff !== undefined
     })));
 
     yield Plot.barY(plotPoints, Plot.pointerX(Plot.stackY({
         x: "run",
         y: segmentKey,
         fill: "milestone",
-        fillOpacity: 0.5
+        fillOpacity: 0.5,
+        filter: (entry: PlotPoint) => entry.dayDiff !== undefined
     })));
 }
 
-export function makeGraph(history: HistoryManager, view: View, onSelect: (run: HistoryEntry | null) => void) {
+export function makeGraph(history: HistoryManager, view: View, currentRun: LatestRun, onSelect: (run: HistoryEntry | null) => void) {
     const filteredRuns = applyFilters(history, view);
+
+    const milestones: string[] = Object.keys(view.milestones);
+
+    // Try to order the milestones in the legend in the order in which they happened during the last run
+    if (filteredRuns.length !== 0) {
+        const lastRun = filteredRuns[filteredRuns.length - 1];
+        milestones.sort((l, r) => {
+            const lIdx = lastRun.milestones.findIndex(([id]) => id === history.getMilestoneID(l));
+            const rIdx = lastRun.milestones.findIndex(([id]) => id === history.getMilestoneID(r));
+            return rIdx - lIdx;
+        });
+    }
+
     const plotPoints = asPlotPoints(filteredRuns, history, view);
+
+    if (view.includeCurrentRun) {
+        const currentRunPoints = runAsPlotPoints(currentRun, view, filteredRuns.length, milestones.slice().reverse());
+        plotPoints.push(...currentRunPoints);
+    }
 
     const marks = [
         Plot.axisY({ anchor: "left", label: "days" }),
@@ -232,18 +268,6 @@ export function makeGraph(history: HistoryManager, view: View, onSelect: (run: H
         }
     }
 
-    const milestones: string[] = Object.keys(view.milestones);
-
-    // Try to order the milestones in the legend in the order in which they happened during the last run
-    if (filteredRuns.length !== 0) {
-        const lastRun = filteredRuns[filteredRuns.length - 1];
-        milestones.sort((l, r) => {
-            const lIdx = lastRun.milestones.findIndex(([id]) => id === history.getMilestoneID(l));
-            const rIdx = lastRun.milestones.findIndex(([id]) => id === history.getMilestoneID(r));
-            return rIdx - lIdx;
-        });
-    }
-
     const plot = Plot.plot({
         width: 800,
         x: { axis: null },
@@ -253,7 +277,7 @@ export function makeGraph(history: HistoryManager, view: View, onSelect: (run: H
     });
 
     plot.addEventListener("mousedown", () => {
-        if (plot.value) {
+        if (plot.value && plot.value.run < filteredRuns.length) {
             onSelect(filteredRuns[plot.value.run]);
         }
         else {
@@ -267,7 +291,7 @@ export function makeGraph(history: HistoryManager, view: View, onSelect: (run: H
         .css("cursor", "pointer")
         .css("font-size", "1rem");
 
-    for (let i = 0; i != legendMilestones.length; ++i) {
+    for (let i = 0; i !== legendMilestones.length; ++i) {
         const node = legendMilestones[i];
         const milestone = milestones[i];
 

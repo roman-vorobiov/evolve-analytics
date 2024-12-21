@@ -7,6 +7,7 @@ export type ViewConfig = {
     resetType: keyof typeof resets,
     universe?: keyof typeof universes,
     mode: keyof typeof viewModes,
+    includeCurrentRun?: boolean,
     smoothness: number,
     showBars: boolean,
     showLines: boolean,
@@ -129,7 +130,13 @@ export class ConfigManager extends Subscribable {
         return this.config.lastOpenViewIndex;
     }
 
-    onViewOpened(view: View) {
+    get openView() {
+        if (this.openViewIndex !== undefined) {
+            return this.views[this.openViewIndex];
+        }
+    }
+
+    viewOpened(view: View) {
         const idx = this.views.indexOf(view);
         this.config.lastOpenViewIndex = idx === -1 ? undefined : idx;
 
@@ -141,6 +148,7 @@ export class ConfigManager extends Subscribable {
         const view: ViewConfig = {
             resetType: "ascend",
             universe: this.game.universe,
+            includeCurrentRun: false,
             mode: "timestamp",
             showBars: true,
             showLines: false,
