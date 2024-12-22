@@ -45,3 +45,46 @@ export function applyFilters(history: HistoryManager, view: ViewConfig): History
 
     return runs.reverse();
 }
+
+function findBestRunImpl(history: HistoryManager, view: ViewConfig): HistoryEntry | undefined {
+    let best: HistoryEntry | undefined = undefined;
+
+    for (let i = 0; i != history.runs.length; ++i) {
+        const run = history.runs[i];
+
+        if (!shouldIncludeRun(run, view, history)) {
+            continue;
+        }
+
+        if (best === undefined) {
+            best = run;
+        }
+        else {
+            const [, bestTime] = best.milestones[best.milestones.length - 1];
+            const [, currentTime] = run.milestones[run.milestones.length - 1];
+
+            if (currentTime < bestTime) {
+                best = run;
+            }
+        }
+    }
+
+    return best;
+}
+
+const bestRunCache: Record<string, HistoryEntry> = {};
+
+export function findBestRun(history: HistoryManager, view: ViewConfig): HistoryEntry | undefined {
+    const cacheKey = `${view.resetType}.${view.universe ?? "*"}`;
+    const cacheEntry = bestRunCache[cacheKey];
+    if (cacheEntry !== undefined) {
+        return cacheEntry;
+    }
+
+    const best = findBestRunImpl(history, view);
+    if (best !== undefined) {
+        bestRunCache[cacheKey] = best;
+    }
+
+    return best;
+}

@@ -57,3 +57,7 @@ export function generateMilestoneNames(milestones: string[], universe?: keyof ty
 
     return names;
 }
+
+export function isEventMilestone(milestone: string) {
+    return milestone.startsWith("event:");
+}

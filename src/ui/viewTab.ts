@@ -108,6 +108,10 @@ export function makeViewTab(id: string, game: Game, view: View, config: ConfigMa
         discardRunNode.attr("disabled", selectedRun === null ? "" : null);
     }
 
+    function createGraph(view: View) {
+        return makeGraph(history, view, currentRun, onRunSelection);
+    }
+
     const buttonsContainerNode = $(`<div style="display: flex; justify-content: space-between"></div>`)
         .append(asImageNode)
         .append(discardRunNode)
@@ -117,11 +121,11 @@ export function makeViewTab(id: string, game: Game, view: View, config: ConfigMa
         .append(makeViewSettings(view).css("margin-bottom", "1em"))
         .append(makeAdditionalInfoSettings(view).css("margin-bottom", "1em"))
         .append(makeMilestoneSettings(view).css("margin-bottom", "1em"))
-        .append(makeGraph(history, view, currentRun, onRunSelection))
+        .append(createGraph(view))
         .append(buttonsContainerNode);
 
     function redrawGraph(updatedView: View) {
-        contentNode.find("figure:last").replaceWith(makeGraph(history, updatedView, currentRun, onRunSelection));
+        contentNode.find("figure:last").replaceWith(createGraph(updatedView));
     }
 
     config.on("viewUpdated", (updatedView) => {

@@ -1,11 +1,11 @@
-import { applyFilters } from "../exports/historyFiltering";
+import { applyFilters, findBestRun } from "../exports/historyFiltering";
 import { asPlotPoints, runAsPlotPoints, type PlotPoint } from "../exports/plotPoints";
 import { generateMilestoneNames } from "../milestones";
 import type { View } from "../config";
 import type { HistoryEntry, HistoryManager } from "../history";
 import type { LatestRun } from "../runTracking";
 
-import type { default as PlotType } from "@observablehq/plot";
+import type * as PlotType from "@observablehq/plot";
 
 declare const Plot: typeof PlotType;
 
@@ -61,7 +61,7 @@ function smooth(smoothness: number, history: HistoryEntry[], params: any) {
 
 function* timestamps(plotPoints: PlotPoint[], key: "day" | "segment") {
     const lastRunTimestamps = lastRunEntries(plotPoints)
-        .filter(entry => !entry.pending)
+        .filter(entry => !entry.pending || entry.overtime)
         .map(entry => entry[key]);
 
     yield Plot.axisY(lastRunTimestamps, {
@@ -77,7 +77,7 @@ function* areaMarks(plotPoints: PlotPoint[], history: HistoryEntry[], smoothness
         z: "milestone",
         fill: "milestone",
         fillOpacity: 0.5,
-        filter: (entry: PlotPoint) => entry.dayDiff !== undefined
+        filter: (entry: PlotPoint) => entry.dayDiff !== undefined && !entry.future
     }));
 }
 
@@ -98,7 +98,7 @@ function* barMarks(plotPoints: PlotPoint[], key: "dayDiff" | "segment") {
         y: key,
         z: "milestone",
         fill: "milestone",
-        fillOpacity: 0.5,
+        fillOpacity: (entry: PlotPoint) => entry.future ? 0.25 : 0.5,
         // Don't display event milestones as segments - use only the ticks
         filter: (entry: PlotPoint) => entry.dayDiff !== undefined
     });
@@ -144,6 +144,10 @@ function tipText(point: PlotPoint, key: "day" | "dayDiff" | "segment", history: 
     }
     else {
         suffix = `in ${point[key]} day(s)`;
+
+        if (point.future) {
+            suffix += ` (PB pace)`;
+        }
     }
 
     return `${prefix}: ${point.milestone} ${suffix}`;
@@ -214,7 +218,14 @@ export function makeGraph(history: HistoryManager, view: View, currentRun: Lates
     const plotPoints = asPlotPoints(filteredRuns, history, view);
 
     if (view.includeCurrentRun) {
-        const currentRunPoints = runAsPlotPoints(currentRun, view, filteredRuns.length, milestones.slice().reverse());
+        const bestRun = findBestRun(history, view);
+        const bestRunEntries = bestRun !== undefined ? asPlotPoints([bestRun], history, view) : [];
+
+        const estimate = view.mode === "timestamp";
+
+        const idx = filteredRuns.length;
+
+        const currentRunPoints = runAsPlotPoints(currentRun, view, bestRunEntries, estimate, idx);
         plotPoints.push(...currentRunPoints);
     }
 
