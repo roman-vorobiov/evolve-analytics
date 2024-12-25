@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.10.1
+// @version      0.10.2
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -1155,7 +1155,17 @@
     };
 
     const events = {
-        "womlings": "Womlings arrival"
+        "womlings": "Womlings arrival",
+        "steel": "Steel discovery",
+        "elerium": "Elerium discovery",
+        "oil": "Space Oil discovery",
+        "pit": "Pit discovery",
+        "alien": "Alien encounter",
+        "piracy": "Piracy unlock",
+        "alien_db": "Alien Database find",
+        "corrupt_gem": "Corrupt Soul Gem creation",
+        "vault": "Vault discovery",
+        "syndicate": "Syndicate unlock"
     };
     const resets = {
         mad: "MAD",
@@ -1240,7 +1250,17 @@
         const impl = patternMatch(milestone, [
             [/built:(.+?)-(.+?):(\d+)/, (tab, id, count) => () => game.built(tab, id, Number(count))],
             [/tech:(.+)/, (id) => () => game.researched(id)],
-            [/event:womlings/, () => () => game.womlingsArrived()]
+            [/event:womlings/, () => () => game.womlingsArrived()],
+            [/event:steel/, () => () => game.steelDiscovered()],
+            [/event:elerium/, () => () => game.eleriumDiscovered()],
+            [/event:oil/, () => () => game.spaceOilDiscovered()],
+            [/event:pit/, () => () => game.pitDiscovered()],
+            [/event:alien/, () => () => game.aliensEncountered()],
+            [/event:piracy/, () => () => game.piratesEncountered()],
+            [/event:alien_db/, () => () => game.alienDatabaseFound()],
+            [/event:corrupt_gem/, () => () => game.corruptSoulGemProduced()],
+            [/event:vault/, () => () => game.vaultDiscovered()],
+            [/event:syndicate/, () => () => game.syndicateEncountered()]
         ]);
         return {
             milestone,
@@ -1634,6 +1654,36 @@
         }
         womlingsArrived() {
             return this.evolve.global.race.servants !== undefined;
+        }
+        steelDiscovered() {
+            return this.evolve.global.resource.Steel.display;
+        }
+        eleriumDiscovered() {
+            return this.evolve.global.resource.Elerium.display;
+        }
+        spaceOilDiscovered() {
+            return this.evolve.global.tech["gas_moon"] >= 2;
+        }
+        pitDiscovered() {
+            return this.evolve.global.tech["hell_pit"] >= 1;
+        }
+        aliensEncountered() {
+            return this.evolve.global.tech["xeno"] >= 1;
+        }
+        piratesEncountered() {
+            return this.evolve.global.tech["piracy"] >= 1;
+        }
+        alienDatabaseFound() {
+            return this.evolve.global.tech["conflict"] >= 5;
+        }
+        corruptSoulGemProduced() {
+            return this.evolve.global.tech["corrupt"] >= 1;
+        }
+        vaultDiscovered() {
+            return this.evolve.global.tech["hell_vault"] >= 1;
+        }
+        syndicateEncountered() {
+            return this.evolve.global.tech["syndicate"] >= 1;
         }
         onGameDay(fn) {
             this.on("newDay", fn);
@@ -2162,11 +2212,12 @@
         }
         else {
             const reverseMilestoneNameMap = rotateMap(milestoneNameMap);
-            let idx = 0;
+            // Skip until the first unachieved milestone
+            let lastCommonIdx = -1;
             if (entries.length !== 0) {
-                idx = bestRun.findLastIndex(entry => entry.milestone === entries[entries.length - 1].milestone);
+                lastCommonIdx = bestRun.findLastIndex(entry => entry.milestone === entries[entries.length - 1].milestone);
             }
-            const futureEntries = bestRun.slice(idx).filter(entry => {
+            const futureEntries = bestRun.slice(lastCommonIdx + 1).filter(entry => {
                 const milestone = reverseMilestoneNameMap[entry.milestone];
                 return !(milestone in currentRun.milestones) && !isEventMilestone(milestone);
             });
