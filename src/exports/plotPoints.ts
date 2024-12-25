@@ -126,12 +126,13 @@ export function runAsPlotPoints(
     else {
         const reverseMilestoneNameMap = rotateMap(milestoneNameMap);
 
-        let idx = 0;
+        // Skip until the first unachieved milestone
+        let lastCommonIdx = -1;
         if (entries.length !== 0) {
-            idx = bestRun.findLastIndex(entry => entry.milestone === entries[entries.length - 1].milestone);
+            lastCommonIdx = bestRun.findLastIndex(entry => entry.milestone === entries[entries.length - 1].milestone);
         }
 
-        const futureEntries = bestRun.slice(idx).filter(entry => {
+        const futureEntries = bestRun.slice(lastCommonIdx + 1).filter(entry => {
             const milestone = reverseMilestoneNameMap[entry.milestone];
             return !(milestone in currentRun.milestones) && !isEventMilestone(milestone);
         });
