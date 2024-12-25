@@ -12,7 +12,17 @@ export function makeMilestoneChecker(game: Game, milestone: string): MilestoneCh
     const impl = patternMatch(milestone, [
         [/built:(.+?)-(.+?):(\d+)/, (tab, id, count) => () => game.built(tab, id, Number(count))],
         [/tech:(.+)/, (id) => () => game.researched(id)],
-        [/event:womlings/, () => () => game.womlingsArrived()]
+        [/event:womlings/, () => () => game.womlingsArrived()],
+        [/event:steel/, () => () => game.steelDiscovered()],
+        [/event:elerium/, () => () => game.eleriumDiscovered()],
+        [/event:oil/, () => () => game.spaceOilDiscovered()],
+        [/event:pit/, () => () => game.pitDiscovered()],
+        [/event:alien/, () => () => game.aliensEncountered()],
+        [/event:piracy/, () => () => game.piratesEncountered()],
+        [/event:alien_db/, () => () => game.alienDatabaseFound()],
+        [/event:corrupt_gem/, () => () => game.corruptSoulGemProduced()],
+        [/event:vault/, () => () => game.vaultDiscovered()],
+        [/event:syndicate/, () => () => game.syndicateEncountered()]
     ]);
 
     return {

@@ -26,7 +26,9 @@ export type Evolve = {
             species: string,
             universe: keyof typeof universes | "bigbang",
             servants?: object
-        }
+        },
+        resource: Record<string, { display: boolean }>,
+        tech: Record<string, number>
     }
 }
 

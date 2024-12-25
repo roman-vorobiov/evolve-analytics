@@ -3,7 +3,17 @@ export { segments as buildingSegments } from "./segments";
 export { techs } from "./research";
 
 export const events = {
-    "womlings": "Womlings arrival"
+    "womlings": "Womlings arrival",
+    "steel": "Steel discovery",
+    "elerium": "Elerium discovery",
+    "oil": "Space Oil discovery",
+    "pit": "Pit discovery",
+    "alien": "Alien encounter",
+    "piracy": "Piracy unlock",
+    "alien_db": "Alien Database find",
+    "corrupt_gem": "Corrupt Soul Gem creation",
+    "vault": "Vault discovery",
+    "syndicate": "Syndicate unlock"
 };
 
 export const resets = {
