@@ -1,5 +1,5 @@
 import { resets, universes } from "../enums";
-import { makeGraph } from "./graph";
+import { makeGraph, type Selection } from "./graph";
 import { makeViewSettings } from "./viewSettings";
 import { makeMilestoneSettings } from "./milestoneSettings";
 import { makeAdditionalInfoSettings } from "./additionalInfoSettings";
@@ -84,10 +84,10 @@ export function makeViewTab(id: string, game: Game, view: View, config: ConfigMa
     const removeViewNode = $(`<button class="button">Delete View</button>`)
         .on("click", () => { config.removeView(view); });
 
-    let selectedRun: HistoryEntry | null = null;
+    let selection: Selection | null = null;
 
     const discardRunNode = $(`<button class="button">Discard Run</button>`)
-        .on("click", () => { history.discardRun(selectedRun!); })
+        .on("click", () => { history.discardRun(selection!.run); })
         .attr("disabled", "");
 
     const asImageNode = $(`<button class="button">Copy as PNG</button>`)
@@ -103,13 +103,13 @@ export function makeViewTab(id: string, game: Game, view: View, config: ConfigMa
             $(this).text("Copy as PNG");
         });
 
-    function onRunSelection(run: HistoryEntry | null) {
-        selectedRun = run;
-        discardRunNode.attr("disabled", selectedRun === null ? "" : null);
+    function onSelection(point: Selection | null) {
+        selection = point;
+        discardRunNode.attr("disabled", point === null ? "" : null);
     }
 
     function createGraph(view: View) {
-        return makeGraph(history, view, currentRun, onRunSelection);
+        return makeGraph(history, view, currentRun, onSelection);
     }
 
     const buttonsContainerNode = $(`<div style="display: flex; justify-content: space-between"></div>`)
@@ -121,11 +121,16 @@ export function makeViewTab(id: string, game: Game, view: View, config: ConfigMa
         .append(makeViewSettings(view).css("margin-bottom", "1em"))
         .append(makeAdditionalInfoSettings(view).css("margin-bottom", "1em"))
         .append(makeMilestoneSettings(view).css("margin-bottom", "1em"))
-        .append(createGraph(view))
+        .append(createGraph(view).plot)
         .append(buttonsContainerNode);
 
     function redrawGraph(updatedView: View) {
-        contentNode.find("figure:last").replaceWith(createGraph(updatedView));
+        const { plot, selectRun } = createGraph(updatedView);
+        contentNode.find("figure:last").replaceWith(plot);
+
+        if (selection !== null) {
+            selectRun(selection);
+        }
     }
 
     config.on("viewUpdated", (updatedView) => {
@@ -134,8 +139,8 @@ export function makeViewTab(id: string, game: Game, view: View, config: ConfigMa
         }
 
         controlNode.find("> a").text(viewTitle(updatedView));
+        onSelection(null);
         redrawGraph(updatedView);
-        onRunSelection(null);
     });
 
     game.onGameDay(() => {

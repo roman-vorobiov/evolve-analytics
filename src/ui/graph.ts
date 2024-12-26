@@ -9,6 +9,11 @@ import type * as PlotType from "@observablehq/plot";
 
 declare const Plot: typeof PlotType;
 
+export type Selection = {
+    run: HistoryEntry,
+    milestoneName: string
+}
+
 function calculateYScale(plotPoints: PlotPoint[], view: View): [number, number] | undefined {
     if (view.daysScale) {
         return [0, view.daysScale];
@@ -200,7 +205,12 @@ function* rectPointerMarks(plotPoints: PlotPoint[], history: HistoryEntry[], seg
     })));
 }
 
-export function makeGraph(history: HistoryManager, view: View, currentRun: LatestRun, onSelect: (run: HistoryEntry | null) => void) {
+export function makeGraph(
+    history: HistoryManager,
+    view: View,
+    currentRun: LatestRun,
+    onSelect: (selection: Selection | null) => void
+) {
     const filteredRuns = applyFilters(history, view);
 
     const milestones: string[] = Object.keys(view.milestones);
@@ -289,7 +299,10 @@ export function makeGraph(history: HistoryManager, view: View, currentRun: Lates
 
     plot.addEventListener("mousedown", () => {
         if (plot.value && plot.value.run < filteredRuns.length) {
-            onSelect(filteredRuns[plot.value.run]);
+            onSelect({
+                run: filteredRuns[plot.value.run],
+                milestoneName: plot.value.milestone
+            });
         }
         else {
             onSelect(null);
@@ -318,5 +331,52 @@ export function makeGraph(history: HistoryManager, view: View, currentRun: Lates
 
     $(plot).css("margin", "0");
 
-    return plot;
+    function selectBar({ run, milestoneName }: Selection) {
+        const runIdx = filteredRuns.indexOf(run);
+        if (runIdx === -1) {
+            return;
+        }
+
+        const milestoneSpan = legendMilestones.filter(function() { return $(this).text() === milestoneName; });
+        if (milestoneSpan.length === 0) {
+            return;
+        }
+
+        const color = milestoneSpan.find("> svg").attr("fill");
+
+        const rects = $(plot).find(`g[aria-label="bar"] > rect[fill="${color}"]`);
+        if (rects.length === 0) {
+            return;
+        }
+
+        const bar = rects[runIdx];
+
+        const { top, left } = $(bar).position();
+
+        const center = {
+            x: left + $(bar).width()! / 2,
+            y: top + $(bar).height()! / 2
+        };
+
+        function makePointerEvent(name: string) {
+            return new PointerEvent(name, {
+                pointerType: "mouse",
+                bubbles: true,
+                composed: true,
+                clientX: center.x,
+                clientY: center.y
+            });
+        }
+
+        bar.dispatchEvent(makePointerEvent("pointerenter"));
+        bar.dispatchEvent(makePointerEvent("pointerdown"));
+    }
+
+    function selectRun(selection: Selection) {
+        if (view.showBars) {
+            selectBar(selection);
+        }
+    }
+
+    return { plot, selectRun };
 }
