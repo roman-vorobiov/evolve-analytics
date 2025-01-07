@@ -1,4 +1,5 @@
 import { resetName, buildings, buildingSegments, techs, events } from "./enums";
+import eventsInfo from "./events";
 import { patternMatch } from "./utils";
 import type { resets, universes } from "./enums";
 import type { Game } from "./game";
@@ -12,17 +13,8 @@ export function makeMilestoneChecker(game: Game, milestone: string): MilestoneCh
     const impl = patternMatch(milestone, [
         [/built:(.+?)-(.+?):(\d+)/, (tab, id, count) => () => game.built(tab, id, Number(count))],
         [/tech:(.+)/, (id) => () => game.researched(id)],
-        [/event:womlings/, () => () => game.womlingsArrived()],
-        [/event:steel/, () => () => game.steelDiscovered()],
-        [/event:elerium/, () => () => game.eleriumDiscovered()],
-        [/event:oil/, () => () => game.spaceOilDiscovered()],
-        [/event:pit/, () => () => game.pitDiscovered()],
-        [/event:alien/, () => () => game.aliensEncountered()],
-        [/event:piracy/, () => () => game.piratesEncountered()],
-        [/event:alien_db/, () => () => game.alienDatabaseFound()],
-        [/event:corrupt_gem/, () => () => game.corruptSoulGemProduced()],
-        [/event:vault/, () => () => game.vaultDiscovered()],
-        [/event:syndicate/, () => () => game.syndicateEncountered()]
+        [/event:(.+)/, (id) => () => eventsInfo[id as keyof typeof events].triggered(game)],
+        [/event_condition:(.+)/, (id) => () => eventsInfo[id as keyof typeof events].conditionMet?.(game) ?? true]
     ]);
 
     return {
@@ -32,10 +24,11 @@ export function makeMilestoneChecker(game: Game, milestone: string): MilestoneCh
 }
 
 export function milestoneName(milestone: string, universe?: keyof typeof universes): [string, string, boolean] {
-    const name: [string, string, boolean] | undefined = patternMatch(milestone, [
+    const name = patternMatch<[string, string, boolean]>(milestone, [
         [/built:(.+?):(\d+)/, (id, count) => [buildings[id], count, Number(count) !== (buildingSegments[id] ?? 1)]],
         [/tech:(.+)/, (id) => [techs[id], "Research", false]],
         [/event:(.+)/, (id) => [events[id as keyof typeof events], "Event", false]],
+        [/event_condition:(.+)/, (id) => [events[id as keyof typeof events], "Event condition", false]],
         [/reset:(.+)/, (reset) => [resetName(reset as keyof typeof resets, universe), "Reset", false]]
     ]);
 
@@ -66,8 +59,4 @@ export function generateMilestoneNames(milestones: string[], universe?: keyof ty
     }
 
     return names;
-}
-
-export function isEventMilestone(milestone: string) {
-    return milestone.startsWith("event:");
 }

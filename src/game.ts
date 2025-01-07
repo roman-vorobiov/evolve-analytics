@@ -57,44 +57,16 @@ export class Game extends Subscribable {
         return this.evolve.global.race.servants !== undefined;
     }
 
-    steelDiscovered() {
-        return this.evolve.global.resource.Steel.display;
+    resourceUnlocked(resource: string) {
+        return this.evolve.global.resource[resource]?.display ?? false;
     }
 
-    eleriumDiscovered() {
-        return this.evolve.global.resource.Elerium.display;
+    techLevel(tech: string) {
+        return this.evolve.global.tech[tech] ?? 0;
     }
 
-    spaceOilDiscovered() {
-        return this.evolve.global.tech["gas_moon"] >= 2;
-    }
-
-    pitDiscovered() {
-        return this.evolve.global.tech["hell_pit"] >= 1;
-    }
-
-    aliensEncountered() {
-        return this.evolve.global.tech["xeno"] >= 1;
-    }
-
-    piratesEncountered() {
-        return this.evolve.global.tech["piracy"] >= 1;
-    }
-
-    alienDatabaseFound() {
-        return this.evolve.global.tech["conflict"] >= 5;
-    }
-
-    corruptSoulGemProduced() {
-        return this.evolve.global.tech["corrupt"] >= 1;
-    }
-
-    vaultDiscovered() {
-        return this.evolve.global.tech["hell_vault"] >= 1;
-    }
-
-    syndicateEncountered() {
-        return this.evolve.global.tech["syndicate"] >= 1;
+    demonKills() {
+        return this.evolve.global.stats.dkills ?? 0;
     }
 
     onGameDay(fn: (day: number) => void) {

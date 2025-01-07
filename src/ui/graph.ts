@@ -9,6 +9,10 @@ import type * as PlotType from "@observablehq/plot";
 
 declare const Plot: typeof PlotType;
 
+function isEvent(entry: PlotPoint) {
+    return entry.dayDiff === undefined;
+}
+
 function calculateYScale(plotPoints: PlotPoint[], view: View): [number, number] | undefined {
     if (view.daysScale) {
         return [0, view.daysScale];
@@ -59,9 +63,15 @@ function smooth(smoothness: number, history: HistoryEntry[], params: any) {
     return Plot.windowY({ k: avgWindowSize }, params);
 }
 
+// Plot.stackY outputs the middle between y1 and y2 as y for whatever reason - use y2 to place ticks on top
+function adjustedStackY<T>(options: T & PlotType.StackOptions) {
+    const convert = ({ y1, y2, ...options }: any) => ({ ...options, y: y2 });
+    return convert(Plot.stackY(options));
+}
+
 function* timestamps(plotPoints: PlotPoint[], key: "day" | "segment") {
     const lastRunTimestamps = lastRunEntries(plotPoints)
-        .filter(entry => !entry.pending || entry.overtime)
+        .filter(entry => !entry.pending)
         .map(entry => entry[key]);
 
     yield Plot.axisY(lastRunTimestamps, {
@@ -77,7 +87,17 @@ function* areaMarks(plotPoints: PlotPoint[], history: HistoryEntry[], smoothness
         z: "milestone",
         fill: "milestone",
         fillOpacity: 0.5,
-        filter: (entry: PlotPoint) => entry.dayDiff !== undefined && !entry.future
+        filter: (entry: PlotPoint) => !isEvent(entry) && !entry.future
+    }));
+
+    yield Plot.areaY(plotPoints, smooth(smoothness, history, {
+        x: "run",
+        y1: "day",
+        y2: (entry: PlotPoint) => entry.day - entry.segment,
+        z: "milestone",
+        fill: "milestone",
+        fillOpacity: 0.5,
+        filter: isEvent
     }));
 }
 
@@ -86,9 +106,7 @@ function* lineMarks(plotPoints: PlotPoint[], history: HistoryEntry[], key: "day"
         x: "run",
         y: key,
         z: "milestone",
-        stroke: "milestone",
-        // Draw the event lines on top of the other ones
-        sort: (entry: PlotPoint) => entry.dayDiff === undefined ? 1 : 0
+        stroke: "milestone"
     }));
 }
 
@@ -99,30 +117,50 @@ function* barMarks(plotPoints: PlotPoint[], key: "dayDiff" | "segment") {
         z: "milestone",
         fill: "milestone",
         fillOpacity: (entry: PlotPoint) => entry.future ? 0.25 : 0.5,
-        // Don't display event milestones as segments - use only the ticks
-        filter: (entry: PlotPoint) => entry.dayDiff !== undefined
+        filter: (entry: PlotPoint) => !isEvent(entry)
     });
 
-    // Plot.stackY outputs the middle between y1 and y2 as y for whatever reason - use y2 to place ticks on top
-    function stack(options: any) {
-        const convert = ({ y1, y2, ...options }: any) => ({ ...options, y: y2 });
-        return convert(Plot.stackY(options));
-    }
-
-    yield Plot.tickY(plotPoints, stack({
+    yield Plot.tickY(plotPoints, adjustedStackY({
         x: "run",
         y: key,
         z: "milestone",
         stroke: "milestone",
-        filter: (entry: PlotPoint) => entry.dayDiff !== undefined
+        filter: (entry: PlotPoint) => !isEvent(entry)
     }));
+}
 
-    yield Plot.tickY(plotPoints, {
+function* lollipopMarks(plotPoints: PlotPoint[], stack: boolean, numRuns: number) {
+    const dotBase = {
         x: "run",
-        y: "segment",
+        r: Math.min(2, 80 / numRuns),
+        fill: "milestone",
         stroke: "milestone",
-        filter: (entry: PlotPoint) => entry.dayDiff === undefined
-    });
+        filter: (entry: PlotPoint) => isEvent(entry) && !entry.pending
+    };
+
+    if (stack) {
+        yield Plot.ruleX(plotPoints, Plot.stackY({
+            x: "run",
+            y: "segment",
+            stroke: "milestone",
+            strokeOpacity: 0.5,
+            filter: isEvent
+        }));
+
+        yield Plot.dot(plotPoints, adjustedStackY({ ...dotBase, y: "segment" }));
+    }
+    else {
+        yield Plot.ruleX(plotPoints, {
+            x: "run",
+            y1: "day",
+            y2: (entry: PlotPoint) => entry.day - entry.segment,
+            stroke: "milestone",
+            strokeOpacity: 0.5,
+            filter: isEvent
+        });
+
+        yield Plot.dot(plotPoints, { ...dotBase, y: "day" });
+    }
 }
 
 function tipText(point: PlotPoint, key: "day" | "dayDiff" | "segment", history: HistoryEntry[]) {
@@ -187,8 +225,8 @@ function* rectPointerMarks(plotPoints: PlotPoint[], history: HistoryEntry[], seg
         y: segmentKey,
         dy: -17,
         frameAnchor: "top-left",
-        text: (p: PlotPoint) => tipText(p, tipKey, history),
-        filter: (entry: PlotPoint) => entry.dayDiff !== undefined
+        text: (entry: PlotPoint) => tipText(entry, tipKey, history),
+        filter: (entry: PlotPoint) => !isEvent(entry)
     })));
 
     yield Plot.barY(plotPoints, Plot.pointerX(Plot.stackY({
@@ -196,7 +234,7 @@ function* rectPointerMarks(plotPoints: PlotPoint[], history: HistoryEntry[], seg
         y: segmentKey,
         fill: "milestone",
         fillOpacity: 0.5,
-        filter: (entry: PlotPoint) => entry.dayDiff !== undefined
+        filter: (entry: PlotPoint) => !isEvent(entry)
     })));
 }
 
@@ -238,12 +276,14 @@ export function makeGraph(history: HistoryManager, view: View, currentRun: Lates
         switch (view.mode) {
             case "timestamp":
                 marks.push(...barMarks(plotPoints, "dayDiff"));
+                marks.push(...lollipopMarks(plotPoints, false, filteredRuns.length));
                 marks.push(...timestamps(plotPoints, "day"));
                 marks.push(...rectPointerMarks(plotPoints, filteredRuns, "dayDiff", "day"));
                 break;
 
             case "duration":
                 marks.push(...barMarks(plotPoints, "segment"));
+                marks.push(...lollipopMarks(plotPoints, true, filteredRuns.length));
                 marks.push(...rectPointerMarks(plotPoints, filteredRuns, "segment", "segment"));
                 break;
 

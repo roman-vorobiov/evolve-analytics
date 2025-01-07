@@ -28,6 +28,7 @@ function makeGameState(buildings: Partial<BuildingInfoTabs>): Evolve {
                 species: "foo",
                 universe: "standard"
             },
+            tech: {},
             ...buildings
         }
     } as any as Evolve;
@@ -158,5 +159,32 @@ describe("Run tracking", () => {
 
         nextDay(evolve);
         expect(loadLatestRun()?.raceName).toEqual("Foo");
+    });
+
+    it("should track event preconditions", () => {
+        const evolve = makeGameState({ galaxy: { "scout_ship": { count: 0 } } });
+        const game = new Game(evolve);
+
+        const config = makeConfig(game, [
+            "event:alien"
+        ]);
+
+        trackMilestones(game, config);
+
+        nextDay(evolve);
+        expect(loadLatestRun()?.milestones).toEqual({});
+
+        ++evolve.global.galaxy.scout_ship.count;
+        nextDay(evolve);
+        expect(loadLatestRun()?.milestones).toEqual({
+            "event_condition:alien": 2
+        });
+
+        evolve.global.tech.xeno = 1;
+        nextDay(evolve);
+        expect(loadLatestRun()?.milestones).toEqual({
+            "event_condition:alien": 2,
+            "event:alien": 3
+        });
     });
 });

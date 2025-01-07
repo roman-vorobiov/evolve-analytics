@@ -1,4 +1,4 @@
-export { transformMap, rotateMap, zip } from "./map";
+export { transformMap, rotateMap, filterMap, zip, lastEntry, lastValue } from "./map";
 
 export type RecursivePartial<T> = {
     [P in keyof T]?:
@@ -7,13 +7,19 @@ export type RecursivePartial<T> = {
         T[P];
 };
 
-export function patternMatch<T>(value: string, cases: [RegExp, (...matches: string[]) => T][]): T | undefined {
-    for (const [pattern, fn] of cases) {
-        const match = value.match(pattern);
-        if (match !== null) {
-            return fn.apply(null, match.slice(1));
+export function patternMatcher<T>(cases: [RegExp, (...matches: string[]) => T][]): (value: string) => T | undefined {
+    return (value: string) => {
+        for (const [pattern, fn] of cases) {
+            const match = value.match(pattern);
+            if (match !== null) {
+                return fn.apply(null, match.slice(1));
+            }
         }
-    }
+    };
+}
+
+export function patternMatch<T = void>(value: string, cases: [RegExp, (...matches: string[]) => T][]): T | undefined {
+    return patternMatcher(cases)(value);
 }
 
 export function lazyLoad<T>(fn: () => T): T {
@@ -30,4 +36,8 @@ export function lazyLoad<T>(fn: () => T): T {
             return true;
         }
     });
+}
+
+export function compose<Args extends any[], Ret>(l: (...args: [...Args]) => Ret, r: (...args: [...Args]) => Ret) {
+    return (...args: [...Args]) => l(...args) && r(...args);
 }

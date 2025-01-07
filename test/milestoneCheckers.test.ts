@@ -35,5 +35,50 @@ describe("Milestones", () => {
             expect(milestone.reached()).toBe(false);
             expect(game.womlingsArrived).toHaveBeenCalled();
         });
+
+        it("should check if resource is unlocked", () => {
+            const game = new Game(makeGameState({}));
+            game.resourceUnlocked = jest.fn(() => false);
+
+            const milestone = makeMilestoneChecker(game, "event:steel")!;
+
+            expect(milestone.reached()).toBe(false);
+            expect(game.resourceUnlocked).toHaveBeenCalledWith("Steel");
+        });
+
+        it("should check tech level", () => {
+            const game = new Game(makeGameState({}));
+            game.techLevel = jest.fn(() => 0);
+            game.built = jest.fn(() => false);
+
+            const milestone = makeMilestoneChecker(game, "event_condition:elerium")!;
+
+            expect(milestone.reached()).toBe(false);
+            expect(game.techLevel).toHaveBeenCalledWith("asteroid");
+        });
+
+        it("should check if a building is built (event condition)", () => {
+            const game = new Game(makeGameState({}));
+            game.techLevel = jest.fn(() => 3);
+            game.built = jest.fn(() => false);
+
+            const milestone = makeMilestoneChecker(game, "event_condition:elerium")!;
+
+            expect(milestone.reached()).toBe(false);
+            expect(game.techLevel).toHaveBeenCalledWith("asteroid");
+            expect(game.built).toHaveBeenNthCalledWith(1, "space", "iron_ship", 1);
+            expect(game.built).toHaveBeenNthCalledWith(2, "space", "iridium_ship", 1);
+        });
+
+        it("should check demon kills", () => {
+            const game = new Game(makeGameState({}));
+            game.techLevel = jest.fn(() => 1);
+            game.demonKills = jest.fn(() => 0);
+
+            const milestone = makeMilestoneChecker(game, "event_condition:pit")!;
+
+            expect(milestone.reached()).toBe(false);
+            expect(game.demonKills).toHaveBeenCalled();
+        });
     });
 });

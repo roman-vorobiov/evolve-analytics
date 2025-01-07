@@ -1,5 +1,6 @@
-import { generateMilestoneNames, isEventMilestone } from "../milestones";
-import { zip, rotateMap } from "../utils";
+import { generateMilestoneNames } from "../milestones";
+import eventsInfo from "../events";
+import { zip, rotateMap, lastValue, patternMatch } from "../utils";
 import type { HistoryManager, HistoryEntry } from "../history";
 import type { ViewConfig } from "../config";
 import type { LatestRun } from "../runTracking";
@@ -12,50 +13,180 @@ export type PlotPoint = {
     segment: number, // days since the last non-event milestone
     raceName?: string,
     pending?: boolean,
-    future?: boolean,
-    overtime?: boolean
+    future?: boolean
 }
 
-function makeMilestoneNamesMapping(history: HistoryManager, view: ViewConfig): Record<number, string> {
+function makeMilestoneNamesMapping(view: ViewConfig): Record<string, string> {
     const milestones = Object.keys(view.milestones);
-    const milestoneIDs = milestones.map(m => history.getMilestoneID(m));
     const milestoneNames = generateMilestoneNames(milestones, view.universe);
 
-    return Object.fromEntries(zip(milestoneIDs, milestoneNames));
+    return Object.fromEntries(zip(milestones, milestoneNames));
+}
+
+function isEventMilestone(milestone: string) {
+    return milestone.startsWith("event:");
+}
+
+type CounterOptions = {
+    expected: boolean
 }
 
 class SegmentCounter {
-    private previousDay = 0;
-    private previousEnabledDay = 0;
+    private milestones = new Map<string, number>();
+    private events = new Map<string, number>();
+    private eventConditions = new Map<string, number>();
+    private expectedMilestones = new Map<string, number>();
+    private _futureMilestones: [string, number][] | undefined = undefined;
 
     constructor(private view: ViewConfig) {}
 
-    reset() {
-        this.previousDay = 0;
-        this.previousEnabledDay = 0;
+    onMilestone(milestone: string, day: number, options?: Partial<CounterOptions>) {
+        const saveTo = (collection: Map<string, number>) => {
+            if (milestone in this.view.milestones) {
+                collection.set(milestone, day);
+            }
+        };
+
+        if (options?.expected) {
+            if (!isEventMilestone(milestone)) {
+                saveTo(this.expectedMilestones);
+            }
+        }
+        else {
+            patternMatch(milestone, [
+                [/event_condition:(.+)/, (event) => this.eventConditions.set(event, day)],
+                [/event:.+/, () => saveTo(this.events)],
+                [/.+/, () => saveTo(this.milestones)]
+            ]);
+        }
     }
 
-    next(milestone: string, day: number) {
-        const dayDiff = day - this.previousEnabledDay;
-        const segment = day - this.previousDay;
+    *segments() {
+        let previousDay = 0;
+        let previousEnabledDay = 0;
 
-        const isEvent = isEventMilestone(milestone);
-        const enabled = this.view.milestones[milestone];
+        // Past milestones
+        for (const [milestone, day] of this.milestones.entries()) {
+            if (this.view.milestones[milestone]) {
+                yield {
+                    milestone,
+                    day,
+                    segment: day - previousDay,
+                    dayDiff: day - previousEnabledDay
+                };
+            }
 
-        if (!isEvent) {
-            this.previousDay = day;
-
-            if (enabled) {
-                this.previousEnabledDay = day;
+            previousDay = day;
+            if (this.view.milestones[milestone]) {
+                previousEnabledDay = day;
             }
         }
 
-        if (enabled) {
-            return {
-                dayDiff: isEvent ? undefined : dayDiff,
-                segment: isEvent ? day : segment
+        // Past events
+        for (const [milestone, day] of this.events.entries()) {
+            if (this.view.milestones[milestone]) {
+                const event = milestone.slice('event:'.length) as keyof typeof eventsInfo;
+                const defaultTriggerDay = (eventsInfo[event]?.conditionMet === undefined) ? 0 : day
+                const preconditionDay = this.eventConditions.get(event) ?? defaultTriggerDay;
+
+                yield {
+                    milestone,
+                    day,
+                    segment: day - preconditionDay
+                };
+            }
+        }
+    }
+
+    *pendingSegments(currentDay: number) {
+        const lastMilestoneDay = lastValue(this.milestones) ?? 0;
+        const lastEnabledMilestoneDay = lastValue(this.milestones, (milestone) => this.view.milestones[milestone]) ?? 0;
+
+        // Pending milestone
+        const milestone = this.futureMilestones[0]?.[0] ?? `reset:${this.view.resetType}`;
+        if (this.view.milestones[milestone]) {
+            yield {
+                milestone,
+                day: currentDay,
+                segment: currentDay - lastMilestoneDay,
+                dayDiff: currentDay - lastEnabledMilestoneDay
             };
         }
+
+        // Pending events
+        for (const [event, preconditionDay] of this.eventConditions.entries()) {
+            const milestone = `event:${event}`;
+            if (this.view.milestones[milestone] && !this.events.has(milestone)) {
+                yield {
+                    milestone,
+                    day: currentDay,
+                    segment: currentDay - preconditionDay
+                };
+            }
+        }
+    }
+
+    *futureSegments(currentDay: number) {
+        if (this.futureMilestones.length === 0) {
+            return;
+        }
+
+        const [nextMilestone, nextMilestoneDay] = this.futureMilestones[0];
+        const possibleTimeSave = Math.max(0, nextMilestoneDay - currentDay);
+        const timeLoss = Math.max(0, currentDay - nextMilestoneDay);
+
+        // Squish the immediate segment if it's covered by the pending one
+        yield {
+            milestone: nextMilestone,
+            day: Math.max(nextMilestoneDay, currentDay),
+            segment: possibleTimeSave,
+            dayDiff: possibleTimeSave
+        };
+
+        let previousDay = nextMilestoneDay;
+        for (const [milestone, day] of this.futureMilestones.slice(1)) {
+            const segment = day - previousDay;
+
+            yield {
+                milestone,
+                day: day + timeLoss,
+                segment,
+                dayDiff: segment
+            };
+
+            previousDay = day;
+        }
+    }
+
+    private get futureMilestones() {
+        if (this._futureMilestones === undefined) {
+            this._futureMilestones = this.calculateFutureMilestones();
+        }
+
+        return this._futureMilestones;
+    }
+
+    private calculateFutureMilestones(): [string, number][] {
+        const expectedMilestones = [...this.expectedMilestones.entries()];
+        const isReached = ([milestone]: [string, number]) => this.milestones.has(milestone);
+
+        // Skip until the first unachieved milestone
+        let lastCommonIdx = -1;
+        if (this.milestones.size !== 0) {
+            lastCommonIdx = expectedMilestones.findLastIndex(isReached);
+        }
+
+        // Adjust future timestamps based on the last segment's pace
+        let offset = 0;
+        if (lastCommonIdx !== -1) {
+            const [milestone, day] = expectedMilestones[lastCommonIdx];
+            offset = this.milestones.get(milestone)! - day;
+        }
+
+        return expectedMilestones
+            .slice(lastCommonIdx + 1)
+            .filter(entry => !isReached(entry))
+            .map(([milestone, day]) => [milestone, day + offset]);
     }
 }
 
@@ -66,124 +197,45 @@ export function runAsPlotPoints(
     estimateFutureMilestones: boolean,
     runIdx: number
 ): PlotPoint[] {
-    const onlyRun = bestRun === undefined || bestRun.length === 0;
+    const milestoneNames = makeMilestoneNamesMapping(view);
+    const milestonesByName = rotateMap(milestoneNames);
 
-    const milestones = Object.keys(view.milestones);
-    const milestoneNames = generateMilestoneNames(milestones, view.universe);
-    const milestoneNameMap = Object.fromEntries(zip(milestones, milestoneNames)) as Record<string, string>;
+    const counter = new SegmentCounter(view);
 
-    const bestRunTimes = onlyRun ? {} : Object.fromEntries(bestRun.map(entry => [entry.milestone, entry.day]));
-    let offset = 0;
+    const sortedMilestones = Object.entries(currentRun.milestones).toSorted(([, l], [, r]) => l - r);
+    for (const [milestone, day] of sortedMilestones) {
+        counter.onMilestone(milestone, day);
+    }
+
+    if (bestRun !== undefined && bestRun.length !== 0) {
+        for (const entry of bestRun) {
+            const milestone = milestonesByName[entry.milestone];
+            counter.onMilestone(milestone, entry.day, { expected: true })
+        }
+    }
 
     const entries: PlotPoint[] = [];
-    let counter = new SegmentCounter(view);
 
-    for (const [milestone, day] of Object.entries(currentRun.milestones)) {
-        if (!(milestone in view.milestones)) {
-            continue;
-        }
-
-        const milestoneName = milestoneNameMap[milestone];
-
-        const info = counter.next(milestone, day);
-        if (info === undefined) {
-            continue;
-        }
-
-        // Difference between the last common non-event milestone
-        if (milestoneName in bestRunTimes && !isEventMilestone(milestone)) {
-            offset = day - bestRunTimes[milestoneName];
-        }
-
+    const addEntry = (milestone: string, options: Omit<PlotPoint, "run" | "raceName" | "milestone">) => {
         entries.push({
             run: runIdx,
             raceName: currentRun.raceName,
-            milestone: milestoneName,
-            day,
-            dayDiff: info.dayDiff,
-            segment: info.segment
+            milestone: milestoneNames[milestone],
+            ...options
         });
+    };
+
+    for (const { milestone, day, segment, dayDiff } of counter.segments()) {
+        addEntry(milestone, { day, dayDiff, segment });
     }
 
-    if (onlyRun) {
-        const nextMilestone = `reset:${view.resetType}`;
-
-        const info = counter.next(nextMilestone, currentRun.totalDays);
-        if (info === undefined) {
-            return entries;
-        }
-
-        entries.push({
-            run: runIdx,
-            raceName: currentRun.raceName,
-            milestone: milestoneNameMap[nextMilestone],
-            day: currentRun.totalDays,
-            dayDiff: info.dayDiff,
-            segment: info.segment,
-            pending: true
-        });
+    for (const { milestone, day, segment, dayDiff } of counter.pendingSegments(currentRun.totalDays)) {
+        addEntry(milestone, { day, dayDiff, segment, pending: true });
     }
-    else {
-        const reverseMilestoneNameMap = rotateMap(milestoneNameMap);
 
-        // Skip until the first unachieved milestone
-        let lastCommonIdx = -1;
-        if (entries.length !== 0) {
-            lastCommonIdx = bestRun.findLastIndex(entry => entry.milestone === entries[entries.length - 1].milestone);
-        }
-
-        const futureEntries = bestRun.slice(lastCommonIdx + 1).filter(entry => {
-            const milestone = reverseMilestoneNameMap[entry.milestone];
-            return !(milestone in currentRun.milestones) && !isEventMilestone(milestone);
-        });
-
-        if (futureEntries.length === 0) {
-            return entries;
-        }
-
-        // Current segment
-        const nextMilestone = reverseMilestoneNameMap[futureEntries[0].milestone];
-
-        const { dayDiff, segment } = counter.next(nextMilestone, currentRun.totalDays)!;
-
-        const overtime = segment >= futureEntries[0].segment;
-
-        entries.push({
-            run: runIdx,
-            raceName: currentRun.raceName,
-            milestone: futureEntries[0].milestone,
-            day: currentRun.totalDays,
-            dayDiff,
-            segment,
-            pending: true,
-            overtime
-        });
-
-        if (overtime) {
-            offset = currentRun.totalDays - futureEntries[0].day;
-        }
-
-        if (estimateFutureMilestones) {
-            for (const entry of futureEntries) {
-                const milestoneName = entry.milestone;
-                const milestone = reverseMilestoneNameMap[milestoneName];
-
-                const { dayDiff, segment } = counter.next(milestone, entry.day + offset)!;
-
-                if (segment === 0) {
-                    continue;
-                }
-
-                entries.push({
-                    run: runIdx,
-                    raceName: currentRun.raceName,
-                    milestone: entry.milestone,
-                    day: entry.day + offset,
-                    dayDiff,
-                    segment,
-                    future: true
-                });
-            }
+    if (estimateFutureMilestones) {
+        for (const { milestone, day, segment, dayDiff } of counter.futureSegments(currentRun.totalDays)) {
+            addEntry(milestone, { day, dayDiff, segment, future: true });
         }
     }
 
@@ -191,37 +243,30 @@ export function runAsPlotPoints(
 }
 
 export function asPlotPoints(filteredRuns: HistoryEntry[], history: HistoryManager, view: ViewConfig): PlotPoint[] {
-    const milestoneNames = makeMilestoneNamesMapping(history, view);
+    const milestoneNames = makeMilestoneNamesMapping(view);
 
     const entries: PlotPoint[] = [];
-
-    const counter = new SegmentCounter(view);
 
     for (let i = 0; i !== filteredRuns.length; ++i) {
         const run = filteredRuns[i];
 
-        counter.reset();
+        const counter = new SegmentCounter(view);
 
         for (const [milestoneID, day] of run.milestones) {
             const milestone = history.getMilestone(milestoneID);
-            const milestoneName = milestoneNames[milestoneID];
+            counter.onMilestone(milestone, day);
+        }
 
-            if (!(milestone in view.milestones)) {
-                continue;
-            }
-
-            const info = counter.next(milestone, day);
-            if (info === undefined) {
-                continue;
-            }
+        for (const { milestone, day, segment, dayDiff } of counter.segments()) {
+            const milestoneName = milestoneNames[milestone];
 
             entries.push({
                 run: i,
                 raceName: run.raceName,
                 milestone: milestoneName,
                 day,
-                dayDiff: info.dayDiff,
-                segment: info.segment
+                dayDiff,
+                segment
             });
         }
     }

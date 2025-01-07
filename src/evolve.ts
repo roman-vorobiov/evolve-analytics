@@ -20,7 +20,8 @@ export type Evolve = {
     global: BuildingInfoTabs & ArpaInfoTab & {
         stats: { [k in keyof typeof resets]: number } & {
             reset: number,
-            days: number
+            days: number,
+            dkills: number
         },
         race: {
             species: string,

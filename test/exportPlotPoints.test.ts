@@ -139,26 +139,63 @@ describe("Export", () => {
             ]);
         });
 
-        it("should not calculate dayDiff for event milestones", () => {
+        it("should calculate event segments", () => {
             const game = new Game(makeGameState({}));
 
             const config = makeConfig(game, {
                 milestones: {
+                    "event:elerium": true,
+                    "event:alien": true,
+                    "reset:mad": true
+                }
+            });
+
+            const history = new HistoryManager(game, config, {
+                milestones: {
+                    "event:elerium": 0,
+                    "event_condition:elerium": 1,
+                    "event:alien": 2,
+                    "event_condition:alien": 3,
+                    "reset:mad": 4
+                },
+                runs: [
+                    { run: 123, universe: "standard", milestones: [[1, 100], [0, 123], [3, 400], [2, 456], [4, 789]] }
+                ]
+            });
+
+            expect(asPlotPoints(history.runs, history, config.views[0])).toEqual(<PlotPoint[]> [
+                { run: 0, milestone: "MAD", day: 789, dayDiff: 789, segment: 789 },
+                { run: 0, milestone: "Elerium discovery", day: 123, segment: 23 },
+                { run: 0, milestone: "Alien encounter", day: 456, segment: 56 }
+            ]);
+        });
+
+        it("should calculate event segments (unknown)", () => {
+            const game = new Game(makeGameState({}));
+
+            const config = makeConfig(game, {
+                milestones: {
+                    "event:elerium": true,
                     "event:womlings": true,
                     "reset:mad": true
                 }
             });
 
             const history = new HistoryManager(game, config, {
-                milestones: { "tech:club": 0, "event:womlings": 1, "reset:mad": 2 },
+                milestones: {
+                    "event:elerium": 0,
+                    "event:womlings": 1,
+                    "reset:mad": 2
+                },
                 runs: [
                     { run: 123, universe: "standard", milestones: [[0, 123], [1, 456], [2, 789]] }
                 ]
             });
 
             expect(asPlotPoints(history.runs, history, config.views[0])).toEqual(<PlotPoint[]> [
-                { run: 0, milestone: "Womlings arrival", day: 456, segment: 456 },
-                { run: 0, milestone: "MAD", day: 789, dayDiff: 789, segment: 789 }
+                { run: 0, milestone: "MAD", day: 789, dayDiff: 789, segment: 789 },
+                { run: 0, milestone: "Elerium discovery", day: 123, segment: 0 },
+                { run: 0, milestone: "Womlings arrival", day: 456, segment: 456 }
             ]);
         });
 
@@ -229,8 +266,8 @@ describe("Export", () => {
 
             expect(asPlotPoints(history.runs, history, config.views[0])).toEqual(<PlotPoint[]> [
                 { run: 0, milestone: "Club", day: 123, dayDiff: 123, segment: 123 },
-                { run: 0, milestone: "Womlings arrival", day: 456, segment: 456 },
-                { run: 0, milestone: "MAD", day: 789, dayDiff: 666, segment: 666 }
+                { run: 0, milestone: "MAD", day: 789, dayDiff: 666, segment: 666 },
+                { run: 0, milestone: "Womlings arrival", day: 456, segment: 456 }
             ]);
         });
 
@@ -359,10 +396,8 @@ describe("Export", () => {
                     { run: 1, milestone: "MAD", day: 30, dayDiff: 10, segment: 10 }
                 ];
 
-                const overtime = day >= bestRun[0].day;
-
                 expect(runAsPlotPoints(currentRun, config.views[0], bestRun, false, 456)).toEqual(<PlotPoint[]> [
-                    { run: 456, milestone: "Club", day, dayDiff: day, segment: day, pending: true, overtime }
+                    { run: 456, milestone: "Club", day, dayDiff: day, segment: day, pending: true }
                 ]);
             });
 
@@ -386,7 +421,7 @@ describe("Export", () => {
                 ];
 
                 expect(runAsPlotPoints(currentRun, config.views[0], bestRun, false, 456)).toEqual(<PlotPoint[]> [
-                    { run: 456, milestone: "Wheel", day: 15, dayDiff: 15, segment: 15, pending: true, overtime: false }
+                    { run: 456, milestone: "Wheel", day: 15, dayDiff: 15, segment: 15, pending: true }
                 ]);
             });
 
@@ -419,7 +454,31 @@ describe("Export", () => {
                 expect(runAsPlotPoints(currentRun, config.views[0], bestRun, false, 456)).toEqual(<PlotPoint[]> [
                     { run: 456, milestone: "Club", day: 10, dayDiff: 10, segment: 10 },
                     { run: 456, milestone: "Housing", day: 30, dayDiff: 20, segment: 20 },
-                    { run: 456, milestone: "Cottage", day: 35, dayDiff: 5, segment: 5, pending: true, overtime: false },
+                    { run: 456, milestone: "Cottage", day: 35, dayDiff: 5, segment: 5, pending: true },
+                ]);
+            });
+
+            it("should yield pending events", () => {
+                const game = new Game(makeGameState({}));
+
+                const config = makeConfig(game, {
+                    milestones: {
+                        "event:elerium": true,
+                        "reset:mad": true
+                    }
+                });
+
+                const currentRun = makeCurrentRun(15, {
+                    "event_condition:elerium": 10
+                });
+
+                const bestRun: PlotPoint[] = [
+                    { run: 1, milestone: "MAD", day: 30, dayDiff: 30, segment: 30 }
+                ];
+
+                expect(runAsPlotPoints(currentRun, config.views[0], bestRun, false, 456)).toEqual(<PlotPoint[]> [
+                    { run: 456, milestone: "MAD", day: 15, dayDiff: 15, segment: 15, pending: true },
+                    { run: 456, milestone: "Elerium discovery", day: 15, segment: 5, pending: true },
                 ]);
             });
 
@@ -444,7 +503,7 @@ describe("Export", () => {
                     ];
 
                     expect(runAsPlotPoints(currentRun, config.views[0], bestRun, true, 456)).toEqual(<PlotPoint[]> [
-                        { run: 456, milestone: "Club", day: 5, dayDiff: 5, segment: 5, pending: true, overtime: false },
+                        { run: 456, milestone: "Club", day: 5, dayDiff: 5, segment: 5, pending: true },
                         { run: 456, milestone: "Club", day: 10, dayDiff: 5, segment: 5, future: true },
                         { run: 456, milestone: "Wheel", day: 20, dayDiff: 10, segment: 10, future: true },
                         { run: 456, milestone: "MAD", day: 30, dayDiff: 10, segment: 10, future: true }
@@ -480,13 +539,13 @@ describe("Export", () => {
                     expect(runAsPlotPoints(currentRun, config.views[0], bestRun, true, 456)).toEqual(<PlotPoint[]> [
                         { run: 456, milestone: "Club", day: 10, dayDiff: 10, segment: 10 },
                         { run: 456, milestone: "Housing", day: 30, dayDiff: 20, segment: 20 },
-                        { run: 456, milestone: "Cottage", day: 35, dayDiff: 5, segment: 5, pending: true, overtime: false },
+                        { run: 456, milestone: "Cottage", day: 35, dayDiff: 5, segment: 5, pending: true },
                         { run: 456, milestone: "Cottage", day: 40, dayDiff: 5, segment: 5, future: true },
                         { run: 456, milestone: "MAD", day: 50, dayDiff: 10, segment: 10, future: true },
                     ]);
                 });
 
-                it.each([30, 35])("should remove the duplicared milestone if overtime", (day) => {
+                it.each([30, 35])("should squish the pending future milestone", (day) => {
                     const game = new Game(makeGameState({}));
 
                     const config = makeConfig(game, {
@@ -515,7 +574,8 @@ describe("Export", () => {
                     expect(runAsPlotPoints(currentRun, config.views[0], bestRun, true, 456)).toEqual(<PlotPoint[]> [
                         { run: 456, milestone: "Club", day: 10, dayDiff: 10, segment: 10 },
                         { run: 456, milestone: "Housing", day: 20, dayDiff: 10, segment: 10 },
-                        { run: 456, milestone: "Cottage", day: day, dayDiff: 10 + offset, segment: 10 + offset, pending: true, overtime: true },
+                        { run: 456, milestone: "Cottage", day: day, dayDiff: 10 + offset, segment: 10 + offset, pending: true },
+                        { run: 456, milestone: "Cottage", day: day, dayDiff: 0, segment: 0, future: true },
                         { run: 456, milestone: "MAD", day: 40 + offset, dayDiff: 10, segment: 10, future: true },
                     ]);
                 });
@@ -549,7 +609,7 @@ describe("Export", () => {
                     expect(runAsPlotPoints(currentRun, config.views[0], bestRun, true, 456)).toEqual(<PlotPoint[]> [
                         { run: 456, milestone: "Club", day: 10, dayDiff: 10, segment: 10 },
                         { run: 456, milestone: "Housing", day, dayDiff: 10 + offset, segment: 10 + offset },
-                        { run: 456, milestone: "Cottage", day: 30, dayDiff: 10 - offset, segment: 10 - offset, pending: true, overtime: false },
+                        { run: 456, milestone: "Cottage", day: 30, dayDiff: 10 - offset, segment: 10 - offset, pending: true },
                         { run: 456, milestone: "Cottage", day: 40 + offset, dayDiff: 10 + offset, segment: 10 + offset, future: true },
                         { run: 456, milestone: "MAD", day: 50 + offset, dayDiff: 10, segment: 10, future: true },
                     ]);
@@ -582,7 +642,7 @@ describe("Export", () => {
                     expect(runAsPlotPoints(currentRun, config.views[0], bestRun, true, 456)).toEqual(<PlotPoint[]> [
                         { run: 456, milestone: "Club", day: 15, dayDiff: 15, segment: 15 },
                         { run: 456, milestone: "Womlings arrival", day, segment: day },
-                        { run: 456, milestone: "Housing", day: 30, dayDiff: 15, segment: 15, pending: true, overtime: false },
+                        { run: 456, milestone: "Housing", day: 30, dayDiff: 15, segment: 15, pending: true },
                         { run: 456, milestone: "Housing", day: 35, dayDiff: 5, segment: 5, future: true },
                         { run: 456, milestone: "MAD", day: 45, dayDiff: 10, segment: 10, future: true },
                     ]);

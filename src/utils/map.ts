@@ -21,3 +21,28 @@ export function zip<T extends any[]>(...lists: [...T]) {
 
     return result;
 }
+
+export function lastEntry<K, V>(map: Map<K, V>, filter?: (_: [K, V]) => boolean): [K, V] | undefined {
+    let filtered = Array.from(map);
+
+    if (filter !== undefined) {
+        filtered = filtered.filter(filter);
+    }
+
+    if (filtered.length !== 0) {
+        return filtered[filtered.length - 1];
+    }
+}
+
+export function lastValue<K, V>(map: Map<K, V>, filter?: (_: K) => boolean): V | undefined {
+    let entry: [K, V] | undefined;
+
+    if (filter !== undefined) {
+        entry = lastEntry(map, ([k, v]) => filter(k));
+    }
+    else {
+        entry = lastEntry(map);
+    }
+
+    return entry?.[1];
+}

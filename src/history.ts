@@ -64,6 +64,8 @@ export class HistoryManager extends Subscribable {
             [this.getMilestoneID(`reset:${resetType}`), runStats.totalDays]
         ];
 
+        milestones.sort(([, l], [, r]) => l - r);
+
         const entry: HistoryEntry = {
             run: runStats.run,
             universe: runStats.universe!,

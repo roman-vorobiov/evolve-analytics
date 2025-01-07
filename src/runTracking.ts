@@ -1,6 +1,7 @@
 import { saveCurrentRun, loadLatestRun, discardLatestRun } from "./database";
 import { makeMilestoneChecker, type MilestoneChecker } from "./milestones";
-import { filterMap } from "./utils/map";
+import eventsInfo from "./events";
+import { patternMatcher, filterMap } from "./utils";
 import type { resets, universes } from "./enums";
 import type { Game } from "./game";
 import type { ConfigManager } from "./config";
@@ -93,12 +94,26 @@ function updateAdditionalInfo(runStats: LatestRun, game: Game) {
     runStats.raceName ??= game.raceName;
 }
 
+function withEventConditions(milestones: string[]): string[] {
+    const hasPrecondition = (event: string) => eventsInfo[event as keyof typeof eventsInfo].conditionMet !== undefined;
+
+    const conditions = milestones
+        .map(patternMatcher([[/event:(.+)/, (id) => hasPrecondition(id) ? `event_condition:${id}` : undefined]]))
+        .filter(m => m !== undefined);
+
+    return [...conditions, ...milestones];
+}
+
+function makeMilestoneCheckers(game: Game, config: ConfigManager) {
+    return withEventConditions(config.milestones).map(m => makeMilestoneChecker(game, m)!);
+}
+
 export function trackMilestones(game: Game, config: ConfigManager) {
     const currentRunStats = loadLatestRun() ?? makeNewRunStats(game);
 
-    let checkers = config.milestones.map(m => makeMilestoneChecker(game, m)!);
+    let checkers = makeMilestoneCheckers(game, config);
     config.on("*", () => {
-        checkers = config.milestones.map(m => makeMilestoneChecker(game, m)!);
+        checkers = makeMilestoneCheckers(game, config);
     });
 
     game.onGameDay(day => {

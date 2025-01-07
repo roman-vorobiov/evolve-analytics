@@ -125,4 +125,32 @@ describe("Game queries", () => {
         expect(makeGameObject({ servants: {} }).womlingsArrived()).toBe(true);
         expect(makeGameObject({}).womlingsArrived()).toBe(false);
     });
+
+    it("should check if resource is unlocked", () => {
+        function makeGameObject(resource: Partial<Evolve["global"]["resource"]>) {
+            return new Game(makeGameState({ resource }));
+        }
+
+        expect(makeGameObject({ Steel: { display: true } }).resourceUnlocked("Steel")).toBe(true);
+        expect(makeGameObject({ Steel: { display: false } }).resourceUnlocked("Steel")).toBe(false);
+        expect(makeGameObject({}).resourceUnlocked("Steel")).toBe(false);
+    });
+
+    it("should check tech level", () => {
+        function makeGameObject(tech: Partial<Evolve["global"]["tech"]>) {
+            return new Game(makeGameState({ tech }));
+        }
+
+        expect(makeGameObject({ foo: 123 }).techLevel("foo")).toBe(123);
+        expect(makeGameObject({ bar: 123 }).techLevel("foo")).toBe(0);
+    });
+
+    it("should check demon kills", () => {
+        function makeGameObject(stats: Partial<Evolve["global"]["stats"]>) {
+            return new Game(makeGameState({ stats }));
+        }
+
+        expect(makeGameObject({ dkills: 123 }).demonKills()).toBe(123);
+        expect(makeGameObject({}).demonKills()).toBe(0);
+    });
 });
