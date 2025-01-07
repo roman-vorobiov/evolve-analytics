@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.10.2
+// @version      0.10.3
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -1222,14 +1222,38 @@
         }
         return result;
     }
-
-    function patternMatch(value, cases) {
-        for (const [pattern, fn] of cases) {
-            const match = value.match(pattern);
-            if (match !== null) {
-                return fn.apply(null, match.slice(1));
-            }
+    function lastEntry(map, filter) {
+        let filtered = Array.from(map);
+        if (filter !== undefined) {
+            filtered = filtered.filter(filter);
         }
+        if (filtered.length !== 0) {
+            return filtered[filtered.length - 1];
+        }
+    }
+    function lastValue(map, filter) {
+        let entry;
+        if (filter !== undefined) {
+            entry = lastEntry(map, ([k, v]) => filter(k));
+        }
+        else {
+            entry = lastEntry(map);
+        }
+        return entry?.[1];
+    }
+
+    function patternMatcher(cases) {
+        return (value) => {
+            for (const [pattern, fn] of cases) {
+                const match = value.match(pattern);
+                if (match !== null) {
+                    return fn.apply(null, match.slice(1));
+                }
+            }
+        };
+    }
+    function patternMatch(value, cases) {
+        return patternMatcher(cases)(value);
     }
     function lazyLoad(fn) {
         let value = undefined;
@@ -1245,22 +1269,91 @@
             }
         });
     }
+    function compose(l, r) {
+        return (...args) => l(...args) && r(...args);
+    }
+
+    function makeCondition(description) {
+        let impl = (game) => true;
+        if (description.tech !== undefined) {
+            for (const [tech, level] of Object.entries(description.tech)) {
+                impl = compose(impl, (game) => game.techLevel(tech) >= level);
+            }
+        }
+        if (description.built !== undefined) {
+            for (const [tab, buildings] of Object.entries(description.built)) {
+                impl = compose(impl, (game) => buildings.some(b => game.built(tab, b, 1)));
+            }
+        }
+        if (description.demonKills !== undefined) {
+            impl = compose(impl, (game) => game.demonKills() >= description.demonKills);
+        }
+        if (description.womlingsArrived !== undefined) {
+            impl = compose(impl, (game) => game.womlingsArrived());
+        }
+        if (description.resourceUnlocked !== undefined) {
+            impl = compose(impl, (game) => game.resourceUnlocked(description.resourceUnlocked));
+        }
+        return impl;
+    }
+    function makeEventsInfo(descriptions) {
+        return transformMap(descriptions, ([event, { precondition, postcondition }]) => {
+            const triggered = makeCondition(postcondition);
+            const conditionMet = precondition !== undefined ? makeCondition(precondition) : undefined;
+            return [event, { conditionMet, triggered }];
+        });
+    }
+    var eventsInfo = makeEventsInfo({
+        womlings: {
+            postcondition: { womlingsArrived: true }
+        },
+        steel: {
+            postcondition: { resourceUnlocked: "Steel" }
+        },
+        elerium: {
+            precondition: { tech: { "asteroid": 3 }, built: { space: ["iron_ship", "iridium_ship"] } },
+            postcondition: { tech: { "asteroid": 4 } }
+        },
+        oil: {
+            precondition: { tech: { "gas_moon": 1 }, built: { space: ["outpost"] } },
+            postcondition: { tech: { "gas_moon": 2 } }
+        },
+        pit: {
+            precondition: { tech: { "gateway": 1 }, demonKills: 1000000 },
+            postcondition: { tech: { "hell_pit": 1 } }
+        },
+        alien: {
+            precondition: { built: { galaxy: ["scout_ship"] } },
+            postcondition: { tech: { "xeno": 1 } }
+        },
+        piracy: {
+            precondition: { tech: { "xeno": 5 } },
+            postcondition: { tech: { "piracy": 1 } }
+        },
+        alien_db: {
+            precondition: { tech: { "conflict": 4 }, built: { galaxy: ["scavenger"] } },
+            postcondition: { tech: { "conflict": 5 } }
+        },
+        corrupt_gem: {
+            precondition: { tech: { "high_tech": 16 } },
+            postcondition: { tech: { "corrupt": 1 } },
+        },
+        vault: {
+            precondition: { tech: { "hell_ruins": 2 }, built: { portal: ["archaeology"] } },
+            postcondition: { tech: { "hell_vault": 1 } }
+        },
+        syndicate: {
+            precondition: { tech: { "outer": 1 } },
+            postcondition: { tech: { "syndicate": 1 } }
+        }
+    });
 
     function makeMilestoneChecker(game, milestone) {
         const impl = patternMatch(milestone, [
             [/built:(.+?)-(.+?):(\d+)/, (tab, id, count) => () => game.built(tab, id, Number(count))],
             [/tech:(.+)/, (id) => () => game.researched(id)],
-            [/event:womlings/, () => () => game.womlingsArrived()],
-            [/event:steel/, () => () => game.steelDiscovered()],
-            [/event:elerium/, () => () => game.eleriumDiscovered()],
-            [/event:oil/, () => () => game.spaceOilDiscovered()],
-            [/event:pit/, () => () => game.pitDiscovered()],
-            [/event:alien/, () => () => game.aliensEncountered()],
-            [/event:piracy/, () => () => game.piratesEncountered()],
-            [/event:alien_db/, () => () => game.alienDatabaseFound()],
-            [/event:corrupt_gem/, () => () => game.corruptSoulGemProduced()],
-            [/event:vault/, () => () => game.vaultDiscovered()],
-            [/event:syndicate/, () => () => game.syndicateEncountered()]
+            [/event:(.+)/, (id) => () => eventsInfo[id].triggered(game)],
+            [/event_condition:(.+)/, (id) => () => eventsInfo[id].conditionMet?.(game) ?? true]
         ]);
         return {
             milestone,
@@ -1272,6 +1365,7 @@
             [/built:(.+?):(\d+)/, (id, count) => [buildings[id], count, Number(count) !== (segments[id] ?? 1)]],
             [/tech:(.+)/, (id) => [techs[id], "Research", false]],
             [/event:(.+)/, (id) => [events[id], "Event", false]],
+            [/event_condition:(.+)/, (id) => [events[id], "Event condition", false]],
             [/reset:(.+)/, (reset) => [resetName(reset, universe), "Reset", false]]
         ]);
         return name ?? [milestone, "Unknown", false];
@@ -1296,9 +1390,6 @@
             }
         }
         return names;
-    }
-    function isEventMilestone(milestone) {
-        return milestone.startsWith("event:");
     }
 
     const viewModes7 = {
@@ -1655,35 +1746,14 @@
         womlingsArrived() {
             return this.evolve.global.race.servants !== undefined;
         }
-        steelDiscovered() {
-            return this.evolve.global.resource.Steel.display;
+        resourceUnlocked(resource) {
+            return this.evolve.global.resource[resource]?.display ?? false;
         }
-        eleriumDiscovered() {
-            return this.evolve.global.resource.Elerium.display;
+        techLevel(tech) {
+            return this.evolve.global.tech[tech] ?? 0;
         }
-        spaceOilDiscovered() {
-            return this.evolve.global.tech["gas_moon"] >= 2;
-        }
-        pitDiscovered() {
-            return this.evolve.global.tech["hell_pit"] >= 1;
-        }
-        aliensEncountered() {
-            return this.evolve.global.tech["xeno"] >= 1;
-        }
-        piratesEncountered() {
-            return this.evolve.global.tech["piracy"] >= 1;
-        }
-        alienDatabaseFound() {
-            return this.evolve.global.tech["conflict"] >= 5;
-        }
-        corruptSoulGemProduced() {
-            return this.evolve.global.tech["corrupt"] >= 1;
-        }
-        vaultDiscovered() {
-            return this.evolve.global.tech["hell_vault"] >= 1;
-        }
-        syndicateEncountered() {
-            return this.evolve.global.tech["syndicate"] >= 1;
+        demonKills() {
+            return this.evolve.global.stats.dkills ?? 0;
         }
         onGameDay(fn) {
             this.on("newDay", fn);
@@ -1918,11 +1988,21 @@
         runStats.universe ??= game.universe;
         runStats.raceName ??= game.raceName;
     }
+    function withEventConditions(milestones) {
+        const hasPrecondition = (event) => eventsInfo[event].conditionMet !== undefined;
+        const conditions = milestones
+            .map(patternMatcher([[/event:(.+)/, (id) => hasPrecondition(id) ? `event_condition:${id}` : undefined]]))
+            .filter(m => m !== undefined);
+        return [...conditions, ...milestones];
+    }
+    function makeMilestoneCheckers(game, config) {
+        return withEventConditions(config.milestones).map(m => makeMilestoneChecker(game, m));
+    }
     function trackMilestones(game, config) {
         const currentRunStats = loadLatestRun() ?? makeNewRunStats(game);
-        let checkers = config.milestones.map(m => makeMilestoneChecker(game, m));
+        let checkers = makeMilestoneCheckers(game, config);
         config.on("*", () => {
-            checkers = config.milestones.map(m => makeMilestoneChecker(game, m));
+            checkers = makeMilestoneCheckers(game, config);
         });
         game.onGameDay(day => {
             if (!config.recordRuns) {
@@ -2038,6 +2118,7 @@
                 ...Object.entries(runStats.milestones).map(([milestone, days]) => [this.getMilestoneID(milestone), days]),
                 [this.getMilestoneID(`reset:${resetType}`), runStats.totalDays]
             ];
+            milestones.sort(([, l], [, r]) => l - r);
             const entry = {
                 run: runStats.run,
                 universe: runStats.universe,
@@ -2127,172 +2208,216 @@
         }
     `;
 
-    function makeMilestoneNamesMapping(history, view) {
+    function makeMilestoneNamesMapping(view) {
         const milestones = Object.keys(view.milestones);
-        const milestoneIDs = milestones.map(m => history.getMilestoneID(m));
         const milestoneNames = generateMilestoneNames(milestones, view.universe);
-        return Object.fromEntries(zip(milestoneIDs, milestoneNames));
+        return Object.fromEntries(zip(milestones, milestoneNames));
+    }
+    function isEventMilestone(milestone) {
+        return milestone.startsWith("event:");
     }
     class SegmentCounter {
         view;
-        previousDay = 0;
-        previousEnabledDay = 0;
+        milestones = new Map();
+        events = new Map();
+        eventConditions = new Map();
+        expectedMilestones = new Map();
+        _futureMilestones = undefined;
         constructor(view) {
             this.view = view;
         }
-        reset() {
-            this.previousDay = 0;
-            this.previousEnabledDay = 0;
-        }
-        next(milestone, day) {
-            const dayDiff = day - this.previousEnabledDay;
-            const segment = day - this.previousDay;
-            const isEvent = isEventMilestone(milestone);
-            const enabled = this.view.milestones[milestone];
-            if (!isEvent) {
-                this.previousDay = day;
-                if (enabled) {
-                    this.previousEnabledDay = day;
+        onMilestone(milestone, day, options) {
+            const saveTo = (collection) => {
+                if (milestone in this.view.milestones) {
+                    collection.set(milestone, day);
+                }
+            };
+            if (options?.expected) {
+                if (!isEventMilestone(milestone)) {
+                    saveTo(this.expectedMilestones);
                 }
             }
-            if (enabled) {
-                return {
-                    dayDiff: isEvent ? undefined : dayDiff,
-                    segment: isEvent ? day : segment
+            else {
+                patternMatch(milestone, [
+                    [/event_condition:(.+)/, (event) => this.eventConditions.set(event, day)],
+                    [/event:.+/, () => saveTo(this.events)],
+                    [/.+/, () => saveTo(this.milestones)]
+                ]);
+            }
+        }
+        *segments() {
+            let previousDay = 0;
+            let previousEnabledDay = 0;
+            // Past milestones
+            for (const [milestone, day] of this.milestones.entries()) {
+                if (this.view.milestones[milestone]) {
+                    yield {
+                        milestone,
+                        day,
+                        segment: day - previousDay,
+                        dayDiff: day - previousEnabledDay
+                    };
+                }
+                previousDay = day;
+                if (this.view.milestones[milestone]) {
+                    previousEnabledDay = day;
+                }
+            }
+            // Past events
+            for (const [milestone, day] of this.events.entries()) {
+                if (this.view.milestones[milestone]) {
+                    const event = milestone.slice('event:'.length);
+                    const defaultTriggerDay = (eventsInfo[event]?.conditionMet === undefined) ? 0 : day;
+                    const preconditionDay = this.eventConditions.get(event) ?? defaultTriggerDay;
+                    yield {
+                        milestone,
+                        day,
+                        segment: day - preconditionDay
+                    };
+                }
+            }
+        }
+        *pendingSegments(currentDay) {
+            const lastMilestoneDay = lastValue(this.milestones) ?? 0;
+            const lastEnabledMilestoneDay = lastValue(this.milestones, (milestone) => this.view.milestones[milestone]) ?? 0;
+            // Pending milestone
+            const milestone = this.futureMilestones[0]?.[0] ?? `reset:${this.view.resetType}`;
+            if (this.view.milestones[milestone]) {
+                yield {
+                    milestone,
+                    day: currentDay,
+                    segment: currentDay - lastMilestoneDay,
+                    dayDiff: currentDay - lastEnabledMilestoneDay
                 };
             }
+            // Pending events
+            for (const [event, preconditionDay] of this.eventConditions.entries()) {
+                const milestone = `event:${event}`;
+                if (this.view.milestones[milestone] && !this.events.has(milestone)) {
+                    yield {
+                        milestone,
+                        day: currentDay,
+                        segment: currentDay - preconditionDay
+                    };
+                }
+            }
+        }
+        *futureSegments(currentDay) {
+            if (this.futureMilestones.length === 0) {
+                return;
+            }
+            const [nextMilestone, nextMilestoneDay] = this.futureMilestones[0];
+            const possibleTimeSave = Math.max(0, nextMilestoneDay - currentDay);
+            const timeLoss = Math.max(0, currentDay - nextMilestoneDay);
+            // Squish the immediate segment if it's covered by the pending one
+            yield {
+                milestone: nextMilestone,
+                day: Math.max(nextMilestoneDay, currentDay),
+                segment: possibleTimeSave,
+                dayDiff: possibleTimeSave
+            };
+            let previousDay = nextMilestoneDay;
+            for (const [milestone, day] of this.futureMilestones.slice(1)) {
+                const segment = day - previousDay;
+                yield {
+                    milestone,
+                    day: day + timeLoss,
+                    segment,
+                    dayDiff: segment
+                };
+                previousDay = day;
+            }
+        }
+        get futureMilestones() {
+            if (this._futureMilestones === undefined) {
+                this._futureMilestones = this.calculateFutureMilestones();
+            }
+            return this._futureMilestones;
+        }
+        calculateFutureMilestones() {
+            const expectedMilestones = [...this.expectedMilestones.entries()];
+            const isReached = ([milestone]) => this.milestones.has(milestone);
+            // Skip until the first unachieved milestone
+            let lastCommonIdx = -1;
+            if (this.milestones.size !== 0) {
+                lastCommonIdx = expectedMilestones.findLastIndex(isReached);
+            }
+            // Adjust future timestamps based on the last segment's pace
+            let offset = 0;
+            if (lastCommonIdx !== -1) {
+                const [milestone, day] = expectedMilestones[lastCommonIdx];
+                offset = this.milestones.get(milestone) - day;
+            }
+            return expectedMilestones
+                .slice(lastCommonIdx + 1)
+                .filter(entry => !isReached(entry))
+                .map(([milestone, day]) => [milestone, day + offset]);
         }
     }
     function runAsPlotPoints(currentRun, view, bestRun, estimateFutureMilestones, runIdx) {
-        const onlyRun = bestRun === undefined || bestRun.length === 0;
-        const milestones = Object.keys(view.milestones);
-        const milestoneNames = generateMilestoneNames(milestones, view.universe);
-        const milestoneNameMap = Object.fromEntries(zip(milestones, milestoneNames));
-        const bestRunTimes = onlyRun ? {} : Object.fromEntries(bestRun.map(entry => [entry.milestone, entry.day]));
-        let offset = 0;
+        const milestoneNames = makeMilestoneNamesMapping(view);
+        const milestonesByName = rotateMap(milestoneNames);
+        const counter = new SegmentCounter(view);
+        const sortedMilestones = Object.entries(currentRun.milestones).toSorted(([, l], [, r]) => l - r);
+        for (const [milestone, day] of sortedMilestones) {
+            counter.onMilestone(milestone, day);
+        }
+        if (bestRun !== undefined && bestRun.length !== 0) {
+            for (const entry of bestRun) {
+                const milestone = milestonesByName[entry.milestone];
+                counter.onMilestone(milestone, entry.day, { expected: true });
+            }
+        }
         const entries = [];
-        let counter = new SegmentCounter(view);
-        for (const [milestone, day] of Object.entries(currentRun.milestones)) {
-            if (!(milestone in view.milestones)) {
-                continue;
-            }
-            const milestoneName = milestoneNameMap[milestone];
-            const info = counter.next(milestone, day);
-            if (info === undefined) {
-                continue;
-            }
-            // Difference between the last common non-event milestone
-            if (milestoneName in bestRunTimes && !isEventMilestone(milestone)) {
-                offset = day - bestRunTimes[milestoneName];
-            }
+        const addEntry = (milestone, options) => {
             entries.push({
                 run: runIdx,
                 raceName: currentRun.raceName,
-                milestone: milestoneName,
-                day,
-                dayDiff: info.dayDiff,
-                segment: info.segment
+                milestone: milestoneNames[milestone],
+                ...options
             });
+        };
+        for (const { milestone, day, segment, dayDiff } of counter.segments()) {
+            addEntry(milestone, { day, dayDiff, segment });
         }
-        if (onlyRun) {
-            const nextMilestone = `reset:${view.resetType}`;
-            const info = counter.next(nextMilestone, currentRun.totalDays);
-            if (info === undefined) {
-                return entries;
-            }
-            entries.push({
-                run: runIdx,
-                raceName: currentRun.raceName,
-                milestone: milestoneNameMap[nextMilestone],
-                day: currentRun.totalDays,
-                dayDiff: info.dayDiff,
-                segment: info.segment,
-                pending: true
-            });
+        for (const { milestone, day, segment, dayDiff } of counter.pendingSegments(currentRun.totalDays)) {
+            addEntry(milestone, { day, dayDiff, segment, pending: true });
         }
-        else {
-            const reverseMilestoneNameMap = rotateMap(milestoneNameMap);
-            // Skip until the first unachieved milestone
-            let lastCommonIdx = -1;
-            if (entries.length !== 0) {
-                lastCommonIdx = bestRun.findLastIndex(entry => entry.milestone === entries[entries.length - 1].milestone);
-            }
-            const futureEntries = bestRun.slice(lastCommonIdx + 1).filter(entry => {
-                const milestone = reverseMilestoneNameMap[entry.milestone];
-                return !(milestone in currentRun.milestones) && !isEventMilestone(milestone);
-            });
-            if (futureEntries.length === 0) {
-                return entries;
-            }
-            // Current segment
-            const nextMilestone = reverseMilestoneNameMap[futureEntries[0].milestone];
-            const { dayDiff, segment } = counter.next(nextMilestone, currentRun.totalDays);
-            const overtime = segment >= futureEntries[0].segment;
-            entries.push({
-                run: runIdx,
-                raceName: currentRun.raceName,
-                milestone: futureEntries[0].milestone,
-                day: currentRun.totalDays,
-                dayDiff,
-                segment,
-                pending: true,
-                overtime
-            });
-            if (overtime) {
-                offset = currentRun.totalDays - futureEntries[0].day;
-            }
-            if (estimateFutureMilestones) {
-                for (const entry of futureEntries) {
-                    const milestoneName = entry.milestone;
-                    const milestone = reverseMilestoneNameMap[milestoneName];
-                    const { dayDiff, segment } = counter.next(milestone, entry.day + offset);
-                    if (segment === 0) {
-                        continue;
-                    }
-                    entries.push({
-                        run: runIdx,
-                        raceName: currentRun.raceName,
-                        milestone: entry.milestone,
-                        day: entry.day + offset,
-                        dayDiff,
-                        segment,
-                        future: true
-                    });
-                }
+        if (estimateFutureMilestones) {
+            for (const { milestone, day, segment, dayDiff } of counter.futureSegments(currentRun.totalDays)) {
+                addEntry(milestone, { day, dayDiff, segment, future: true });
             }
         }
         return entries;
     }
     function asPlotPoints(filteredRuns, history, view) {
-        const milestoneNames = makeMilestoneNamesMapping(history, view);
+        const milestoneNames = makeMilestoneNamesMapping(view);
         const entries = [];
-        const counter = new SegmentCounter(view);
         for (let i = 0; i !== filteredRuns.length; ++i) {
             const run = filteredRuns[i];
-            counter.reset();
+            const counter = new SegmentCounter(view);
             for (const [milestoneID, day] of run.milestones) {
                 const milestone = history.getMilestone(milestoneID);
-                const milestoneName = milestoneNames[milestoneID];
-                if (!(milestone in view.milestones)) {
-                    continue;
-                }
-                const info = counter.next(milestone, day);
-                if (info === undefined) {
-                    continue;
-                }
+                counter.onMilestone(milestone, day);
+            }
+            for (const { milestone, day, segment, dayDiff } of counter.segments()) {
+                const milestoneName = milestoneNames[milestone];
                 entries.push({
                     run: i,
                     raceName: run.raceName,
                     milestone: milestoneName,
                     day,
-                    dayDiff: info.dayDiff,
-                    segment: info.segment
+                    dayDiff,
+                    segment
                 });
             }
         }
         return entries;
     }
 
+    function isEvent(entry) {
+        return entry.dayDiff === undefined;
+    }
     function calculateYScale(plotPoints, view) {
         if (view.daysScale) {
             return [0, view.daysScale];
@@ -2333,9 +2458,14 @@
         }
         return Plot.windowY({ k: avgWindowSize }, params);
     }
+    // Plot.stackY outputs the middle between y1 and y2 as y for whatever reason - use y2 to place ticks on top
+    function adjustedStackY(options) {
+        const convert = ({ y1, y2, ...options }) => ({ ...options, y: y2 });
+        return convert(Plot.stackY(options));
+    }
     function* timestamps(plotPoints, key) {
         const lastRunTimestamps = lastRunEntries(plotPoints)
-            .filter(entry => !entry.pending || entry.overtime)
+            .filter(entry => !entry.pending)
             .map(entry => entry[key]);
         yield Plot.axisY(lastRunTimestamps, {
             anchor: "right",
@@ -2349,7 +2479,16 @@
             z: "milestone",
             fill: "milestone",
             fillOpacity: 0.5,
-            filter: (entry) => entry.dayDiff !== undefined && !entry.future
+            filter: (entry) => !isEvent(entry) && !entry.future
+        }));
+        yield Plot.areaY(plotPoints, smooth(smoothness, history, {
+            x: "run",
+            y1: "day",
+            y2: (entry) => entry.day - entry.segment,
+            z: "milestone",
+            fill: "milestone",
+            fillOpacity: 0.5,
+            filter: isEvent
         }));
     }
     function* lineMarks(plotPoints, history, key, smoothness) {
@@ -2357,9 +2496,7 @@
             x: "run",
             y: key,
             z: "milestone",
-            stroke: "milestone",
-            // Draw the event lines on top of the other ones
-            sort: (entry) => entry.dayDiff === undefined ? 1 : 0
+            stroke: "milestone"
         }));
     }
     function* barMarks(plotPoints, key) {
@@ -2369,27 +2506,45 @@
             z: "milestone",
             fill: "milestone",
             fillOpacity: (entry) => entry.future ? 0.25 : 0.5,
-            // Don't display event milestones as segments - use only the ticks
-            filter: (entry) => entry.dayDiff !== undefined
+            filter: (entry) => !isEvent(entry)
         });
-        // Plot.stackY outputs the middle between y1 and y2 as y for whatever reason - use y2 to place ticks on top
-        function stack(options) {
-            const convert = ({ y1, y2, ...options }) => ({ ...options, y: y2 });
-            return convert(Plot.stackY(options));
-        }
-        yield Plot.tickY(plotPoints, stack({
+        yield Plot.tickY(plotPoints, adjustedStackY({
             x: "run",
             y: key,
             z: "milestone",
             stroke: "milestone",
-            filter: (entry) => entry.dayDiff !== undefined
+            filter: (entry) => !isEvent(entry)
         }));
-        yield Plot.tickY(plotPoints, {
+    }
+    function* lollipopMarks(plotPoints, stack, numRuns) {
+        const dotBase = {
             x: "run",
-            y: "segment",
+            r: Math.min(2, 80 / numRuns),
+            fill: "milestone",
             stroke: "milestone",
-            filter: (entry) => entry.dayDiff === undefined
-        });
+            filter: (entry) => isEvent(entry) && !entry.pending
+        };
+        if (stack) {
+            yield Plot.ruleX(plotPoints, Plot.stackY({
+                x: "run",
+                y: "segment",
+                stroke: "milestone",
+                strokeOpacity: 0.5,
+                filter: isEvent
+            }));
+            yield Plot.dot(plotPoints, adjustedStackY({ ...dotBase, y: "segment" }));
+        }
+        else {
+            yield Plot.ruleX(plotPoints, {
+                x: "run",
+                y1: "day",
+                y2: (entry) => entry.day - entry.segment,
+                stroke: "milestone",
+                strokeOpacity: 0.5,
+                filter: isEvent
+            });
+            yield Plot.dot(plotPoints, { ...dotBase, y: "day" });
+        }
     }
     function tipText(point, key, history) {
         let prefix;
@@ -2444,15 +2599,15 @@
             y: segmentKey,
             dy: -17,
             frameAnchor: "top-left",
-            text: (p) => tipText(p, tipKey, history),
-            filter: (entry) => entry.dayDiff !== undefined
+            text: (entry) => tipText(entry, tipKey, history),
+            filter: (entry) => !isEvent(entry)
         })));
         yield Plot.barY(plotPoints, Plot.pointerX(Plot.stackY({
             x: "run",
             y: segmentKey,
             fill: "milestone",
             fillOpacity: 0.5,
-            filter: (entry) => entry.dayDiff !== undefined
+            filter: (entry) => !isEvent(entry)
         })));
     }
     function makeGraph(history, view, currentRun, onSelect) {
@@ -2484,11 +2639,13 @@
             switch (view.mode) {
                 case "timestamp":
                     marks.push(...barMarks(plotPoints, "dayDiff"));
+                    marks.push(...lollipopMarks(plotPoints, false, filteredRuns.length));
                     marks.push(...timestamps(plotPoints, "day"));
                     marks.push(...rectPointerMarks(plotPoints, filteredRuns, "dayDiff", "day"));
                     break;
                 case "duration":
                     marks.push(...barMarks(plotPoints, "segment"));
+                    marks.push(...lollipopMarks(plotPoints, true, filteredRuns.length));
                     marks.push(...rectPointerMarks(plotPoints, filteredRuns, "segment", "segment"));
                     break;
             }
