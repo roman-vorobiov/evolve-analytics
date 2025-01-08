@@ -80,7 +80,11 @@ function* timestamps(plotPoints: PlotPoint[], key: "day" | "segment") {
     });
 }
 
-function* statsMarks(runs: HistoryEntry[], bestRun: HistoryEntry) {
+function* statsMarks(runs: HistoryEntry[], bestRun: HistoryEntry | undefined) {
+    if (bestRun === undefined) {
+        return;
+    }
+
     const bestIdx = runs.indexOf(bestRun);
     yield Plot.axisX([bestIdx], {
         tickFormat: () => "PB",
@@ -295,7 +299,7 @@ export function makeGraph(history: HistoryManager, view: View, currentRun: Lates
                 marks.push(...lollipopMarks(plotPoints, false, filteredRuns.length));
                 marks.push(...timestamps(plotPoints, "day"));
                 marks.push(...rectPointerMarks(plotPoints, filteredRuns, "dayDiff", "day"));
-                marks.push(...statsMarks(filteredRuns, bestRun!));
+                marks.push(...statsMarks(filteredRuns, bestRun));
                 break;
 
             case "duration":
@@ -318,7 +322,7 @@ export function makeGraph(history: HistoryManager, view: View, currentRun: Lates
 
                 marks.push(...lineMarks(plotPoints, filteredRuns, "day", view.smoothness));
                 marks.push(...timestamps(plotPoints, "day"));
-                marks.push(...statsMarks(filteredRuns, bestRun!));
+                marks.push(...statsMarks(filteredRuns, bestRun));
                 break;
 
             case "duration":
