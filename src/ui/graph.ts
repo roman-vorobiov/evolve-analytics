@@ -1,4 +1,4 @@
-import { applyFilters, findBestRun } from "../exports/historyFiltering";
+import { applyFilters, findBestRun, runTime } from "../exports/historyFiltering";
 import { asPlotPoints, runAsPlotPoints, type PlotPoint } from "../exports/plotPoints";
 import { generateMilestoneNames } from "../milestones";
 import type { View } from "../config";
@@ -40,7 +40,7 @@ function lastRunEntries(plotPoints: PlotPoint[]): PlotPoint[] {
     return timestamps.reverse();
 }
 
-function smooth(smoothness: number, history: HistoryEntry[], params: any) {
+function smooth<T>(smoothness: number, history: HistoryEntry[], params: T): T {
     let avgWindowSize;
     switch (smoothness) {
         case 0:
@@ -77,6 +77,22 @@ function* timestamps(plotPoints: PlotPoint[], key: "day" | "segment") {
     yield Plot.axisY(lastRunTimestamps, {
         anchor: "right",
         label: null
+    });
+}
+
+function* statsMarks(runs: HistoryEntry[], bestRun: HistoryEntry) {
+    const bestIdx = runs.indexOf(bestRun);
+    yield Plot.axisX([bestIdx], {
+        tickFormat: () => "PB",
+        anchor: "bottom",
+        label: null
+    });
+
+    const average = Math.round(runs.reduce((acc, entry) => acc + runTime(entry), 0) / runs.length);
+    yield Plot.text([0], {
+        dy: -17,
+        frameAnchor: "top-right",
+        text: () => `Best (all time): ${runTime(bestRun)} day(s)\nAverage (selection): ${average} day(s)`
     });
 }
 
@@ -240,6 +256,7 @@ function* rectPointerMarks(plotPoints: PlotPoint[], history: HistoryEntry[], seg
 
 export function makeGraph(history: HistoryManager, view: View, currentRun: LatestRun, onSelect: (run: HistoryEntry | null) => void) {
     const filteredRuns = applyFilters(history, view);
+    const bestRun = findBestRun(filteredRuns, view);
 
     const milestones: string[] = Object.keys(view.milestones);
 
@@ -256,7 +273,6 @@ export function makeGraph(history: HistoryManager, view: View, currentRun: Lates
     const plotPoints = asPlotPoints(filteredRuns, history, view);
 
     if (view.includeCurrentRun) {
-        const bestRun = findBestRun(history, view);
         const bestRunEntries = bestRun !== undefined ? asPlotPoints([bestRun], history, view) : [];
 
         const estimate = view.mode === "timestamp";
@@ -279,6 +295,7 @@ export function makeGraph(history: HistoryManager, view: View, currentRun: Lates
                 marks.push(...lollipopMarks(plotPoints, false, filteredRuns.length));
                 marks.push(...timestamps(plotPoints, "day"));
                 marks.push(...rectPointerMarks(plotPoints, filteredRuns, "dayDiff", "day"));
+                marks.push(...statsMarks(filteredRuns, bestRun!));
                 break;
 
             case "duration":
@@ -301,6 +318,7 @@ export function makeGraph(history: HistoryManager, view: View, currentRun: Lates
 
                 marks.push(...lineMarks(plotPoints, filteredRuns, "day", view.smoothness));
                 marks.push(...timestamps(plotPoints, "day"));
+                marks.push(...statsMarks(filteredRuns, bestRun!));
                 break;
 
             case "duration":

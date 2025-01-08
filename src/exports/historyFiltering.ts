@@ -11,6 +11,10 @@ function getResetType(entry: HistoryEntry, history: HistoryManager) {
     }
 }
 
+export function runTime(entry: HistoryEntry) {
+    return entry.milestones[entry.milestones.length - 1]?.[1];
+}
+
 export function shouldIncludeRun(entry: HistoryEntry, view: ViewConfig, history: HistoryManager) {
     if (view.universe !== undefined && entry.universe !== view.universe) {
         return false;
@@ -46,26 +50,12 @@ export function applyFilters(history: HistoryManager, view: ViewConfig): History
     return runs.reverse();
 }
 
-function findBestRunImpl(history: HistoryManager, view: ViewConfig): HistoryEntry | undefined {
+function findBestRunImpl(runs: HistoryEntry[]): HistoryEntry | undefined {
     let best: HistoryEntry | undefined = undefined;
 
-    for (let i = 0; i != history.runs.length; ++i) {
-        const run = history.runs[i];
-
-        if (!shouldIncludeRun(run, view, history)) {
-            continue;
-        }
-
-        if (best === undefined) {
+    for (const run of runs) {
+        if (best === undefined || runTime(run) < runTime(best)) {
             best = run;
-        }
-        else {
-            const [, bestTime] = best.milestones[best.milestones.length - 1];
-            const [, currentTime] = run.milestones[run.milestones.length - 1];
-
-            if (currentTime < bestTime) {
-                best = run;
-            }
         }
     }
 
@@ -74,14 +64,14 @@ function findBestRunImpl(history: HistoryManager, view: ViewConfig): HistoryEntr
 
 const bestRunCache: Record<string, HistoryEntry> = {};
 
-export function findBestRun(history: HistoryManager, view: ViewConfig): HistoryEntry | undefined {
+export function findBestRun(runs: HistoryEntry[], view: ViewConfig): HistoryEntry | undefined {
     const cacheKey = `${view.resetType}.${view.universe ?? "*"}`;
     const cacheEntry = bestRunCache[cacheKey];
     if (cacheEntry !== undefined) {
         return cacheEntry;
     }
 
-    const best = findBestRunImpl(history, view);
+    const best = findBestRunImpl(runs);
     if (best !== undefined) {
         bestRunCache[cacheKey] = best;
     }

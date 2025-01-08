@@ -51,7 +51,7 @@ async function copyToClipboard(node: JQuery) {
     const blob = await withCSSOverrides(cssOverrides, () => {
         return htmlToImage.toBlob($("html")[0], {
             width: 1000,
-            height: 550,
+            height: 570,
             skipFonts: true,
             filter: element => isParent(element) || isChild(element)
         });
