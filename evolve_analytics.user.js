@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.10.3
+// @version      0.10.4
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -2024,6 +2024,9 @@
             return milestone.slice(prefix.length);
         }
     }
+    function runTime(entry) {
+        return entry.milestones[entry.milestones.length - 1]?.[1];
+    }
     function shouldIncludeRun(entry, view, history) {
         if (view.universe !== undefined && entry.universe !== view.universe) {
             return false;
@@ -2050,34 +2053,23 @@
         }
         return runs.reverse();
     }
-    function findBestRunImpl(history, view) {
+    function findBestRunImpl(runs) {
         let best = undefined;
-        for (let i = 0; i != history.runs.length; ++i) {
-            const run = history.runs[i];
-            if (!shouldIncludeRun(run, view, history)) {
-                continue;
-            }
-            if (best === undefined) {
+        for (const run of runs) {
+            if (best === undefined || runTime(run) < runTime(best)) {
                 best = run;
-            }
-            else {
-                const [, bestTime] = best.milestones[best.milestones.length - 1];
-                const [, currentTime] = run.milestones[run.milestones.length - 1];
-                if (currentTime < bestTime) {
-                    best = run;
-                }
             }
         }
         return best;
     }
     const bestRunCache = {};
-    function findBestRun(history, view) {
+    function findBestRun(runs, view) {
         const cacheKey = `${view.resetType}.${view.universe ?? "*"}`;
         const cacheEntry = bestRunCache[cacheKey];
         if (cacheEntry !== undefined) {
             return cacheEntry;
         }
-        const best = findBestRunImpl(history, view);
+        const best = findBestRunImpl(runs);
         if (best !== undefined) {
             bestRunCache[cacheKey] = best;
         }
@@ -2472,6 +2464,20 @@
             label: null
         });
     }
+    function* statsMarks(runs, bestRun) {
+        const bestIdx = runs.indexOf(bestRun);
+        yield Plot.axisX([bestIdx], {
+            tickFormat: () => "PB",
+            anchor: "bottom",
+            label: null
+        });
+        const average = Math.round(runs.reduce((acc, entry) => acc + runTime(entry), 0) / runs.length);
+        yield Plot.text([0], {
+            dy: -17,
+            frameAnchor: "top-right",
+            text: () => `Best (all time): ${runTime(bestRun)} day(s)\nAverage (selection): ${average} day(s)`
+        });
+    }
     function* areaMarks(plotPoints, history, smoothness) {
         yield Plot.areaY(plotPoints, smooth(smoothness, history, {
             x: "run",
@@ -2612,6 +2618,7 @@
     }
     function makeGraph(history, view, currentRun, onSelect) {
         const filteredRuns = applyFilters(history, view);
+        const bestRun = findBestRun(filteredRuns, view);
         const milestones = Object.keys(view.milestones);
         // Try to order the milestones in the legend in the order in which they happened during the last run
         if (filteredRuns.length !== 0) {
@@ -2624,7 +2631,6 @@
         }
         const plotPoints = asPlotPoints(filteredRuns, history, view);
         if (view.includeCurrentRun) {
-            const bestRun = findBestRun(history, view);
             const bestRunEntries = bestRun !== undefined ? asPlotPoints([bestRun], history, view) : [];
             const estimate = view.mode === "timestamp";
             const idx = filteredRuns.length;
@@ -2642,6 +2648,7 @@
                     marks.push(...lollipopMarks(plotPoints, false, filteredRuns.length));
                     marks.push(...timestamps(plotPoints, "day"));
                     marks.push(...rectPointerMarks(plotPoints, filteredRuns, "dayDiff", "day"));
+                    marks.push(...statsMarks(filteredRuns, bestRun));
                     break;
                 case "duration":
                     marks.push(...barMarks(plotPoints, "segment"));
@@ -2658,6 +2665,7 @@
                     }
                     marks.push(...lineMarks(plotPoints, filteredRuns, "day", view.smoothness));
                     marks.push(...timestamps(plotPoints, "day"));
+                    marks.push(...statsMarks(filteredRuns, bestRun));
                     break;
                 case "duration":
                     marks.push(...lineMarks(plotPoints, filteredRuns, "segment", view.smoothness));
@@ -3008,7 +3016,7 @@
         const blob = await withCSSOverrides(cssOverrides, () => {
             return htmlToImage.toBlob($("html")[0], {
                 width: 1000,
-                height: 550,
+                height: 570,
                 skipFonts: true,
                 filter: element => isParent(element) || isChild(element)
             });
