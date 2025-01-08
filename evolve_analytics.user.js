@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.10.4
+// @version      0.10.5
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -2465,6 +2465,9 @@
         });
     }
     function* statsMarks(runs, bestRun) {
+        if (bestRun === undefined) {
+            return;
+        }
         const bestIdx = runs.indexOf(bestRun);
         yield Plot.axisX([bestIdx], {
             tickFormat: () => "PB",
