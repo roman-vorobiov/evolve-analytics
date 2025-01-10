@@ -9,6 +9,8 @@ import type * as PlotType from "@observablehq/plot";
 
 declare const Plot: typeof PlotType;
 
+const topTextOffset = -17;
+
 function isEvent(entry: PlotPoint) {
     return entry.dayDiff === undefined;
 }
@@ -85,18 +87,23 @@ function* statsMarks(runs: HistoryEntry[], bestRun: HistoryEntry | undefined) {
         return;
     }
 
+    // Might not be in the selection
     const bestIdx = runs.indexOf(bestRun);
-    yield Plot.axisX([bestIdx], {
-        tickFormat: () => "PB",
-        anchor: "bottom",
-        label: null
-    });
+    if (bestIdx !== -1) {
+        yield Plot.axisX([bestIdx], {
+            tickFormat: () => "PB",
+            anchor: "bottom",
+            label: null
+        });
+    }
 
-    const average = Math.round(runs.reduce((acc, entry) => acc + runTime(entry), 0) / runs.length);
+    const bestTime = runTime(bestRun);
+    const averageTime = Math.round(runs.reduce((acc, entry) => acc + runTime(entry), 0) / runs.length);
+
     yield Plot.text([0], {
-        dy: -17,
+        dy: topTextOffset,
         frameAnchor: "top-right",
-        text: () => `Best (all time): ${runTime(bestRun)} day(s)\nAverage (selection): ${average} day(s)`
+        text: () => `Best (all time): ${bestTime} day(s)\nAverage (selection): ${averageTime} day(s)`
     });
 }
 
@@ -215,7 +222,7 @@ function* linePointerMarks(plotPoints: PlotPoint[], history: HistoryEntry[], key
     yield Plot.text(plotPoints, Plot.pointerX({
         px: "run",
         py: key,
-        dy: -17,
+        dy: topTextOffset,
         frameAnchor: "top-left",
         text: (p: PlotPoint) => tipText(p, key, history)
     }));
