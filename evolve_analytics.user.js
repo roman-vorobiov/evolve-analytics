@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.10.6
+// @version      0.10.7
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -2053,9 +2053,12 @@
         }
         return runs.reverse();
     }
-    function findBestRunImpl(runs) {
+    function findBestRunImpl(history, view) {
         let best = undefined;
-        for (const run of runs) {
+        for (const run of history.runs) {
+            if (!shouldIncludeRun(run, view, history)) {
+                continue;
+            }
             if (best === undefined || runTime(run) < runTime(best)) {
                 best = run;
             }
@@ -2063,13 +2066,13 @@
         return best;
     }
     const bestRunCache = {};
-    function findBestRun(runs, view) {
+    function findBestRun(history, view) {
         const cacheKey = `${view.resetType}.${view.universe ?? "*"}`;
         const cacheEntry = bestRunCache[cacheKey];
         if (cacheEntry !== undefined) {
             return cacheEntry;
         }
-        const best = findBestRunImpl(runs);
+        const best = findBestRunImpl(history, view);
         if (best !== undefined) {
             bestRunCache[cacheKey] = best;
         }
@@ -2626,7 +2629,7 @@
     }
     function makeGraph(history, view, currentRun, onSelect) {
         const filteredRuns = applyFilters(history, view);
-        const bestRun = findBestRun(filteredRuns, view);
+        const bestRun = findBestRun(history, view);
         const milestones = Object.keys(view.milestones);
         // Try to order the milestones in the legend in the order in which they happened during the last run
         if (filteredRuns.length !== 0) {
