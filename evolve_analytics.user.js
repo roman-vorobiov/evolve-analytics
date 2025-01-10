@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.10.5
+// @version      0.10.6
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -2407,6 +2407,7 @@
         return entries;
     }
 
+    const topTextOffset = -17;
     function isEvent(entry) {
         return entry.dayDiff === undefined;
     }
@@ -2468,17 +2469,21 @@
         if (bestRun === undefined) {
             return;
         }
+        // Might not be in the selection
         const bestIdx = runs.indexOf(bestRun);
-        yield Plot.axisX([bestIdx], {
-            tickFormat: () => "PB",
-            anchor: "bottom",
-            label: null
-        });
-        const average = Math.round(runs.reduce((acc, entry) => acc + runTime(entry), 0) / runs.length);
+        if (bestIdx !== -1) {
+            yield Plot.axisX([bestIdx], {
+                tickFormat: () => "PB",
+                anchor: "bottom",
+                label: null
+            });
+        }
+        const bestTime = runTime(bestRun);
+        const averageTime = Math.round(runs.reduce((acc, entry) => acc + runTime(entry), 0) / runs.length);
         yield Plot.text([0], {
-            dy: -17,
+            dy: topTextOffset,
             frameAnchor: "top-right",
-            text: () => `Best (all time): ${runTime(bestRun)} day(s)\nAverage (selection): ${average} day(s)`
+            text: () => `Best (all time): ${bestTime} day(s)\nAverage (selection): ${averageTime} day(s)`
         });
     }
     function* areaMarks(plotPoints, history, smoothness) {
@@ -2582,7 +2587,7 @@
         yield Plot.text(plotPoints, Plot.pointerX({
             px: "run",
             py: key,
-            dy: -17,
+            dy: topTextOffset,
             frameAnchor: "top-left",
             text: (p) => tipText(p, key, history)
         }));
