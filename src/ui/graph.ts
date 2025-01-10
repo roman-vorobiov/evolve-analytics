@@ -267,7 +267,7 @@ function* rectPointerMarks(plotPoints: PlotPoint[], history: HistoryEntry[], seg
 
 export function makeGraph(history: HistoryManager, view: View, currentRun: LatestRun, onSelect: (run: HistoryEntry | null) => void) {
     const filteredRuns = applyFilters(history, view);
-    const bestRun = findBestRun(filteredRuns, view);
+    const bestRun = findBestRun(history, view);
 
     const milestones: string[] = Object.keys(view.milestones);
 
