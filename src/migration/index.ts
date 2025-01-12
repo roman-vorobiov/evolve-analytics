@@ -3,11 +3,12 @@ import { migrate3 } from "./3";
 import { migrate4 } from "./4";
 import { migrate6 } from "./6";
 import { migrate7 } from "./7";
+import { migrate8 } from "./8";
 
 export function migrate() {
     let config: any = DB.loadConfig();
-    let history: any = null;
-    let latestRun: any = null;
+    let history: any = DB.loadHistory();
+    let latestRun: any = DB.loadLatestRun();
 
     if (config === null) {
         return;
@@ -16,7 +17,7 @@ export function migrate() {
     let migrated = false;
 
     if (config.version < 4) {
-        [config, history, latestRun] = migrate3(config, DB.loadHistory(), DB.loadLatestRun() as any);
+        [config, history, latestRun] = migrate3(config, history, latestRun);
         migrated = true;
     }
 
@@ -26,12 +27,17 @@ export function migrate() {
     }
 
     if (config.version === 6) {
-        migrate6(config, history ?? DB.loadHistory(), latestRun ?? DB.loadLatestRun());
+        migrate6(config, history, latestRun);
         migrated = true;
     }
 
     if (config.version === 7) {
         config = migrate7(config);
+        migrated = true;
+    }
+
+    if (config.version === 8) {
+        migrate8(config, history, latestRun);
         migrated = true;
     }
 

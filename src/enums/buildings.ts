@@ -370,7 +370,7 @@ export const buildings: Record<string, string> = {
     "portal-infernite_mine": "Gate Infernite Mine",
 
     "portal-lake_mission": "Lake Mission",
-    "portal-harbour": "Lake Harbour",
+    "portal-harbor": "Lake Harbor",
     "portal-cooling_tower": "Lake Cooling Tower",
     "portal-bireme": "Lake Bireme Warship",
     "portal-transport": "Lake Transport",

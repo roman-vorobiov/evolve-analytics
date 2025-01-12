@@ -80,7 +80,7 @@ describe("Migration", () => {
         migrate();
 
         expect(loadConfig()).toEqual({
-            version: 8,
+            version: 9,
             recordRuns: true,
             views: [
                 {
@@ -175,7 +175,7 @@ describe("Migration", () => {
         migrate();
 
         expect(loadConfig()).toEqual({
-            version: 8,
+            version: 9,
             recordRuns: true,
             views: []
         });

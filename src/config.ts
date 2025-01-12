@@ -189,6 +189,6 @@ export class ConfigManager extends Subscribable {
 }
 
 export function getConfig(game: Game) {
-    const config = loadConfig() ?? { version: 8, recordRuns: true, views: [] };
+    const config = loadConfig() ?? { version: 9, recordRuns: true, views: [] };
     return new ConfigManager(game, config);
 }
