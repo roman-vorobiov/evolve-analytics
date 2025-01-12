@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.10.7
+// @version      0.10.8
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -364,7 +364,7 @@
         "portal-gate_turret": "Gate Turret",
         "portal-infernite_mine": "Gate Infernite Mine",
         "portal-lake_mission": "Lake Mission",
-        "portal-harbour": "Lake Harbour",
+        "portal-harbor": "Lake Harbor",
         "portal-cooling_tower": "Lake Cooling Tower",
         "portal-bireme": "Lake Bireme Warship",
         "portal-transport": "Lake Transport",
@@ -1399,7 +1399,7 @@
         "segmented": "Segmented",
         "barsSegmented": "Segmented (bars)"
     };
-    function migrateView(view) {
+    function migrateView$1(view) {
         return {
             ...view,
             mode: ["segmented", "barsSegmented"].includes(view.mode) ? "duration" : "timestamp",
@@ -1413,11 +1413,11 @@
         return {
             ...config,
             version: 8,
-            views: config.views.map(migrateView)
+            views: config.views.map(migrateView$1)
         };
     }
 
-    function migrateConfig(config) {
+    function migrateConfig$1(config) {
         const resetIDs = rotateMap(resets);
         const viewModeIDs = rotateMap(viewModes7);
         function convertReset(resetName) {
@@ -1455,7 +1455,7 @@
             })
         };
     }
-    function migrateHistory$1(history, config) {
+    function migrateHistory$2(history, config) {
         const oldNames = rotateMap(history.milestones);
         const newNames = Object.fromEntries(config.views.flatMap(v => Object.keys(v.milestones).map(m => [m, milestoneName(m)[0]])));
         function resetName(run) {
@@ -1535,7 +1535,7 @@
             runs: history.runs
         };
     }
-    function migrateLatestRun$1(latestRun, config, history) {
+    function migrateLatestRun$2(latestRun, config, history) {
         const resetIDs = rotateMap(resets);
         const newRun = {
             run: latestRun.run,
@@ -1584,14 +1584,14 @@
         return newRun;
     }
     function migrate3(config, history, latestRun) {
-        const newConfig = migrateConfig(config);
+        const newConfig = migrateConfig$1(config);
         let newHistory = null;
         if (history !== null) {
-            newHistory = migrateHistory$1(history, newConfig);
+            newHistory = migrateHistory$2(history, newConfig);
         }
         let newLatestRun = null;
         if (latestRun !== null && newHistory !== null) {
-            newLatestRun = migrateLatestRun$1(latestRun, newConfig, newHistory);
+            newLatestRun = migrateLatestRun$2(latestRun, newConfig, newHistory);
         }
         return [newConfig, newHistory, newLatestRun];
     }
@@ -1609,12 +1609,12 @@
         };
     }
 
-    function migrateLatestRun(latestRun) {
+    function migrateLatestRun$1(latestRun) {
         if (latestRun.universe === "bigbang") {
             delete latestRun.universe;
         }
     }
-    function migrateHistory(history) {
+    function migrateHistory$1(history) {
         for (let i = 0; i !== history.runs.length; ++i) {
             const run = history.runs[i];
             const nextRun = history.runs[i + 1];
@@ -1638,23 +1638,52 @@
     }
     function migrate6(config, history, latestRun) {
         if (latestRun !== null) {
-            migrateLatestRun(latestRun);
+            migrateLatestRun$1(latestRun);
         }
-        if (migrateHistory(history)) {
+        if (migrateHistory$1(history)) {
             config.version = 7;
+        }
+    }
+
+    function rename(milestone) {
+        return milestone.replace("harbour", "harbor");
+    }
+    function migrateMilestones(milestones) {
+        return transformMap(milestones, ([milestone, day]) => [rename(milestone), day]);
+    }
+    function migrateView(view) {
+        view.milestones = migrateMilestones(view.milestones);
+    }
+    function migrateConfig(config) {
+        for (const view of config.views) {
+            migrateView(view);
+        }
+        config.version = 9;
+    }
+    function migrateHistory(history) {
+        history.milestones = migrateMilestones(history.milestones);
+    }
+    function migrateLatestRun(latestRun) {
+        latestRun.milestones = migrateMilestones(latestRun.milestones);
+    }
+    function migrate8(config, history, latestRun) {
+        migrateConfig(config);
+        migrateHistory(history);
+        if (latestRun !== null) {
+            migrateLatestRun(latestRun);
         }
     }
 
     function migrate() {
         let config = loadConfig();
-        let history = null;
-        let latestRun = null;
+        let history = loadHistory();
+        let latestRun = loadLatestRun();
         if (config === null) {
             return;
         }
         let migrated = false;
         if (config.version < 4) {
-            [config, history, latestRun] = migrate3(config, loadHistory(), loadLatestRun());
+            [config, history, latestRun] = migrate3(config, history, latestRun);
             migrated = true;
         }
         if (config.version < 6) {
@@ -1662,11 +1691,15 @@
             migrated = true;
         }
         if (config.version === 6) {
-            migrate6(config, history ?? loadHistory(), latestRun ?? loadLatestRun());
+            migrate6(config, history, latestRun);
             migrated = true;
         }
         if (config.version === 7) {
             config = migrate7(config);
+            migrated = true;
+        }
+        if (config.version === 8) {
+            migrate8(config, history, latestRun);
             migrated = true;
         }
         if (migrated) {
@@ -1920,7 +1953,7 @@
         }
     }
     function getConfig(game) {
-        const config = loadConfig() ?? { version: 8, recordRuns: true, views: [] };
+        const config = loadConfig() ?? { version: 9, recordRuns: true, views: [] };
         return new ConfigManager(game, config);
     }
 
