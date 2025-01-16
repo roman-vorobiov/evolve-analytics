@@ -41,8 +41,11 @@ async function copyToClipboard(node: JQuery) {
     const isParent = (element: HTMLElement) => node.closest(element).length !== 0;
     const isChild = (element: HTMLElement) => $(element).closest(node).length !== 0;
 
+    const width = Math.round(node.width()! + 10);
+    const height = Math.round(node.height()! + 10);
+
     const cssOverrides = {
-        "html": { width: "1000px", height: "550px" },
+        "html": { width: `${width}px`, height: `${height}px` },
         "#mainColumn": { width: "100%" },
         ".vscroll": { height: "100%" },
         ".tab-item": { padding: "0" }
@@ -50,8 +53,8 @@ async function copyToClipboard(node: JQuery) {
 
     const blob = await withCSSOverrides(cssOverrides, () => {
         return htmlToImage.toBlob($("html")[0], {
-            width: 1000,
-            height: 570,
+            width,
+            height,
             skipFonts: true,
             filter: element => isParent(element) || isChild(element)
         });
