@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.10.8
+// @version      0.10.9
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -3051,16 +3051,18 @@
     async function copyToClipboard(node) {
         const isParent = (element) => node.closest(element).length !== 0;
         const isChild = (element) => $(element).closest(node).length !== 0;
+        const width = Math.round(node.width() + 10);
+        const height = Math.round(node.height() + 10);
         const cssOverrides = {
-            "html": { width: "1000px", height: "550px" },
+            "html": { width: `${width}px`, height: `${height}px` },
             "#mainColumn": { width: "100%" },
             ".vscroll": { height: "100%" },
             ".tab-item": { padding: "0" }
         };
         const blob = await withCSSOverrides(cssOverrides, () => {
             return htmlToImage.toBlob($("html")[0], {
-                width: 1000,
-                height: 570,
+                width,
+                height,
                 skipFonts: true,
                 filter: element => isParent(element) || isChild(element)
             });
