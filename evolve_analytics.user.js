@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.10.9
+// @version      0.10.10
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -3197,13 +3197,21 @@
         function hideTab(controlNode, contentNode, direction) {
             controlNode.removeClass("is-active");
             controlNode.attr("aria-selected", "false");
-            contentNode.hide("slide", { direction, complete: () => contentNode.css("display", "none").attr("tabindex", "-1") }, 200);
+            const hide = () => contentNode.css("display", "none").attr("tabindex", "-1");
+            if (direction !== undefined) {
+                contentNode.hide("slide", { direction, complete: hide }, 200);
+            }
+            else {
+                hide();
+            }
         }
         function showTab(controlNode, contentNode, direction) {
             controlNode.addClass("is-active");
             controlNode.attr("aria-selected", "true");
-            contentNode.show("slide", { direction, complete: () => contentNode.css("display", "").attr("tabindex", "0") }, 200);
+            const show = () => contentNode.css("display", "").attr("tabindex", "0");
+            contentNode.show("slide", { direction, complete: show }, 200);
         }
+        hideTab(tabControlNode, tabContentNode);
         // Note that there's a hidden "Hell Observations" tab after setting
         tabControlNode.insertBefore(lastChild($("#mainTabs > nav > ul")));
         tabContentNode.insertBefore(lastChild($("#mainTabs > section")));
