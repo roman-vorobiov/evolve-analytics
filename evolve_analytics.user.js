@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.10.10
+// @version      0.10.11
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -1194,7 +1194,8 @@
         "duration": "Duration"
     };
     const additionalInformation = {
-        "raceName": "Race Name"
+        "raceName": "Race Name",
+        "combatDeaths": "Combat Deaths"
     };
     function resetName(reset, universe) {
         if (reset === "blackhole" && universe === "magic") {
@@ -1768,6 +1769,9 @@
         get resetCounts() {
             return transformMap(resets, ([reset]) => [reset, this.evolve.global.stats[reset] ?? 0]);
         }
+        get combatDeaths() {
+            return this.evolve.global.stats.died ?? 0;
+        }
         built(tab, building, count) {
             const instance = this.evolve.global[tab]?.[building];
             const instanceCount = tab === "arpa" ? instance?.rank : instance?.count;
@@ -1981,7 +1985,7 @@
             return;
         }
         if (isCurrentRun(latestRun, game)) {
-            // If it is the current run, check if we leaded an earlier save - discard any milestones "from the future"
+            // If it is the current run, check if we loaded an earlier save - discard any milestones "from the future"
             restoreToDay(latestRun, game.day);
             saveCurrentRun(latestRun);
         }
@@ -2020,6 +2024,7 @@
     function updateAdditionalInfo(runStats, game) {
         runStats.universe ??= game.universe;
         runStats.raceName ??= game.raceName;
+        runStats.combatDeaths = game.combatDeaths;
     }
     function withEventConditions(milestones) {
         const hasPrecondition = (event) => eventsInfo[event].conditionMet !== undefined;
@@ -2401,6 +2406,7 @@
             entries.push({
                 run: runIdx,
                 raceName: currentRun.raceName,
+                combatDeaths: currentRun.combatDeaths,
                 milestone: milestoneNames[milestone],
                 ...options
             });
@@ -2433,6 +2439,7 @@
                 entries.push({
                     run: i,
                     raceName: run.raceName,
+                    combatDeaths: run.combatDeaths,
                     milestone: milestoneName,
                     day,
                     dayDiff,
@@ -2616,6 +2623,9 @@
             if (point.future) {
                 suffix += ` (PB pace)`;
             }
+        }
+        if (point.combatDeaths !== undefined) {
+            suffix += `\nDied in combat: ${point.combatDeaths}`;
         }
         return `${prefix}: ${point.milestone} ${suffix}`;
     }
