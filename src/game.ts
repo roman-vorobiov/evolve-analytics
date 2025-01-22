@@ -43,6 +43,10 @@ export class Game extends Subscribable {
         return transformMap(resets, ([reset]) => [reset, this.evolve.global.stats[reset] ?? 0]);
     }
 
+    get combatDeaths() {
+        return this.evolve.global.stats.died ?? 0;
+    }
+
     built(tab: string, building: string, count: number) {
         const instance: any = this.evolve.global[tab as keyof (BuildingInfoTabs & ArpaInfoTab)]?.[building];
         const instanceCount = tab === "arpa" ? instance?.rank : instance?.count;

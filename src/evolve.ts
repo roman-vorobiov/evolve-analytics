@@ -21,7 +21,8 @@ export type Evolve = {
         stats: { [k in keyof typeof resets]: number } & {
             reset: number,
             days: number,
-            dkills: number
+            dkills: number,
+            died: number
         },
         race: {
             species: string,

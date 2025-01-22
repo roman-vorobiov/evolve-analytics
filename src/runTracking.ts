@@ -13,7 +13,8 @@ export type LatestRun = {
     resets: Partial<Record<keyof typeof resets, number>>,
     totalDays: number,
     milestones: Record<string, number>,
-    raceName?: string
+    raceName?: string,
+    combatDeaths?: number
 }
 
 export function inferResetType(runStats: LatestRun, game: Game) {
@@ -48,7 +49,7 @@ export function processLatestRun(game: Game, config: ConfigManager, history: His
     }
 
     if (isCurrentRun(latestRun, game)) {
-        // If it is the current run, check if we leaded an earlier save - discard any milestones "from the future"
+        // If it is the current run, check if we loaded an earlier save - discard any milestones "from the future"
         restoreToDay(latestRun, game.day);
         saveCurrentRun(latestRun);
     }
@@ -92,6 +93,7 @@ function updateMilestones(runStats: LatestRun, checkers: MilestoneChecker[]) {
 function updateAdditionalInfo(runStats: LatestRun, game: Game) {
     runStats.universe ??= game.universe;
     runStats.raceName ??= game.raceName;
+    runStats.combatDeaths = game.combatDeaths;
 }
 
 function withEventConditions(milestones: string[]): string[] {

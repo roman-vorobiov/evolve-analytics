@@ -12,6 +12,7 @@ export type PlotPoint = {
     dayDiff?: number, // days since the last enabled non-event milestone
     segment: number, // days since the last non-event milestone
     raceName?: string,
+    combatDeaths?: number,
     pending?: boolean,
     future?: boolean
 }
@@ -216,10 +217,11 @@ export function runAsPlotPoints(
 
     const entries: PlotPoint[] = [];
 
-    const addEntry = (milestone: string, options: Omit<PlotPoint, "run" | "raceName" | "milestone">) => {
+    const addEntry = (milestone: string, options: Omit<PlotPoint, "run" | "milestone">) => {
         entries.push({
             run: runIdx,
             raceName: currentRun.raceName,
+            combatDeaths: currentRun.combatDeaths,
             milestone: milestoneNames[milestone],
             ...options
         });
@@ -263,6 +265,7 @@ export function asPlotPoints(filteredRuns: HistoryEntry[], history: HistoryManag
             entries.push({
                 run: i,
                 raceName: run.raceName,
+                combatDeaths: run.combatDeaths,
                 milestone: milestoneName,
                 day,
                 dayDiff,

@@ -13,7 +13,8 @@ export type HistoryEntry = {
     run: number,
     universe: keyof typeof universes,
     milestones: MilestoneReference[],
-    raceName?: string
+    raceName?: string,
+    combatDeaths?: number
 }
 
 export type RunHistory = {
@@ -101,7 +102,7 @@ export class HistoryManager extends Subscribable {
         const infoKeys = [...new Set(views.flatMap(v => v.additionalInfo))];
 
         for (const key of infoKeys) {
-            entry[key] = runStats[key];
+            entry[key] = runStats[key] as any;
         }
     }
 }

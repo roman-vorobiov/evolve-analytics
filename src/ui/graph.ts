@@ -215,6 +215,10 @@ function tipText(point: PlotPoint, key: "day" | "dayDiff" | "segment", history: 
         }
     }
 
+    if (point.combatDeaths !== undefined) {
+        suffix += `\nDied in combat: ${point.combatDeaths}`;
+    }
+
     return `${prefix}: ${point.milestone} ${suffix}`;
 }
 
