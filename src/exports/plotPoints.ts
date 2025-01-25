@@ -217,15 +217,13 @@ export function runAsPlotPoints(
 
     const entries: PlotPoint[] = [];
 
-    const showRaceName = view.additionalInfo.includes('raceName');
-    const showCombatDeaths = view.additionalInfo.includes('combatDeaths');
+    const additionalInfo = Object.fromEntries(view.additionalInfo.map(key => [key, currentRun[key]]))
 
     const addEntry = (milestone: string, options: Omit<PlotPoint, "run" | "milestone">) => {
         entries.push({
             run: runIdx,
-            raceName: showRaceName ? currentRun.raceName : undefined,
-            combatDeaths: showCombatDeaths ? currentRun.combatDeaths : undefined,
             milestone: milestoneNames[milestone],
+            ...additionalInfo,
             ...options
         });
     };
