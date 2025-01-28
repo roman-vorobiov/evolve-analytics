@@ -306,7 +306,7 @@ describe("Config", () => {
         const view1 = config.addView();
         const view2 = config.addView();
 
-        expect(config.openViewIndex).toBeUndefined();
+        expect(config.openViewIndex).toBe(1);
 
         config.viewOpened(view2);
         expect(config.openViewIndex).toBe(1);
