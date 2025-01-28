@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.10.12
+// @version      0.10.13
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -1936,6 +1936,7 @@
             const proxy = makeViewProxy(this, view);
             this.config.views.push(view);
             this.views.push(proxy);
+            this.viewOpened(proxy);
             this.emit("viewAdded", proxy);
             return proxy;
         }
@@ -2402,14 +2403,12 @@
             }
         }
         const entries = [];
-        const showRaceName = view.additionalInfo.includes('raceName');
-        const showCombatDeaths = view.additionalInfo.includes('combatDeaths');
+        const additionalInfo = Object.fromEntries(view.additionalInfo.map(key => [key, currentRun[key]]));
         const addEntry = (milestone, options) => {
             entries.push({
                 run: runIdx,
-                raceName: showRaceName ? currentRun.raceName : undefined,
-                combatDeaths: showCombatDeaths ? currentRun.combatDeaths : undefined,
                 milestone: milestoneNames[milestone],
+                ...additionalInfo,
                 ...options
             });
         };
