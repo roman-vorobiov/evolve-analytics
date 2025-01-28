@@ -163,6 +163,8 @@ export class ConfigManager extends Subscribable {
         this.config.views.push(view);
         this.views.push(proxy);
 
+        this.viewOpened(proxy);
+
         this.emit("viewAdded", proxy);
 
         return proxy;
