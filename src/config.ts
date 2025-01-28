@@ -163,7 +163,7 @@ export class ConfigManager extends Subscribable {
         this.config.views.push(view);
         this.views.push(proxy);
 
-        this.viewOpened(proxy);
+        this.config.lastOpenViewIndex = this.views.length - 1;
 
         this.emit("viewAdded", proxy);
 
@@ -175,6 +175,17 @@ export class ConfigManager extends Subscribable {
         if (idx !== -1) {
             this.config.views.splice(idx, 1);
             this.views.splice(idx, 1);
+
+            if (idx === this.config.lastOpenViewIndex) {
+                if (this.views.length === 0) {
+                    this.config.lastOpenViewIndex = undefined;
+                }
+                else {
+                    // Open the view on the left or, if the leftmost one was deleted, on the right
+                    this.config.lastOpenViewIndex = Math.max(0, this.config.lastOpenViewIndex - 1);
+                }
+            }
+
             this.emit("viewRemoved", view);
         }
     }

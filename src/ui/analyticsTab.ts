@@ -45,10 +45,14 @@ export function buildAnalyticsTab(game: Game, config: ConfigManager, history: Hi
             config.viewOpened(view);
         });
 
+        function refresh() {
+            analyticsPanel.tabs("refresh");
+            analyticsPanel.tabs({ active: config.openViewIndex ?? 0 });
+        }
+
         controlNode.insertBefore(lastChild(analyticsPanel.find("> nav > ul")));
         analyticsPanel.append(contentNode);
-        analyticsPanel.tabs("refresh");
-        analyticsPanel.tabs({ active: count - 1 });
+        refresh();
 
         config.on("viewRemoved", (removedView) => {
             if (removedView !== view) {
@@ -57,8 +61,7 @@ export function buildAnalyticsTab(game: Game, config: ConfigManager, history: Hi
 
             controlNode.remove();
             contentNode.remove();
-            analyticsPanel.tabs("refresh");
-            analyticsPanel.tabs({ active: 0 });
+            refresh();
         });
     }
 

@@ -305,13 +305,20 @@ describe("Config", () => {
 
         const view1 = config.addView();
         const view2 = config.addView();
+        const view3 = config.addView();
 
-        expect(config.openViewIndex).toBe(1);
+        expect(config.openView).toBe(view3);
 
         config.viewOpened(view2);
-        expect(config.openViewIndex).toBe(1);
+        expect(config.openView).toBe(view2);
 
-        config.viewOpened(view1);
-        expect(config.openViewIndex).toBe(0);
+        config.removeView(view2);
+        expect(config.openView).toBe(view1);
+
+        config.removeView(view1);
+        expect(config.openView).toBe(view3);
+
+        config.removeView(view3);
+        expect(config.openView).toBeUndefined();
     });
 });
