@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.10.13
+// @version      0.10.14
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -1936,7 +1936,7 @@
             const proxy = makeViewProxy(this, view);
             this.config.views.push(view);
             this.views.push(proxy);
-            this.viewOpened(proxy);
+            this.config.lastOpenViewIndex = this.views.length - 1;
             this.emit("viewAdded", proxy);
             return proxy;
         }
@@ -1945,6 +1945,15 @@
             if (idx !== -1) {
                 this.config.views.splice(idx, 1);
                 this.views.splice(idx, 1);
+                if (idx === this.config.lastOpenViewIndex) {
+                    if (this.views.length === 0) {
+                        this.config.lastOpenViewIndex = undefined;
+                    }
+                    else {
+                        // Open the view on the left or, if the leftmost one was deleted, on the right
+                        this.config.lastOpenViewIndex = Math.max(0, this.config.lastOpenViewIndex - 1);
+                    }
+                }
                 this.emit("viewRemoved", view);
             }
         }
@@ -3188,18 +3197,20 @@
             controlNode.on("click", () => {
                 config.viewOpened(view);
             });
+            function refresh() {
+                analyticsPanel.tabs("refresh");
+                analyticsPanel.tabs({ active: config.openViewIndex ?? 0 });
+            }
             controlNode.insertBefore(lastChild(analyticsPanel.find("> nav > ul")));
             analyticsPanel.append(contentNode);
-            analyticsPanel.tabs("refresh");
-            analyticsPanel.tabs({ active: count - 1 });
+            refresh();
             config.on("viewRemoved", (removedView) => {
                 if (removedView !== view) {
                     return;
                 }
                 controlNode.remove();
                 contentNode.remove();
-                analyticsPanel.tabs("refresh");
-                analyticsPanel.tabs({ active: 0 });
+                refresh();
             });
         }
         function hidden(node) {
