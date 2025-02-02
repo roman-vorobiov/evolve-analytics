@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.10.14
+// @version      0.10.15
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -281,6 +281,7 @@
         "interstellar-dyson": "Proxima Dyson Sphere (Adamantite)",
         "interstellar-dyson_sphere": "Proxima Dyson Sphere (Bolognium)",
         "interstellar-orichalcum_sphere": "Proxima Dyson Sphere (Orichalcum)",
+        "interstellar-elysanite_sphere": "Proxima Dyson Sphere (Elysanite)",
         "interstellar-nebula_mission": "Nebula Mission",
         "interstellar-nexus": "Nebula Nexus",
         "interstellar-harvester": "Nebula Harvester",
