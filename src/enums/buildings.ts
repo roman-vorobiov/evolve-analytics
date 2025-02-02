@@ -269,6 +269,7 @@ export const buildings: Record<string, string> = {
     "interstellar-dyson": "Proxima Dyson Sphere (Adamantite)",
     "interstellar-dyson_sphere": "Proxima Dyson Sphere (Bolognium)",
     "interstellar-orichalcum_sphere": "Proxima Dyson Sphere (Orichalcum)",
+    "interstellar-elysanite_sphere": "Proxima Dyson Sphere (Elysanite)",
 
     "interstellar-nebula_mission": "Nebula Mission",
     "interstellar-nexus": "Nebula Nexus",
