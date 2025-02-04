@@ -47,6 +47,39 @@ export class Game extends Subscribable {
         return this.evolve.global.stats.died ?? 0;
     }
 
+    hasChallengeGene(gene: string) {
+        return gene in this.evolve.global.race;
+    }
+
+    traitName(trait: string) {
+        return this.evolve.traits[trait].name;
+    }
+
+    traitValue(trait: string) {
+        return this.evolve.traits[trait].val;
+    }
+
+    currentTraitRank(trait: string): number {
+        return this.evolve.global.race[trait] as number;
+    }
+
+    baseTraitRank(trait: string): number {
+        return this.evolve.races[this.evolve.global.race.species].traits[trait] as number;
+    }
+
+    get majorTraits() {
+        return Object.keys(this.evolve.global.race).filter(k => this.evolve.traits[k]?.type === "major");
+    }
+
+    get imitatedTraits() {
+        if ("srace" in this.evolve.global.race) {
+            return Object.keys(this.evolve.races[this.evolve.global.race.srace].traits);
+        }
+        else {
+            return [];
+        }
+    }
+
     built(tab: string, building: string, count: number) {
         const instance: any = this.evolve.global[tab as keyof (BuildingInfoTabs & ArpaInfoTab)]?.[building];
         const instanceCount = tab === "arpa" ? instance?.rank : instance?.count;

@@ -4,6 +4,7 @@ import { generateMilestoneNames } from "../milestones";
 import type { View } from "../config";
 import type { HistoryEntry, HistoryManager } from "../history";
 import type { LatestRun } from "../runTracking";
+import type { Game } from "../game";
 
 import type * as PlotType from "@observablehq/plot";
 
@@ -215,8 +216,19 @@ function tipText(point: PlotPoint, key: "day" | "dayDiff" | "segment", history: 
         }
     }
 
+    const extraInfo: string[] = [];
+
     if (point.combatDeaths !== undefined) {
-        suffix += `\nDied in combat: ${point.combatDeaths}`;
+        extraInfo.push(`Died in combat: ${point.combatDeaths}`);
+    }
+
+    if (point.junkTraits !== undefined) {
+        const genes = Object.entries(point.junkTraits).map(([trait, rank]) => `${trait} (${rank})`);
+        extraInfo.push(`Junk traits: ${genes.join(", ")}`);
+    }
+
+    if (extraInfo.length > 0) {
+        suffix += `\n${extraInfo.join("; ")}`
     }
 
     return `${prefix}: ${point.milestone} ${suffix}`;
@@ -254,7 +266,7 @@ function* rectPointerMarks(plotPoints: PlotPoint[], history: HistoryEntry[], seg
     yield Plot.text(plotPoints, Plot.pointerX(toSegment({
         x: "run",
         y: segmentKey,
-        dy: -17,
+        dy: topTextOffset,
         frameAnchor: "top-left",
         text: (entry: PlotPoint) => tipText(entry, tipKey, history),
         filter: (entry: PlotPoint) => !isEvent(entry)
@@ -269,7 +281,7 @@ function* rectPointerMarks(plotPoints: PlotPoint[], history: HistoryEntry[], seg
     })));
 }
 
-export function makeGraph(history: HistoryManager, view: View, currentRun: LatestRun, onSelect: (run: HistoryEntry | null) => void) {
+export function makeGraph(history: HistoryManager, view: View, game: Game, currentRun: LatestRun, onSelect: (run: HistoryEntry | null) => void) {
     const filteredRuns = applyFilters(history, view);
     const bestRun = findBestRun(history, view);
 
@@ -285,16 +297,16 @@ export function makeGraph(history: HistoryManager, view: View, currentRun: Lates
         });
     }
 
-    const plotPoints = asPlotPoints(filteredRuns, history, view);
+    const plotPoints = asPlotPoints(filteredRuns, history, view, game);
 
     if (view.includeCurrentRun) {
-        const bestRunEntries = bestRun !== undefined ? asPlotPoints([bestRun], history, view) : [];
+        const bestRunEntries = bestRun !== undefined ? asPlotPoints([bestRun], history, view, game) : [];
 
         const estimate = view.mode === "timestamp";
 
         const idx = filteredRuns.length;
 
-        const currentRunPoints = runAsPlotPoints(currentRun, view, bestRunEntries, estimate, idx);
+        const currentRunPoints = runAsPlotPoints(currentRun, view, game, bestRunEntries, estimate, idx);
         plotPoints.push(...currentRunPoints);
     }
 

@@ -112,7 +112,7 @@ export function makeViewTab(id: string, game: Game, view: View, config: ConfigMa
     }
 
     function createGraph(view: View) {
-        return makeGraph(history, view, currentRun, onRunSelection);
+        return makeGraph(history, view, game, currentRun, onRunSelection);
     }
 
     const buttonsContainerNode = $(`<div style="display: flex; justify-content: space-between"></div>`)

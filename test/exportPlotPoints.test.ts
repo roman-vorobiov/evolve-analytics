@@ -60,7 +60,7 @@ describe("Export", () => {
                 ]
             });
 
-            expect(asPlotPoints(history.runs, history, config.views[0])).toEqual(<PlotPoint[]> [
+            expect(asPlotPoints(history.runs, history, config.views[0], game)).toEqual(<PlotPoint[]> [
                 { run: 0, milestone: "Club", day: 12, dayDiff: 12, segment: 12 },
                 { run: 0, milestone: "MAD", day: 34, dayDiff: 22, segment: 22 },
                 { run: 1, milestone: "Club", day: 56, dayDiff: 56, segment: 56 },
@@ -86,7 +86,7 @@ describe("Export", () => {
                 ]
             });
 
-            expect(asPlotPoints(history.runs, history, config.views[0])).toEqual(<PlotPoint[]> [
+            expect(asPlotPoints(history.runs, history, config.views[0], game)).toEqual(<PlotPoint[]> [
                 { run: 0, milestone: "Club", day: 123, dayDiff: 123, segment: 123 },
                 { run: 0, milestone: "MAD", day: 789, dayDiff: 666, segment: 333 }
             ]);
@@ -110,7 +110,7 @@ describe("Export", () => {
                 ]
             });
 
-            expect(asPlotPoints(history.runs, history, config.views[0])).toEqual(<PlotPoint[]> [
+            expect(asPlotPoints(history.runs, history, config.views[0], game)).toEqual(<PlotPoint[]> [
                 { run: 0, milestone: "Club", day: 123, dayDiff: 123, segment: 123 },
                 { run: 0, milestone: "MAD", day: 789, dayDiff: 666, segment: 666 }
             ]);
@@ -133,7 +133,7 @@ describe("Export", () => {
                 ]
             });
 
-            expect(asPlotPoints(history.runs, history, config.views[0])).toEqual(<PlotPoint[]> [
+            expect(asPlotPoints(history.runs, history, config.views[0], game)).toEqual(<PlotPoint[]> [
                 { run: 0, milestone: "Club", day: 123, dayDiff: 123, segment: 123 },
                 { run: 0, milestone: "MAD", day: 789, dayDiff: 666, segment: 666 }
             ]);
@@ -163,7 +163,7 @@ describe("Export", () => {
                 ]
             });
 
-            expect(asPlotPoints(history.runs, history, config.views[0])).toEqual(<PlotPoint[]> [
+            expect(asPlotPoints(history.runs, history, config.views[0], game)).toEqual(<PlotPoint[]> [
                 { run: 0, milestone: "MAD", day: 789, dayDiff: 789, segment: 789 },
                 { run: 0, milestone: "Elerium discovery", day: 123, segment: 23 },
                 { run: 0, milestone: "Alien encounter", day: 456, segment: 56 }
@@ -192,7 +192,7 @@ describe("Export", () => {
                 ]
             });
 
-            expect(asPlotPoints(history.runs, history, config.views[0])).toEqual(<PlotPoint[]> [
+            expect(asPlotPoints(history.runs, history, config.views[0], game)).toEqual(<PlotPoint[]> [
                 { run: 0, milestone: "MAD", day: 789, dayDiff: 789, segment: 789 },
                 { run: 0, milestone: "Elerium discovery", day: 123, segment: 0 },
                 { run: 0, milestone: "Womlings arrival", day: 456, segment: 456 }
@@ -217,7 +217,7 @@ describe("Export", () => {
                 ]
             });
 
-            expect(asPlotPoints(history.runs, history, config.views[0])).toEqual(<PlotPoint[]> [
+            expect(asPlotPoints(history.runs, history, config.views[0], game)).toEqual(<PlotPoint[]> [
                 { run: 0, milestone: "Club", day: 123, dayDiff: 123, segment: 123 },
                 { run: 0, milestone: "MAD", day: 789, dayDiff: 666, segment: 333 }
             ]);
@@ -240,7 +240,7 @@ describe("Export", () => {
                 ]
             });
 
-            expect(asPlotPoints(history.runs, history, config.views[0])).toEqual(<PlotPoint[]> [
+            expect(asPlotPoints(history.runs, history, config.views[0], game)).toEqual(<PlotPoint[]> [
                 { run: 0, milestone: "Club", day: 123, dayDiff: 123, segment: 123 },
                 { run: 0, milestone: "MAD", day: 789, dayDiff: 666, segment: 666 }
             ]);
@@ -264,7 +264,7 @@ describe("Export", () => {
                 ]
             });
 
-            expect(asPlotPoints(history.runs, history, config.views[0])).toEqual(<PlotPoint[]> [
+            expect(asPlotPoints(history.runs, history, config.views[0], game)).toEqual(<PlotPoint[]> [
                 { run: 0, milestone: "Club", day: 123, dayDiff: 123, segment: 123 },
                 { run: 0, milestone: "MAD", day: 789, dayDiff: 666, segment: 666 },
                 { run: 0, milestone: "Womlings arrival", day: 456, segment: 456 }
@@ -289,7 +289,7 @@ describe("Export", () => {
                 ]
             });
 
-            expect(asPlotPoints(history.runs, history, config.views[0])).toEqual(<PlotPoint[]> [
+            expect(asPlotPoints(history.runs, history, config.views[0], game)).toEqual(<PlotPoint[]> [
                 { run: 0, raceName: "Hello", milestone: "Club", day: 12, dayDiff: 12, segment: 12 },
                 { run: 0, raceName: "Hello", milestone: "MAD", day: 34, dayDiff: 22, segment: 22 },
                 { run: 1, milestone: "Club", day: 56, dayDiff: 56, segment: 56 },
@@ -319,7 +319,7 @@ describe("Export", () => {
                 ]
             });
 
-            expect(asPlotPoints(history.runs, history, config.views[0])).toEqual(<PlotPoint[]> [
+            expect(asPlotPoints(history.runs, history, config.views[0], game)).toEqual(<PlotPoint[]> [
                 { run: 0, milestone: resetName, day: 12, dayDiff: 12, segment: 12 },
             ]);
         });
@@ -336,7 +336,7 @@ describe("Export", () => {
 
                 const currentRun = makeCurrentRun(123, {});
 
-                expect(runAsPlotPoints(currentRun, config.views[0], [], false, 456)).toEqual(<PlotPoint[]> [
+                expect(runAsPlotPoints(currentRun, config.views[0], game, [], false, 456)).toEqual(<PlotPoint[]> [
                     { run: 456, milestone: "MAD", day: 123, dayDiff: 123, segment: 123, pending: true }
                 ]);
             });
@@ -352,7 +352,7 @@ describe("Export", () => {
 
                 const currentRun = makeCurrentRun(123, {});
 
-                expect(runAsPlotPoints(currentRun, config.views[0], [], false, 456)).toEqual([]);
+                expect(runAsPlotPoints(currentRun, config.views[0], game, [], false, 456)).toEqual([]);
             });
 
             it("should include all enabled milestones", () => {
@@ -371,7 +371,7 @@ describe("Export", () => {
                     "tech:wheel": 20
                 });
 
-                expect(runAsPlotPoints(currentRun, config.views[0], [], false, 456)).toEqual(<PlotPoint[]> [
+                expect(runAsPlotPoints(currentRun, config.views[0], game, [], false, 456)).toEqual(<PlotPoint[]> [
                     { run: 456, milestone: "Club", day: 10, dayDiff: 10, segment: 10 },
                     { run: 456, milestone: "MAD", day: 123, dayDiff: 113, segment: 103, pending: true }
                 ]);
@@ -396,7 +396,7 @@ describe("Export", () => {
                     { run: 1, milestone: "MAD", day: 30, dayDiff: 10, segment: 10 }
                 ];
 
-                expect(runAsPlotPoints(currentRun, config.views[0], bestRun, false, 456)).toEqual(<PlotPoint[]> [
+                expect(runAsPlotPoints(currentRun, config.views[0], game, bestRun, false, 456)).toEqual(<PlotPoint[]> [
                     { run: 456, milestone: "Club", day, dayDiff: day, segment: day, pending: true }
                 ]);
             });
@@ -420,7 +420,7 @@ describe("Export", () => {
                     { run: 1, milestone: "MAD", day: 30, dayDiff: 10, segment: 10 }
                 ];
 
-                expect(runAsPlotPoints(currentRun, config.views[0], bestRun, false, 456)).toEqual(<PlotPoint[]> [
+                expect(runAsPlotPoints(currentRun, config.views[0], game, bestRun, false, 456)).toEqual(<PlotPoint[]> [
                     { run: 456, milestone: "Wheel", day: 15, dayDiff: 15, segment: 15, pending: true }
                 ]);
             });
@@ -451,7 +451,7 @@ describe("Export", () => {
                     { run: 1, milestone: "MAD", day: 50, dayDiff: 10, segment: 10 }
                 ];
 
-                expect(runAsPlotPoints(currentRun, config.views[0], bestRun, false, 456)).toEqual(<PlotPoint[]> [
+                expect(runAsPlotPoints(currentRun, config.views[0], game, bestRun, false, 456)).toEqual(<PlotPoint[]> [
                     { run: 456, milestone: "Club", day: 10, dayDiff: 10, segment: 10 },
                     { run: 456, milestone: "Housing", day: 30, dayDiff: 20, segment: 20 },
                     { run: 456, milestone: "Cottage", day: 35, dayDiff: 5, segment: 5, pending: true },
@@ -476,7 +476,7 @@ describe("Export", () => {
                     { run: 1, milestone: "MAD", day: 30, dayDiff: 30, segment: 30 }
                 ];
 
-                expect(runAsPlotPoints(currentRun, config.views[0], bestRun, false, 456)).toEqual(<PlotPoint[]> [
+                expect(runAsPlotPoints(currentRun, config.views[0], game, bestRun, false, 456)).toEqual(<PlotPoint[]> [
                     { run: 456, milestone: "MAD", day: 15, dayDiff: 15, segment: 15, pending: true },
                     { run: 456, milestone: "Elerium discovery", day: 15, segment: 5, pending: true },
                 ]);
@@ -502,7 +502,7 @@ describe("Export", () => {
                         { run: 1, milestone: "MAD", day: 30, dayDiff: 10, segment: 10 }
                     ];
 
-                    expect(runAsPlotPoints(currentRun, config.views[0], bestRun, true, 456)).toEqual(<PlotPoint[]> [
+                    expect(runAsPlotPoints(currentRun, config.views[0], game, bestRun, true, 456)).toEqual(<PlotPoint[]> [
                         { run: 456, milestone: "Club", day: 5, dayDiff: 5, segment: 5, pending: true },
                         { run: 456, milestone: "Club", day: 10, dayDiff: 5, segment: 5, future: true },
                         { run: 456, milestone: "Wheel", day: 20, dayDiff: 10, segment: 10, future: true },
@@ -536,7 +536,7 @@ describe("Export", () => {
                         { run: 1, milestone: "MAD", day: 50, dayDiff: 10, segment: 10 }
                     ];
 
-                    expect(runAsPlotPoints(currentRun, config.views[0], bestRun, true, 456)).toEqual(<PlotPoint[]> [
+                    expect(runAsPlotPoints(currentRun, config.views[0], game, bestRun, true, 456)).toEqual(<PlotPoint[]> [
                         { run: 456, milestone: "Club", day: 10, dayDiff: 10, segment: 10 },
                         { run: 456, milestone: "Housing", day: 30, dayDiff: 20, segment: 20 },
                         { run: 456, milestone: "Cottage", day: 35, dayDiff: 5, segment: 5, pending: true },
@@ -571,7 +571,7 @@ describe("Export", () => {
 
                     const offset = day - bestRun[2].day;
 
-                    expect(runAsPlotPoints(currentRun, config.views[0], bestRun, true, 456)).toEqual(<PlotPoint[]> [
+                    expect(runAsPlotPoints(currentRun, config.views[0], game, bestRun, true, 456)).toEqual(<PlotPoint[]> [
                         { run: 456, milestone: "Club", day: 10, dayDiff: 10, segment: 10 },
                         { run: 456, milestone: "Housing", day: 20, dayDiff: 10, segment: 10 },
                         { run: 456, milestone: "Cottage", day: day, dayDiff: 10 + offset, segment: 10 + offset, pending: true },
@@ -606,7 +606,7 @@ describe("Export", () => {
 
                     const offset = day - bestRun[1].day;
 
-                    expect(runAsPlotPoints(currentRun, config.views[0], bestRun, true, 456)).toEqual(<PlotPoint[]> [
+                    expect(runAsPlotPoints(currentRun, config.views[0], game, bestRun, true, 456)).toEqual(<PlotPoint[]> [
                         { run: 456, milestone: "Club", day: 10, dayDiff: 10, segment: 10 },
                         { run: 456, milestone: "Housing", day, dayDiff: 10 + offset, segment: 10 + offset },
                         { run: 456, milestone: "Cottage", day: 30, dayDiff: 10 - offset, segment: 10 - offset, pending: true },
@@ -639,7 +639,7 @@ describe("Export", () => {
                         { run: 1, milestone: "MAD", day: 40, dayDiff: 10, segment: 10 }
                     ];
 
-                    expect(runAsPlotPoints(currentRun, config.views[0], bestRun, true, 456)).toEqual(<PlotPoint[]> [
+                    expect(runAsPlotPoints(currentRun, config.views[0], game, bestRun, true, 456)).toEqual(<PlotPoint[]> [
                         { run: 456, milestone: "Club", day: 15, dayDiff: 15, segment: 15 },
                         { run: 456, milestone: "Womlings arrival", day, segment: day },
                         { run: 456, milestone: "Housing", day: 30, dayDiff: 15, segment: 15, pending: true },

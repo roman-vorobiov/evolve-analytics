@@ -1,9 +1,11 @@
 import { generateMilestoneNames } from "../milestones";
 import eventsInfo from "../events";
-import { zip, rotateMap, lastValue, patternMatch } from "../utils";
+import { zip, rotateMap, lastValue, patternMatch, transformMap, objectSubset } from "../utils";
 import type { HistoryManager, HistoryEntry } from "../history";
 import type { ViewConfig } from "../config";
 import type { LatestRun } from "../runTracking";
+import type { Game } from "../game";
+import type { additionalInformation } from "../enums";
 
 export type PlotPoint = {
     run: number,
@@ -13,6 +15,7 @@ export type PlotPoint = {
     segment: number, // days since the last non-event milestone
     raceName?: string,
     combatDeaths?: number,
+    junkTraits?: Record<string, number>,
     pending?: boolean,
     future?: boolean
 }
@@ -194,6 +197,7 @@ class SegmentCounter {
 export function runAsPlotPoints(
     currentRun: LatestRun,
     view: ViewConfig,
+    game: Game,
     bestRun: PlotPoint[] | undefined,
     estimateFutureMilestones: boolean,
     runIdx: number
@@ -217,7 +221,10 @@ export function runAsPlotPoints(
 
     const entries: PlotPoint[] = [];
 
-    const additionalInfo = Object.fromEntries(view.additionalInfo.map(key => [key, currentRun[key]]))
+    const additionalInfo = objectSubset(currentRun, view.additionalInfo);
+    if (additionalInfo.junkTraits !== undefined) {
+        additionalInfo.junkTraits = transformMap(additionalInfo.junkTraits, ([trait, rank]) => [game.traitName(trait), rank]);
+    }
 
     const addEntry = (milestone: string, options: Omit<PlotPoint, "run" | "milestone">) => {
         entries.push({
@@ -245,7 +252,7 @@ export function runAsPlotPoints(
     return entries;
 }
 
-export function asPlotPoints(filteredRuns: HistoryEntry[], history: HistoryManager, view: ViewConfig): PlotPoint[] {
+export function asPlotPoints(filteredRuns: HistoryEntry[], history: HistoryManager, view: ViewConfig, game: Game): PlotPoint[] {
     const milestoneNames = makeMilestoneNamesMapping(view);
 
     const entries: PlotPoint[] = [];
@@ -260,6 +267,11 @@ export function asPlotPoints(filteredRuns: HistoryEntry[], history: HistoryManag
             counter.onMilestone(milestone, day);
         }
 
+        let junkTraits: Record<string, number> | undefined = undefined;
+        if (run.junkTraits !== undefined) {
+            junkTraits = transformMap(run.junkTraits, ([trait, rank]) => [game.traitName(trait), rank]);
+        }
+
         for (const { milestone, day, segment, dayDiff } of counter.segments()) {
             const milestoneName = milestoneNames[milestone];
 
@@ -267,6 +279,7 @@ export function asPlotPoints(filteredRuns: HistoryEntry[], history: HistoryManag
                 run: i,
                 raceName: run.raceName,
                 combatDeaths: run.combatDeaths,
+                junkTraits,
                 milestone: milestoneName,
                 day,
                 dayDiff,

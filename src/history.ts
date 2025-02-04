@@ -14,7 +14,8 @@ export type HistoryEntry = {
     universe: keyof typeof universes,
     milestones: MilestoneReference[],
     raceName?: string,
-    combatDeaths?: number
+    combatDeaths?: number,
+    junkTraits?: Record<string, number>
 }
 
 export type RunHistory = {

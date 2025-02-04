@@ -1,4 +1,4 @@
-export { transformMap, rotateMap, filterMap, zip, lastEntry, lastValue } from "./map";
+export { transformMap, rotateMap, filterMap, objectSubset, zip, lastEntry, lastValue } from "./map";
 
 export type RecursivePartial<T> = {
     [P in keyof T]?:

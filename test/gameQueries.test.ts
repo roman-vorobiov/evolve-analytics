@@ -48,7 +48,7 @@ describe("Game queries", () => {
 
     it("should provide current race name", () => {
         const evolve = makeGameState({ race: { species: "entish" } });
-        evolve.races["entish"] = { name: "Ent" };
+        evolve.races["entish"] = { name: "Ent", traits: {} };
         const game = new Game(evolve);
 
         expect(game.raceName).toBe("Ent");
@@ -56,7 +56,7 @@ describe("Game queries", () => {
 
     it("should not provide a race name during the evolution stage", () => {
         const evolve = makeGameState({ race: { species: "protoplasm" } });
-        evolve.races["protoplasm"] = { name: "Protoplasm" };
+        evolve.races["protoplasm"] = { name: "Protoplasm", traits: {} };
         const game = new Game(evolve);
 
         expect(game.raceName).toBeUndefined();

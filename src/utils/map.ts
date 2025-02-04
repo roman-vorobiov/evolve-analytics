@@ -6,6 +6,10 @@ export function filterMap<K extends string, V>(obj: Record<K, V>, fn: (kv: [K, V
     return Object.fromEntries(Object.entries(obj).filter(fn)) as Record<K, V>;
 }
 
+export function objectSubset<T, Keys extends keyof T>(obj: T, keys: Keys[]): Pick<T, Keys> {
+    return Object.fromEntries(keys.map(key => [key, obj[key]])) as Pick<T, Keys>;
+}
+
 export function rotateMap<K extends keyof any, V extends keyof any>(obj: Record<K, V>): Record<V, K> {
     return transformMap(obj, ([k, v]) => [v, k]);
 }

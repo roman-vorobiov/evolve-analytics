@@ -14,7 +14,8 @@ export type LatestRun = {
     totalDays: number,
     milestones: Record<string, number>,
     raceName?: string,
-    combatDeaths?: number
+    combatDeaths?: number,
+    junkTraits?: Record<string, number>
 }
 
 export function inferResetType(runStats: LatestRun, game: Game) {
@@ -90,9 +91,31 @@ function updateMilestones(runStats: LatestRun, checkers: MilestoneChecker[]) {
     }
 }
 
+function junkTraits(game: Game) {
+    const hasJunkGene = game.hasChallengeGene("no_crispr");
+    const hasBadGenes = game.hasChallengeGene("badgenes");
+
+    if (!hasJunkGene && !hasBadGenes) {
+        return {};
+    }
+
+    // All negative major traits that have different rank from this race's base number
+    let traits = game.majorTraits
+        .filter(t => game.traitValue(t) < 0)
+        .filter(t => game.currentTraitRank(t) !== game.baseTraitRank(t));
+
+    // The imitated negative trait is included - keep it only if it got upgraded
+    if (traits.length > (hasBadGenes ? 3 : 1)) {
+        traits = traits.filter(t => !game.imitatedTraits.includes(t));
+    }
+
+    return Object.fromEntries(traits.map(t => [t, game.currentTraitRank(t)]));
+}
+
 function updateAdditionalInfo(runStats: LatestRun, game: Game) {
     runStats.universe ??= game.universe;
     runStats.raceName ??= game.raceName;
+    runStats.junkTraits ??= junkTraits(game);
     runStats.combatDeaths = game.combatDeaths;
 }
 

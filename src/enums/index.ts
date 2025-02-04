@@ -47,7 +47,8 @@ export const viewModes = {
 
 export const additionalInformation = {
     "raceName": "Race Name",
-    "combatDeaths": "Combat Deaths"
+    "combatDeaths": "Combat Deaths",
+    "junkTraits": "Junk Traits"
 };
 
 export function resetName(reset: keyof typeof resets, universe?: keyof typeof universes) {

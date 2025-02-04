@@ -16,7 +16,8 @@ export type ArpaInfoTab = {
 
 export type Evolve = {
     craftCost?: any,
-    races: Record<string, { name: string }>,
+    races: Record<string, { name: string, traits: Record<string, number> }>,
+    traits: Record<string, { name: string, type: string, val: number }>,
     global: BuildingInfoTabs & ArpaInfoTab & {
         stats: { [k in keyof typeof resets]: number } & {
             reset: number,
@@ -24,7 +25,7 @@ export type Evolve = {
             dkills: number,
             died: number
         },
-        race: {
+        race: Record<string, any> & {
             species: string,
             universe: keyof typeof universes | "bigbang",
             servants?: object
