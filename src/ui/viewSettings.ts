@@ -86,11 +86,10 @@ export function makeViewSettings(view: View) {
     });
 
     onPropertyChange(["showLines", "mode"], () => {
+        showBarsToggle.toggle(view.mode === "timestamp");
+        showLinesToggle.toggle(view.mode === "timestamp");
         fillAreaToggle.toggle(view.showLines && view.mode === "timestamp");
-    });
-
-    onPropertyChange(["showLines"], () => {
-        avgWindowSlider.toggle(view.showLines);
+        avgWindowSlider.toggle(view.showLines || view.mode === "duration");
     });
 
     const filterSettings = $(`<div class="flex-container" style="flex-direction: row;"></div>`)

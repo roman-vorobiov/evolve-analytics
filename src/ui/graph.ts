@@ -348,19 +348,15 @@ export function makeGraph(history: HistoryManager, view: View, game: Game, curre
             break;
 
         case "duration":
-            if (view.showLines) {
-                marks.push(...lineMarks(plotPoints, filteredRuns, "segment", view.smoothness));
-                marks.push(...timestamps(plotPoints, "segment"));
-                marks.push(...linePointerMarks(plotPoints, filteredRuns, "segment"));
-            }
+            marks.push(...lineMarks(plotPoints, filteredRuns, "segment", view.smoothness));
+            marks.push(...timestamps(plotPoints, "segment"));
+            marks.push(...linePointerMarks(plotPoints, filteredRuns, "segment"));
             break;
 
-        case "stacked":
-            if (view.showBars) {
-                marks.push(...barMarks(plotPoints, "segment"));
-                marks.push(...lollipopMarks(plotPoints, true, filteredRuns.length));
-                marks.push(...rectPointerMarks(plotPoints, filteredRuns, "segment", "segment"));
-            }
+        case "durationStacked":
+            marks.push(...barMarks(plotPoints, "segment"));
+            marks.push(...lollipopMarks(plotPoints, true, filteredRuns.length));
+            marks.push(...rectPointerMarks(plotPoints, filteredRuns, "segment", "segment"));
             break;
 
         default:
