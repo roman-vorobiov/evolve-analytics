@@ -322,53 +322,49 @@ export function makeGraph(history: HistoryManager, view: View, game: Game, curre
         Plot.ruleY([0])
     ];
 
-    if (view.showBars) {
-        switch (view.mode) {
-            case "timestamp":
+    switch (view.mode) {
+        case "timestamp":
+            if (view.showBars) {
                 marks.push(...barMarks(plotPoints, "dayDiff"));
                 marks.push(...lollipopMarks(plotPoints, false, filteredRuns.length));
-                marks.push(...timestamps(plotPoints, "day"));
                 marks.push(...rectPointerMarks(plotPoints, filteredRuns, "dayDiff", "day"));
-                marks.push(...statsMarks(filteredRuns, bestRun));
-                break;
+            }
 
-            case "duration":
-                marks.push(...barMarks(plotPoints, "segment"));
-                marks.push(...lollipopMarks(plotPoints, true, filteredRuns.length));
-                marks.push(...rectPointerMarks(plotPoints, filteredRuns, "segment", "segment"));
-                break;
-
-            default:
-                break;
-        }
-    }
-
-    if (view.showLines) {
-        switch (view.mode) {
-            case "timestamp":
+            if (view.showLines) {
                 if (view.fillArea) {
                     marks.push(...areaMarks(plotPoints, filteredRuns, view.smoothness));
                 }
 
                 marks.push(...lineMarks(plotPoints, filteredRuns, "day", view.smoothness));
-                marks.push(...timestamps(plotPoints, "day"));
-                marks.push(...statsMarks(filteredRuns, bestRun));
-                break;
 
-            case "duration":
+                // Don't show the lines' pointer if the bars' one is shown or if the lines are smoothed
+                if (!view.showBars && view.smoothness === 0) {
+                    marks.push(...linePointerMarks(plotPoints, filteredRuns, "day"));
+                }
+            }
+
+            marks.push(...timestamps(plotPoints, "day"));
+            marks.push(...statsMarks(filteredRuns, bestRun));
+            break;
+
+        case "duration":
+            if (view.showLines) {
                 marks.push(...lineMarks(plotPoints, filteredRuns, "segment", view.smoothness));
                 marks.push(...timestamps(plotPoints, "segment"));
-                break;
+                marks.push(...linePointerMarks(plotPoints, filteredRuns, "segment"));
+            }
+            break;
 
-            default:
-                break;
-        }
+        case "stacked":
+            if (view.showBars) {
+                marks.push(...barMarks(plotPoints, "segment"));
+                marks.push(...lollipopMarks(plotPoints, true, filteredRuns.length));
+                marks.push(...rectPointerMarks(plotPoints, filteredRuns, "segment", "segment"));
+            }
+            break;
 
-        // Don't show the lines' pointer if the bars' one is shown or if the lines are smoothed
-        if (!view.showBars && view.smoothness === 0) {
-            const key = view.mode === "timestamp" ? "day" : "segment";
-            marks.push(...linePointerMarks(plotPoints, filteredRuns, key));
-        }
+        default:
+            break;
     }
 
     const plot = Plot.plot({

@@ -51,8 +51,9 @@ export const challengeGenes = {
 };
 
 export const viewModes = {
-    "timestamp": "Timestamp",
-    "duration": "Duration"
+    "timestamp": "Milestone timestamps",
+    "duration": "Segment durations",
+    "stacked": "Stacked segment durations",
 };
 
 export const additionalInformation = {
