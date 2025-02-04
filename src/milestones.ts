@@ -23,10 +23,17 @@ export function makeMilestoneChecker(game: Game, milestone: string): MilestoneCh
     };
 }
 
+function techName(id: string) {
+    return patternMatch<[string, string]>(techs[id], [
+        [/(.+) \((.+)\)/, (name, descriminator) => [name, descriminator]],
+        [/(.+)/, (name) => [name, "Research"]]
+    ])!;
+}
+
 export function milestoneName(milestone: string, universe?: keyof typeof universes): [string, string, boolean] {
     const name = patternMatch<[string, string, boolean]>(milestone, [
         [/built:(.+?):(\d+)/, (id, count) => [buildings[id], count, Number(count) !== (buildingSegments[id] ?? 1)]],
-        [/tech:(.+)/, (id) => [techs[id], "Research", false]],
+        [/tech:(.+)/, (id) => [...techName(id), false]],
         [/event:(.+)/, (id) => [events[id as keyof typeof events], "Event", false]],
         [/event_condition:(.+)/, (id) => [events[id as keyof typeof events], "Event condition", false]],
         [/reset:(.+)/, (reset) => [resetName(reset as keyof typeof resets, universe), "Reset", false]]
