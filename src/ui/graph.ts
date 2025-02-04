@@ -104,7 +104,7 @@ function* statsMarks(runs: HistoryEntry[], bestRun: HistoryEntry | undefined) {
     yield Plot.text([0], {
         dy: topTextOffset,
         frameAnchor: "top-right",
-        text: () => `Best (all time): ${bestTime} day(s)\nAverage (selection): ${averageTime} day(s)`
+        text: () => `Fastest (all time): ${bestTime} day(s)\nAverage (selection): ${averageTime} day(s)`
     });
 }
 
