@@ -92,6 +92,10 @@ function updateMilestones(runStats: LatestRun, checkers: MilestoneChecker[]) {
 }
 
 function junkTraits(game: Game) {
+    if (!game.finishedEvolution) {
+        return undefined;
+    }
+
     const hasJunkGene = game.hasChallengeGene("no_crispr");
     const hasBadGenes = game.hasChallengeGene("badgenes");
 
