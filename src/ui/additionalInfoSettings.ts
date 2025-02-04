@@ -5,7 +5,10 @@ import type { View } from "../config";
 export function makeAdditionalInfoSettings(view: View) {
     const node = $(`<div style="display: flex; flex-direction: row; gap: 8px"></div>`);
 
-    node.append(`<span>Additional Info:</span>`);
+    node.append(`<span>Additional info:</span>`);
+
+    const showCurrentRunToggle = makeCheckbox("Current run", view.includeCurrentRun ?? false, (value) => view.includeCurrentRun = value);
+    node.append(showCurrentRunToggle);
 
     for (const [key, value] of Object.entries(additionalInformation)) {
         const enabled = view.additionalInfo.includes(key as any);

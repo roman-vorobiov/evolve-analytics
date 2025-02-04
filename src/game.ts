@@ -1,6 +1,7 @@
 import { resets } from "./enums";
 import { transformMap } from "./utils";
 import { Subscribable } from "./subscribable";
+import { challengeGenes } from "./enums";
 import type { Evolve, BuildingInfoTabs, ArpaInfoTab } from "./evolve";
 
 import type { default as JQuery } from "jquery";
@@ -47,7 +48,7 @@ export class Game extends Subscribable {
         return this.evolve.global.stats.died ?? 0;
     }
 
-    hasChallengeGene(gene: string) {
+    hasChallengeGene(gene: keyof typeof challengeGenes) {
         return gene in this.evolve.global.race;
     }
 
@@ -77,6 +78,12 @@ export class Game extends Subscribable {
         }
         else {
             return [];
+        }
+    }
+
+    get starLevel() {
+        if (this.finishedEvolution) {
+            return Object.keys(challengeGenes).filter(c => this.hasChallengeGene(c as keyof typeof challengeGenes)).length;
         }
     }
 

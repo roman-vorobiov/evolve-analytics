@@ -11,6 +11,7 @@ export type MilestoneReference = [number, number];
 
 export type HistoryEntry = {
     run: number,
+    starLevel?: number,
     universe: keyof typeof universes,
     milestones: MilestoneReference[],
     raceName?: string,

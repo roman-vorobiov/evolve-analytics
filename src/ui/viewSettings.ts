@@ -35,6 +35,7 @@ export function makeViewSettings(view: View) {
 
             case "numRuns":
             case "daysScale":
+            case "starLevel":
                 view[key] = Number(value) || undefined;
                 break;
 
@@ -60,9 +61,10 @@ export function makeViewSettings(view: View) {
     const universeInput = makeSelect([["any", "Any"], ...Object.entries(universes)], view.universe ?? "any")
         .on("change", bindThis("universe"));
 
-    const numRunsInput = makeToggleableNumberInput("Limit to last N runs", "All", view.numRuns, bind("numRuns"));
+    const starLevelInput = makeNumberInput("Any", view.starLevel, [0, 4])
+        .on("change", bindThis("starLevel"));
 
-    const showCurrentRunToggle = makeCheckbox("Show Current Run", view.includeCurrentRun ?? false, bind("includeCurrentRun"));
+    const numRunsInput = makeToggleableNumberInput("Limit to last N runs", "All", view.numRuns, bind("numRuns"));
 
     const modeInput = makeSelect(Object.entries(viewModes), view.mode)
         .on("change", bindThis("mode"));
@@ -94,8 +96,8 @@ export function makeViewSettings(view: View) {
     const filterSettings = $(`<div class="flex-container" style="flex-direction: row;"></div>`)
         .append(makeSetting("Reset type", resetTypeInput))
         .append(makeSetting("Universe", universeInput))
-        .append(numRunsInput)
-        .append(showCurrentRunToggle);
+        .append(makeSetting("Star level", starLevelInput))
+        .append(numRunsInput);
 
     const displaySettings = $(`<div class="flex-container" style="flex-direction: row;"></div>`)
         .append(makeSetting("Mode", modeInput))

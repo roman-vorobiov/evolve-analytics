@@ -97,6 +97,30 @@ describe("Export", () => {
             ]);
         });
 
+        it("should filter by star level", () => {
+            const game = new Game(makeGameState({}));
+            const history = makeHistory(game, {
+                milestones: { "tech:club": 0, "reset:mad": 1 },
+                runs: [
+                    { run: 1, universe: "standard", milestones: [[1, 10]] },
+                    { run: 2, starLevel: 0, universe: "standard", milestones: [[1, 10]] },
+                    { run: 3, starLevel: 1, universe: "standard", milestones: [[1, 10]] },
+                ]
+            });
+
+            expect(applyFilters(history, makeView({ starLevel: 1 }))).toEqual([
+                history.runs[2]
+            ]);
+
+            expect(applyFilters(history, makeView({ starLevel: 2 }))).toEqual([]);
+
+            expect(applyFilters(history, makeView({ starLevel: undefined }))).toEqual([
+                history.runs[0],
+                history.runs[1],
+                history.runs[2]
+            ]);
+        });
+
         it("should filter last N runs", () => {
             const game = new Game(makeGameState({}));
             const history = makeHistory(game, {

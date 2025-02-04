@@ -9,6 +9,7 @@ import type { HistoryManager } from "./history";
 
 export type LatestRun = {
     run: number,
+    starLevel?: number,
     universe?: keyof typeof universes,
     resets: Partial<Record<keyof typeof resets, number>>,
     totalDays: number,
@@ -117,6 +118,7 @@ function junkTraits(game: Game) {
 }
 
 function updateAdditionalInfo(runStats: LatestRun, game: Game) {
+    runStats.starLevel ??= game.starLevel;
     runStats.universe ??= game.universe;
     runStats.raceName ??= game.raceName;
     runStats.junkTraits ??= junkTraits(game);

@@ -20,6 +20,10 @@ export function shouldIncludeRun(entry: HistoryEntry, view: ViewConfig, history:
         return false;
     }
 
+    if (view.starLevel !== undefined && entry.starLevel !== view.starLevel) {
+        return false;
+    }
+
     if (getResetType(entry, history) !== view.resetType) {
         return false;
     }
@@ -69,7 +73,7 @@ function findBestRunImpl(history: HistoryManager, view: ViewConfig): HistoryEntr
 const bestRunCache: Record<string, HistoryEntry> = {};
 
 export function findBestRun(history: HistoryManager, view: ViewConfig): HistoryEntry | undefined {
-    const cacheKey = `${view.resetType}.${view.universe ?? "*"}`;
+    const cacheKey = `${view.resetType}.${view.universe ?? "*"}.${view.starLevel ?? "*"}`;
     const cacheEntry = bestRunCache[cacheKey];
     if (cacheEntry !== undefined) {
         return cacheEntry;

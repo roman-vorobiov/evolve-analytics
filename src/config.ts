@@ -5,6 +5,7 @@ import type { Game } from "./game";
 
 export type ViewConfig = {
     resetType: keyof typeof resets,
+    starLevel?: number,
     universe?: keyof typeof universes,
     mode: keyof typeof viewModes,
     includeCurrentRun?: boolean,

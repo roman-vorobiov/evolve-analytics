@@ -40,15 +40,25 @@ export const universes = {
     magic: "Magic"
 };
 
+export const challengeGenes = {
+    no_plasmid: "No Starting Plasmids",
+    weak_mastery: "Weak Mastery",
+    nerfed: "Weak Genes",
+    no_crispr: "Junk Gene",
+    badgenes: "Bad Genes",
+    no_trade: "No Free Trade",
+    no_craft: "No Manual Crafting"
+};
+
 export const viewModes = {
     "timestamp": "Timestamp",
     "duration": "Duration"
 };
 
 export const additionalInformation = {
-    "raceName": "Race Name",
-    "combatDeaths": "Combat Deaths",
-    "junkTraits": "Junk Traits"
+    "raceName": "Race name",
+    "combatDeaths": "Combat deaths",
+    "junkTraits": "Junk traits"
 };
 
 export function resetName(reset: keyof typeof resets, universe?: keyof typeof universes) {

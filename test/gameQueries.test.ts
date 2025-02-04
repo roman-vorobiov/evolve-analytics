@@ -46,6 +46,16 @@ describe("Game queries", () => {
         expect(game.universe).toBeUndefined();
     });
 
+    it.each([
+        [[]],
+        [["no_crispr"]],
+        [["no_crispr", "no_trade"]]
+    ])("should provide current star level", (challengeGenes) => {
+        const game = new Game(makeGameState({ race: Object.fromEntries(challengeGenes.map(g => [g, 1])) }));
+
+        expect(game.starLevel).toBe(challengeGenes.length);
+    });
+
     it("should provide current race name", () => {
         const evolve = makeGameState({ race: { species: "entish" } });
         evolve.races["entish"] = { name: "Ent", traits: {} };

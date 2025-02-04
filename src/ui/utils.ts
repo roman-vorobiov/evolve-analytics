@@ -98,11 +98,19 @@ export function makeSlimButton(text: string) {
     return $(`<button class="button" style="height: 22px">${text}</button>`);
 }
 
-export function makeNumberInput(placeholder: string, defaultValue?: number) {
-    const node = $(`<input style="width: 60px" type="number" placeholder="${placeholder}" min="1">`);
+export function makeNumberInput(placeholder: string, defaultValue?: number, range?: [number, number]) {
+    const node = $(`<input style="width: 60px" type="number" placeholder="${placeholder}">`);
 
     if (defaultValue !== undefined) {
         node.attr("value", defaultValue);
+    }
+
+    if (range !== undefined) {
+        node.attr("min", range[0]);
+        node.attr("max", range[1]);
+    }
+    else {
+        node.attr("min", 1);
     }
 
     return node;
