@@ -10,7 +10,8 @@ import type * as PlotType from "@observablehq/plot";
 
 declare const Plot: typeof PlotType;
 
-const topTextOffset = -17;
+const topTextOffset = -27;
+const marginTop = 30;
 
 function isEvent(entry: PlotPoint) {
     return entry.dayDiff === undefined;
@@ -200,7 +201,7 @@ function tipText(point: PlotPoint, key: "day" | "dayDiff" | "segment", history: 
         prefix = `Run #${history[point.run].run}`;
     }
 
-    const hasExtraInfo = ["combatDeaths", "junkTraits"].some(k => k in point);
+    const hasExtraInfo = ["combatDeaths", "junkTraits"].some(k => point[k as keyof PlotPoint] !== undefined);
 
     if (point.raceName !== undefined && !hasExtraInfo) {
         prefix += ` (${point.raceName})`;
@@ -371,6 +372,7 @@ export function makeGraph(history: HistoryManager, view: View, game: Game, curre
     }
 
     const plot = Plot.plot({
+        marginTop,
         width: 800,
         x: { axis: null },
         y: { grid: true, domain: calculateYScale(plotPoints, view) },
