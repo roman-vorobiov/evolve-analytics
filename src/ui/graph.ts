@@ -200,7 +200,9 @@ function tipText(point: PlotPoint, key: "day" | "dayDiff" | "segment", history: 
         prefix = `Run #${history[point.run].run}`;
     }
 
-    if (point.raceName !== undefined) {
+    const hasExtraInfo = ["combatDeaths", "junkTraits"].some(k => k in point);
+
+    if (point.raceName !== undefined && !hasExtraInfo) {
         prefix += ` (${point.raceName})`;
     }
 
@@ -217,6 +219,10 @@ function tipText(point: PlotPoint, key: "day" | "dayDiff" | "segment", history: 
     }
 
     const extraInfo: string[] = [];
+
+    if (point.raceName !== undefined && hasExtraInfo) {
+        extraInfo.push(`Race: ${point.raceName}`);
+    }
 
     if (point.combatDeaths !== undefined) {
         extraInfo.push(`Died in combat: ${point.combatDeaths}`);
