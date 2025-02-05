@@ -31,7 +31,7 @@ export function inferResetType(runStats: LatestRun, game: Game) {
 }
 
 function isCurrentRun(runStats: LatestRun, game: Game) {
-    return runStats.run === game.runNumber;
+    return game.finishedEvolution && runStats.run === game.runNumber;
 }
 
 function isPreviousRun(runStats: LatestRun, game: Game) {
