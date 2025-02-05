@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.11.0
+// @version      0.11.1
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -2032,7 +2032,7 @@
         return reset ?? "unknown";
     }
     function isCurrentRun(runStats, game) {
-        return runStats.run === game.runNumber;
+        return game.finishedEvolution && runStats.run === game.runNumber;
     }
     function isPreviousRun(runStats, game) {
         return runStats.run === game.runNumber - 1;
