@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.10.16
+// @version      0.11.0
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -1190,13 +1190,24 @@
         micro: "Micro",
         magic: "Magic"
     };
+    const challengeGenes = {
+        no_plasmid: "No Starting Plasmids",
+        weak_mastery: "Weak Mastery",
+        nerfed: "Weak Genes",
+        no_crispr: "Junk Gene",
+        badgenes: "Bad Genes",
+        no_trade: "No Free Trade",
+        no_craft: "No Manual Crafting"
+    };
     const viewModes = {
         "timestamp": "Timestamp",
-        "duration": "Duration"
+        "duration": "Duration",
+        "durationStacked": "Duration (stacked)",
     };
     const additionalInformation = {
-        "raceName": "Race Name",
-        "combatDeaths": "Combat Deaths"
+        "raceName": "Race name",
+        "combatDeaths": "Combat deaths",
+        "junkTraits": "Junk traits"
     };
     function resetName(reset, universe) {
         if (reset === "blackhole" && universe === "magic") {
@@ -1212,6 +1223,9 @@
     }
     function filterMap(obj, fn) {
         return Object.fromEntries(Object.entries(obj).filter(fn));
+    }
+    function objectSubset(obj, keys) {
+        return Object.fromEntries(keys.map(key => [key, obj[key]]));
     }
     function rotateMap(obj) {
         return transformMap(obj, ([k, v]) => [v, k]);
@@ -1779,6 +1793,37 @@
         get combatDeaths() {
             return this.evolve.global.stats.died ?? 0;
         }
+        hasChallengeGene(gene) {
+            return gene in this.evolve.global.race;
+        }
+        traitName(trait) {
+            return this.evolve.traits[trait].name;
+        }
+        traitValue(trait) {
+            return this.evolve.traits[trait].val;
+        }
+        currentTraitRank(trait) {
+            return this.evolve.global.race[trait];
+        }
+        baseTraitRank(trait) {
+            return this.evolve.races[this.evolve.global.race.species].traits[trait];
+        }
+        get majorTraits() {
+            return Object.keys(this.evolve.global.race).filter(k => this.evolve.traits[k]?.type === "major");
+        }
+        get imitatedTraits() {
+            if ("srace" in this.evolve.global.race) {
+                return Object.keys(this.evolve.races[this.evolve.global.race.srace].traits);
+            }
+            else {
+                return [];
+            }
+        }
+        get starLevel() {
+            if (this.finishedEvolution) {
+                return Object.keys(challengeGenes).filter(c => this.hasChallengeGene(c)).length;
+            }
+        }
         built(tab, building, count) {
             const instance = this.evolve.global[tab]?.[building];
             const instanceCount = tab === "arpa" ? instance?.rank : instance?.count;
@@ -2038,9 +2083,30 @@
             }
         }
     }
+    function junkTraits(game) {
+        if (!game.finishedEvolution) {
+            return undefined;
+        }
+        const hasJunkGene = game.hasChallengeGene("no_crispr");
+        const hasBadGenes = game.hasChallengeGene("badgenes");
+        if (!hasJunkGene && !hasBadGenes) {
+            return {};
+        }
+        // All negative major traits that have different rank from this race's base number
+        let traits = game.majorTraits
+            .filter(t => game.traitValue(t) < 0)
+            .filter(t => game.currentTraitRank(t) !== game.baseTraitRank(t));
+        // The imitated negative trait is included - keep it only if it got upgraded
+        if (traits.length > (hasBadGenes ? 3 : 1)) {
+            traits = traits.filter(t => !game.imitatedTraits.includes(t));
+        }
+        return Object.fromEntries(traits.map(t => [t, game.currentTraitRank(t)]));
+    }
     function updateAdditionalInfo(runStats, game) {
+        runStats.starLevel ??= game.starLevel;
         runStats.universe ??= game.universe;
         runStats.raceName ??= game.raceName;
+        runStats.junkTraits ??= junkTraits(game);
         runStats.combatDeaths = game.combatDeaths;
     }
     function withEventConditions(milestones) {
@@ -2086,6 +2152,9 @@
         if (view.universe !== undefined && entry.universe !== view.universe) {
             return false;
         }
+        if (view.starLevel !== undefined && entry.starLevel !== view.starLevel) {
+            return false;
+        }
         if (getResetType(entry, history) !== view.resetType) {
             return false;
         }
@@ -2122,7 +2191,7 @@
     }
     const bestRunCache = {};
     function findBestRun(history, view) {
-        const cacheKey = `${view.resetType}.${view.universe ?? "*"}`;
+        const cacheKey = `${view.resetType}.${view.universe ?? "*"}.${view.starLevel ?? "*"}`;
         const cacheEntry = bestRunCache[cacheKey];
         if (cacheEntry !== undefined) {
             return cacheEntry;
@@ -2404,7 +2473,7 @@
                 .map(([milestone, day]) => [milestone, day + offset]);
         }
     }
-    function runAsPlotPoints(currentRun, view, bestRun, estimateFutureMilestones, runIdx) {
+    function runAsPlotPoints(currentRun, view, game, bestRun, estimateFutureMilestones, runIdx) {
         const milestoneNames = makeMilestoneNamesMapping(view);
         const milestonesByName = rotateMap(milestoneNames);
         const counter = new SegmentCounter(view);
@@ -2419,7 +2488,10 @@
             }
         }
         const entries = [];
-        const additionalInfo = Object.fromEntries(view.additionalInfo.map(key => [key, currentRun[key]]));
+        const additionalInfo = objectSubset(currentRun, view.additionalInfo);
+        if (additionalInfo.junkTraits !== undefined) {
+            additionalInfo.junkTraits = transformMap(additionalInfo.junkTraits, ([trait, rank]) => [game.traitName(trait), rank]);
+        }
         const addEntry = (milestone, options) => {
             entries.push({
                 run: runIdx,
@@ -2441,7 +2513,7 @@
         }
         return entries;
     }
-    function asPlotPoints(filteredRuns, history, view) {
+    function asPlotPoints(filteredRuns, history, view, game) {
         const milestoneNames = makeMilestoneNamesMapping(view);
         const entries = [];
         for (let i = 0; i !== filteredRuns.length; ++i) {
@@ -2451,12 +2523,17 @@
                 const milestone = history.getMilestone(milestoneID);
                 counter.onMilestone(milestone, day);
             }
+            let junkTraits = undefined;
+            if (run.junkTraits !== undefined) {
+                junkTraits = transformMap(run.junkTraits, ([trait, rank]) => [game.traitName(trait), rank]);
+            }
             for (const { milestone, day, segment, dayDiff } of counter.segments()) {
                 const milestoneName = milestoneNames[milestone];
                 entries.push({
                     run: i,
                     raceName: run.raceName,
                     combatDeaths: run.combatDeaths,
+                    junkTraits,
                     milestone: milestoneName,
                     day,
                     dayDiff,
@@ -2467,7 +2544,8 @@
         return entries;
     }
 
-    const topTextOffset = -17;
+    const topTextOffset = -27;
+    const marginTop = 30;
     function isEvent(entry) {
         return entry.dayDiff === undefined;
     }
@@ -2543,7 +2621,7 @@
         yield Plot.text([0], {
             dy: topTextOffset,
             frameAnchor: "top-right",
-            text: () => `Best (all time): ${bestTime} day(s)\nAverage (selection): ${averageTime} day(s)`
+            text: () => `Fastest (all time): ${bestTime} day(s)\nAverage (selection): ${averageTime} day(s)`
         });
     }
     function* areaMarks(plotPoints, history, smoothness) {
@@ -2628,7 +2706,8 @@
         else {
             prefix = `Run #${history[point.run].run}`;
         }
-        if (point.raceName !== undefined) {
+        const hasExtraInfo = ["combatDeaths", "junkTraits"].some(k => point[k] !== undefined);
+        if (point.raceName !== undefined && !hasExtraInfo) {
             prefix += ` (${point.raceName})`;
         }
         let suffix;
@@ -2641,8 +2720,19 @@
                 suffix += ` (PB pace)`;
             }
         }
+        const extraInfo = [];
+        if (point.raceName !== undefined && hasExtraInfo) {
+            extraInfo.push(`Race: ${point.raceName}`);
+        }
         if (point.combatDeaths !== undefined) {
-            suffix += `\nDied in combat: ${point.combatDeaths}`;
+            extraInfo.push(`Died in combat: ${point.combatDeaths}`);
+        }
+        if (point.junkTraits !== undefined) {
+            const genes = Object.entries(point.junkTraits).map(([trait, rank]) => `${trait} (${rank})`);
+            extraInfo.push(`Junk traits: ${genes.join(", ")}`);
+        }
+        if (extraInfo.length > 0) {
+            suffix += `\n${extraInfo.join("; ")}`;
         }
         return `${prefix}: ${point.milestone} ${suffix}`;
     }
@@ -2674,7 +2764,7 @@
         yield Plot.text(plotPoints, Plot.pointerX(toSegment({
             x: "run",
             y: segmentKey,
-            dy: -17,
+            dy: topTextOffset,
             frameAnchor: "top-left",
             text: (entry) => tipText(entry, tipKey, history),
             filter: (entry) => !isEvent(entry)
@@ -2687,7 +2777,7 @@
             filter: (entry) => !isEvent(entry)
         })));
     }
-    function makeGraph(history, view, currentRun, onSelect) {
+    function makeGraph(history, view, game, currentRun, onSelect) {
         const filteredRuns = applyFilters(history, view);
         const bestRun = findBestRun(history, view);
         const milestones = Object.keys(view.milestones);
@@ -2700,56 +2790,51 @@
                 return rIdx - lIdx;
             });
         }
-        const plotPoints = asPlotPoints(filteredRuns, history, view);
+        const plotPoints = asPlotPoints(filteredRuns, history, view, game);
         if (view.includeCurrentRun) {
-            const bestRunEntries = bestRun !== undefined ? asPlotPoints([bestRun], history, view) : [];
+            const bestRunEntries = bestRun !== undefined ? asPlotPoints([bestRun], history, view, game) : [];
             const estimate = view.mode === "timestamp";
             const idx = filteredRuns.length;
-            const currentRunPoints = runAsPlotPoints(currentRun, view, bestRunEntries, estimate, idx);
+            const currentRunPoints = runAsPlotPoints(currentRun, view, game, bestRunEntries, estimate, idx);
             plotPoints.push(...currentRunPoints);
         }
         const marks = [
             Plot.axisY({ anchor: "left", label: "days" }),
             Plot.ruleY([0])
         ];
-        if (view.showBars) {
-            switch (view.mode) {
-                case "timestamp":
+        switch (view.mode) {
+            case "timestamp":
+                if (view.showBars) {
                     marks.push(...barMarks(plotPoints, "dayDiff"));
                     marks.push(...lollipopMarks(plotPoints, false, filteredRuns.length));
-                    marks.push(...timestamps(plotPoints, "day"));
                     marks.push(...rectPointerMarks(plotPoints, filteredRuns, "dayDiff", "day"));
-                    marks.push(...statsMarks(filteredRuns, bestRun));
-                    break;
-                case "duration":
-                    marks.push(...barMarks(plotPoints, "segment"));
-                    marks.push(...lollipopMarks(plotPoints, true, filteredRuns.length));
-                    marks.push(...rectPointerMarks(plotPoints, filteredRuns, "segment", "segment"));
-                    break;
-            }
-        }
-        if (view.showLines) {
-            switch (view.mode) {
-                case "timestamp":
+                }
+                if (view.showLines) {
                     if (view.fillArea) {
                         marks.push(...areaMarks(plotPoints, filteredRuns, view.smoothness));
                     }
                     marks.push(...lineMarks(plotPoints, filteredRuns, "day", view.smoothness));
-                    marks.push(...timestamps(plotPoints, "day"));
-                    marks.push(...statsMarks(filteredRuns, bestRun));
-                    break;
-                case "duration":
-                    marks.push(...lineMarks(plotPoints, filteredRuns, "segment", view.smoothness));
-                    marks.push(...timestamps(plotPoints, "segment"));
-                    break;
-            }
-            // Don't show the lines' pointer if the bars' one is shown or if the lines are smoothed
-            if (!view.showBars && view.smoothness === 0) {
-                const key = view.mode === "timestamp" ? "day" : "segment";
-                marks.push(...linePointerMarks(plotPoints, filteredRuns, key));
-            }
+                    // Don't show the lines' pointer if the bars' one is shown or if the lines are smoothed
+                    if (!view.showBars && view.smoothness === 0) {
+                        marks.push(...linePointerMarks(plotPoints, filteredRuns, "day"));
+                    }
+                }
+                marks.push(...timestamps(plotPoints, "day"));
+                marks.push(...statsMarks(filteredRuns, bestRun));
+                break;
+            case "duration":
+                marks.push(...lineMarks(plotPoints, filteredRuns, "segment", view.smoothness));
+                marks.push(...timestamps(plotPoints, "segment"));
+                marks.push(...linePointerMarks(plotPoints, filteredRuns, "segment"));
+                break;
+            case "durationStacked":
+                marks.push(...barMarks(plotPoints, "segment"));
+                marks.push(...lollipopMarks(plotPoints, true, filteredRuns.length));
+                marks.push(...rectPointerMarks(plotPoints, filteredRuns, "segment", "segment"));
+                break;
         }
         const plot = Plot.plot({
+            marginTop,
             width: 800,
             x: { axis: null },
             y: { grid: true, domain: calculateYScale(plotPoints, view) },
@@ -2858,10 +2943,17 @@
     function makeSlimButton(text) {
         return $(`<button class="button" style="height: 22px">${text}</button>`);
     }
-    function makeNumberInput(placeholder, defaultValue) {
-        const node = $(`<input style="width: 60px" type="number" placeholder="${placeholder}" min="1">`);
+    function makeNumberInput(placeholder, defaultValue, range) {
+        const node = $(`<input style="width: 60px" type="number" placeholder="${placeholder}">`);
         if (defaultValue !== undefined) {
             node.attr("value", defaultValue);
+        }
+        if (range !== undefined) {
+            node.attr("min", range[0]);
+            node.attr("max", range[1]);
+        }
+        else {
+            node.attr("min", 1);
         }
         return node;
     }
@@ -2942,6 +3034,7 @@
                     break;
                 case "numRuns":
                 case "daysScale":
+                case "starLevel":
                     view[key] = Number(value) || undefined;
                     break;
                 default:
@@ -2960,8 +3053,9 @@
             .on("change", bindThis("resetType"));
         const universeInput = makeSelect([["any", "Any"], ...Object.entries(universes)], view.universe ?? "any")
             .on("change", bindThis("universe"));
+        const starLevelInput = makeNumberInput("Any", view.starLevel, [0, 4])
+            .on("change", bindThis("starLevel"));
         const numRunsInput = makeToggleableNumberInput("Limit to last N runs", "All", view.numRuns, bind("numRuns"));
-        const showCurrentRunToggle = makeCheckbox("Show Current Run", view.includeCurrentRun ?? false, bind("includeCurrentRun"));
         const modeInput = makeSelect(Object.entries(viewModes), view.mode)
             .on("change", bindThis("mode"));
         const showBarsToggle = makeCheckbox("Bars", view.showBars, bind("showBars"));
@@ -2975,16 +3069,16 @@
             resetTypeInput.find(`> option[value="blackhole"]`).text(resetName);
         });
         onPropertyChange(["showLines", "mode"], () => {
+            showBarsToggle.toggle(view.mode === "timestamp");
+            showLinesToggle.toggle(view.mode === "timestamp");
             fillAreaToggle.toggle(view.showLines && view.mode === "timestamp");
-        });
-        onPropertyChange(["showLines"], () => {
-            avgWindowSlider.toggle(view.showLines);
+            avgWindowSlider.toggle(view.showLines || view.mode === "duration");
         });
         const filterSettings = $(`<div class="flex-container" style="flex-direction: row;"></div>`)
             .append(makeSetting("Reset type", resetTypeInput))
             .append(makeSetting("Universe", universeInput))
-            .append(numRunsInput)
-            .append(showCurrentRunToggle);
+            .append(makeSetting("Star level", starLevelInput))
+            .append(numRunsInput);
         const displaySettings = $(`<div class="flex-container" style="flex-direction: row;"></div>`)
             .append(makeSetting("Mode", modeInput))
             .append(makeSetting("Days scale", daysScaleInput))
@@ -3048,7 +3142,9 @@
 
     function makeAdditionalInfoSettings(view) {
         const node = $(`<div style="display: flex; flex-direction: row; gap: 8px"></div>`);
-        node.append(`<span>Additional Info:</span>`);
+        node.append(`<span>Additional info:</span>`);
+        const showCurrentRunToggle = makeCheckbox("Current run", view.includeCurrentRun ?? false, (value) => view.includeCurrentRun = value);
+        node.append(showCurrentRunToggle);
         for (const [key, value] of Object.entries(additionalInformation)) {
             const enabled = view.additionalInfo.includes(key);
             node.append(makeCheckbox(value, enabled, () => { view.toggleAdditionalInfo(key); }));
@@ -3133,7 +3229,7 @@
             discardRunNode.attr("disabled", selectedRun === null ? "" : null);
         }
         function createGraph(view) {
-            return makeGraph(history, view, currentRun, onRunSelection);
+            return makeGraph(history, view, game, currentRun, onRunSelection);
         }
         const buttonsContainerNode = $(`<div style="display: flex; justify-content: space-between"></div>`)
             .append(asImageNode)
