@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.11.1
+// @version      0.11.2
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -2621,7 +2621,7 @@
         yield Plot.text([0], {
             dy: topTextOffset,
             frameAnchor: "top-right",
-            text: () => `Fastest (all time): ${bestTime} day(s)\nAverage (selection): ${averageTime} day(s)`
+            text: () => `Fastest (all time): ${bestTime} day(s)\nAverage (${runs.length} runs): ${averageTime} day(s)`
         });
     }
     function* areaMarks(plotPoints, history, smoothness) {
