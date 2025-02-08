@@ -1,5 +1,5 @@
 import { makeAutocompleteInput, makeNumberInput, makeSelect, makeSlimButton } from "./utils";
-import { buildings, techs, events } from "../enums";
+import { buildings, techs, events, environmentEffects, milestoneTypes } from "../enums";
 import type { View } from "../config";
 
 export function makeMilestoneSettings(view: View) {
@@ -10,28 +10,38 @@ export function makeMilestoneSettings(view: View) {
 
     const eventTargetOptions = makeSelect(Object.entries(events));
 
+    const environmentTargetOptions = makeSelect(Object.entries(environmentEffects));
+
     function selectOptions(type: string) {
         builtTargetOptions.toggle(type === "built");
         buildCountOption.toggle(type === "built");
         researchedTargetOptions.toggle(type === "tech");
         eventTargetOptions.toggle(type === "event");
+        environmentTargetOptions.toggle(type === "environment");
     }
 
     // Default form state
     selectOptions("built");
 
-    const typeOptions = makeSelect([["built", "Built"], ["tech", "Researched"], ["event", "Event"]])
+    const typeOptions = makeSelect(Object.entries(milestoneTypes))
         .on("change", function(this: HTMLSelectElement) { selectOptions(this.value); });
 
     function makeMilestone(): string | undefined {
-        if (typeOptions.val() === "built") {
-            return `built:${builtTargetOptions[0]._value}:${buildCountOption.val()}`;
-        }
-        else if (typeOptions.val() === "tech") {
-            return `tech:${researchedTargetOptions[0]._value}`;
-        }
-        else if (typeOptions.val() === "event") {
-            return `event:${eventTargetOptions.val()}`;
+        switch (typeOptions.val()) {
+            case "built":
+                return `built:${builtTargetOptions[0]._value}:${buildCountOption.val()}`;
+
+            case "tech":
+                return `tech:${researchedTargetOptions[0]._value}`;
+
+            case "event":
+                return `event:${eventTargetOptions.val()}`;
+
+            case "environment":
+                return `environment:${environmentTargetOptions.val()}`;
+
+            default:
+                break;
         }
     }
 
@@ -50,12 +60,13 @@ export function makeMilestoneSettings(view: View) {
     });
 
     return $(`<div style="display: flex; flex-direction: row; gap: 8px"></div>`)
-        .append(`<span>Milestone</span>`)
+        // .append(`<span>Milestone</span>`)
         .append(typeOptions)
         .append(builtTargetOptions)
         .append(buildCountOption)
         .append(researchedTargetOptions)
         .append(eventTargetOptions)
+        .append(environmentTargetOptions)
         .append(addMilestoneNode)
         .append(removeMilestoneNode);
 }

@@ -1,4 +1,4 @@
-import { resetName, buildings, buildingSegments, techs, events } from "./enums";
+import { resetName, buildings, buildingSegments, techs, events, environmentEffects } from "./enums";
 import eventsInfo from "./events";
 import { patternMatch } from "./utils";
 import type { resets, universes } from "./enums";
@@ -36,7 +36,8 @@ export function milestoneName(milestone: string, universe?: keyof typeof univers
         [/tech:(.+)/, (id) => [...techName(id), false]],
         [/event:(.+)/, (id) => [events[id as keyof typeof events], "Event", false]],
         [/event_condition:(.+)/, (id) => [events[id as keyof typeof events], "Event condition", false]],
-        [/reset:(.+)/, (reset) => [resetName(reset as keyof typeof resets, universe), "Reset", false]]
+        [/environment:(.+)/, (id) => [environmentEffects[id as keyof typeof environmentEffects], "Effect", false]],
+        [/reset:(.+)/, (reset) => [resetName(reset as keyof typeof resets, universe), "Reset", false]],
     ]);
 
     return name ?? [milestone, "Unknown", false];

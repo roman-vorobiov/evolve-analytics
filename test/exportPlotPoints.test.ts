@@ -165,8 +165,8 @@ describe("Export", () => {
 
             expect(asPlotPoints(history.runs, history, config.views[0], game)).toEqual(<PlotPoint[]> [
                 { run: 0, milestone: "MAD", day: 789, dayDiff: 789, segment: 789 },
-                { run: 0, milestone: "Elerium discovery", day: 123, segment: 23 },
-                { run: 0, milestone: "Alien encounter", day: 456, segment: 56 }
+                { run: 0, milestone: "Elerium discovery", day: 123, segment: 23, event: true },
+                { run: 0, milestone: "Alien encounter", day: 456, segment: 56, event: true }
             ]);
         });
 
@@ -194,8 +194,8 @@ describe("Export", () => {
 
             expect(asPlotPoints(history.runs, history, config.views[0], game)).toEqual(<PlotPoint[]> [
                 { run: 0, milestone: "MAD", day: 789, dayDiff: 789, segment: 789 },
-                { run: 0, milestone: "Elerium discovery", day: 123, segment: 0 },
-                { run: 0, milestone: "Womlings arrival", day: 456, segment: 456 }
+                { run: 0, milestone: "Elerium discovery", day: 123, segment: 0, event: true },
+                { run: 0, milestone: "Womlings arrival", day: 456, segment: 456, event: true }
             ]);
         });
 
@@ -267,7 +267,7 @@ describe("Export", () => {
             expect(asPlotPoints(history.runs, history, config.views[0], game)).toEqual(<PlotPoint[]> [
                 { run: 0, milestone: "Club", day: 123, dayDiff: 123, segment: 123 },
                 { run: 0, milestone: "MAD", day: 789, dayDiff: 666, segment: 666 },
-                { run: 0, milestone: "Womlings arrival", day: 456, segment: 456 }
+                { run: 0, milestone: "Womlings arrival", day: 456, segment: 456, event: true }
             ]);
         });
 
@@ -415,7 +415,7 @@ describe("Export", () => {
                 const currentRun = makeCurrentRun(15, {});
 
                 const bestRun: PlotPoint[] = [
-                    { run: 1, milestone: "Womlings arrival", day: 10, segment: 10 },
+                    { run: 1, milestone: "Womlings arrival", day: 10, segment: 10, event: true },
                     { run: 1, milestone: "Wheel", day: 20, dayDiff: 20, segment: 20 },
                     { run: 1, milestone: "MAD", day: 30, dayDiff: 10, segment: 10 }
                 ];
@@ -478,7 +478,7 @@ describe("Export", () => {
 
                 expect(runAsPlotPoints(currentRun, config.views[0], game, bestRun, false, 456)).toEqual(<PlotPoint[]> [
                     { run: 456, milestone: "MAD", day: 15, dayDiff: 15, segment: 15, pending: true },
-                    { run: 456, milestone: "Elerium discovery", day: 15, segment: 5, pending: true },
+                    { run: 456, milestone: "Elerium discovery", day: 15, segment: 5, pending: true, event: true },
                 ]);
             });
 
@@ -634,14 +634,14 @@ describe("Export", () => {
 
                     const bestRun: PlotPoint[] = [
                         { run: 1, milestone: "Club", day: 10, dayDiff: 10, segment: 10 },
-                        { run: 1, milestone: "Womlings arrival", day: 20, segment: 20 },
+                        { run: 1, milestone: "Womlings arrival", day: 20, segment: 20, event: true },
                         { run: 1, milestone: "Housing", day: 30, dayDiff: 20, segment: 20 },
                         { run: 1, milestone: "MAD", day: 40, dayDiff: 10, segment: 10 }
                     ];
 
                     expect(runAsPlotPoints(currentRun, config.views[0], game, bestRun, true, 456)).toEqual(<PlotPoint[]> [
                         { run: 456, milestone: "Club", day: 15, dayDiff: 15, segment: 15 },
-                        { run: 456, milestone: "Womlings arrival", day, segment: day },
+                        { run: 456, milestone: "Womlings arrival", day, segment: day, event: true },
                         { run: 456, milestone: "Housing", day: 30, dayDiff: 15, segment: 15, pending: true },
                         { run: 456, milestone: "Housing", day: 35, dayDiff: 5, segment: 5, future: true },
                         { run: 456, milestone: "MAD", day: 45, dayDiff: 10, segment: 10, future: true },

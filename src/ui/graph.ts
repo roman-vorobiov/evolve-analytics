@@ -1,6 +1,7 @@
 import { applyFilters, findBestRun, runTime } from "../exports/historyFiltering";
 import { asPlotPoints, runAsPlotPoints, type PlotPoint } from "../exports/plotPoints";
 import { generateMilestoneNames } from "../milestones";
+import { compose } from "../utils";
 import type { View } from "../config";
 import type { HistoryEntry, HistoryManager } from "../history";
 import type { LatestRun } from "../runTracking";
@@ -13,8 +14,53 @@ declare const Plot: typeof PlotType;
 const topTextOffset = -27;
 const marginTop = 30;
 
-function isEvent(entry: PlotPoint) {
-    return entry.dayDiff === undefined;
+function only({ type, status }: { type?: string[] | string, status?: string[] | string }) {
+    let impl = (point: PlotPoint) => true;
+
+    function getType(point: PlotPoint) {
+        if (point.event) {
+            return "event";
+        }
+        else if (point.environment) {
+            return "environment";
+        }
+        else {
+            return "milestone";
+        }
+    }
+
+    function getStatus(point: PlotPoint) {
+        if (point.pending) {
+            return "pending";
+        }
+        else if (point.future) {
+            return "future";
+        }
+        else {
+            return "past";
+        }
+    }
+
+    if (Array.isArray(type)) {
+        impl = compose(impl, (point: PlotPoint) => type.includes(getType(point)));
+    }
+    else if (type !== undefined) {
+        impl = compose(impl, (point: PlotPoint) => getType(point) === type);
+    }
+
+    if (Array.isArray(status)) {
+        impl = compose(impl, (point: PlotPoint) => status.includes(getStatus(point)));
+    }
+    else if (status !== undefined) {
+        impl = compose(impl, (point: PlotPoint) => getStatus(point) === status);
+    }
+
+    return impl;
+}
+
+function not(filter: { type?: string[] | string, status?: string[] | string }) {
+    const impl = only(filter);
+    return (point: PlotPoint) => !impl(point);
 }
 
 function calculateYScale(plotPoints: PlotPoint[], view: View): [number, number] | undefined {
@@ -75,7 +121,7 @@ function adjustedStackY<T>(options: T & PlotType.StackOptions) {
 
 function* timestamps(plotPoints: PlotPoint[], key: "day" | "segment") {
     const lastRunTimestamps = lastRunEntries(plotPoints)
-        .filter(entry => !entry.pending)
+        .filter(not({ type: "environment", status: "pending" }))
         .map(entry => entry[key]);
 
     yield Plot.axisY(lastRunTimestamps, {
@@ -116,7 +162,7 @@ function* areaMarks(plotPoints: PlotPoint[], history: HistoryEntry[], smoothness
         z: "milestone",
         fill: "milestone",
         fillOpacity: 0.5,
-        filter: (entry: PlotPoint) => !isEvent(entry) && !entry.future
+        filter: only({ type: "milestone", status: ["past", "pending"] })
     }));
 
     yield Plot.areaY(plotPoints, smooth(smoothness, history, {
@@ -126,7 +172,7 @@ function* areaMarks(plotPoints: PlotPoint[], history: HistoryEntry[], smoothness
         z: "milestone",
         fill: "milestone",
         fillOpacity: 0.5,
-        filter: isEvent
+        filter: only({ type: "event" })
     }));
 }
 
@@ -146,7 +192,7 @@ function* barMarks(plotPoints: PlotPoint[], key: "dayDiff" | "segment") {
         z: "milestone",
         fill: "milestone",
         fillOpacity: (entry: PlotPoint) => entry.future ? 0.25 : 0.5,
-        filter: (entry: PlotPoint) => !isEvent(entry)
+        filter: only({ type: "milestone" })
     });
 
     yield Plot.tickY(plotPoints, adjustedStackY({
@@ -154,8 +200,27 @@ function* barMarks(plotPoints: PlotPoint[], key: "dayDiff" | "segment") {
         y: key,
         z: "milestone",
         stroke: "milestone",
-        filter: (entry: PlotPoint) => !isEvent(entry)
+        filter: only({ type: "milestone" })
     }));
+}
+
+function* rectMarks(plotPoints: PlotPoint[], numRuns: number) {
+    const envitonmentColors: Record<string, string> = {
+        "Hot days":  "#ff725c",
+        "Cold days": "#4269d0",
+        "Inspired":  "#3ca951",
+        "Motivated": "#efb118"
+    };
+
+    yield Plot.rectY(plotPoints, {
+        x: "run",
+        y1: "day",
+        y2: (entry: PlotPoint) => entry.day - entry.segment,
+        stroke: (entry: PlotPoint) => envitonmentColors[entry.milestone] ?? "#ffffff",
+        strokeOpacity: 1,
+        strokeWidth: Math.max(1, Math.min(2, 40 / numRuns)),
+        filter: only({ type: "environment" })
+    });
 }
 
 function* lollipopMarks(plotPoints: PlotPoint[], stack: boolean, numRuns: number) {
@@ -164,7 +229,7 @@ function* lollipopMarks(plotPoints: PlotPoint[], stack: boolean, numRuns: number
         r: Math.min(2, 80 / numRuns),
         fill: "milestone",
         stroke: "milestone",
-        filter: (entry: PlotPoint) => isEvent(entry) && !entry.pending
+        filter: only({ type: "event", status: "past" })
     };
 
     if (stack) {
@@ -173,7 +238,7 @@ function* lollipopMarks(plotPoints: PlotPoint[], stack: boolean, numRuns: number
             y: "segment",
             stroke: "milestone",
             strokeOpacity: 0.5,
-            filter: isEvent
+            filter: only({ type: "event" })
         }));
 
         yield Plot.dot(plotPoints, adjustedStackY({ ...dotBase, y: "segment" }));
@@ -184,8 +249,8 @@ function* lollipopMarks(plotPoints: PlotPoint[], stack: boolean, numRuns: number
             y1: "day",
             y2: (entry: PlotPoint) => entry.day - entry.segment,
             stroke: "milestone",
-            strokeOpacity: 0.5,
-            filter: isEvent
+            strokeOpacity: 1,
+            filter: only({ type: "event" })
         });
 
         yield Plot.dot(plotPoints, { ...dotBase, y: "day" });
@@ -276,7 +341,7 @@ function* rectPointerMarks(plotPoints: PlotPoint[], history: HistoryEntry[], seg
         dy: topTextOffset,
         frameAnchor: "top-left",
         text: (entry: PlotPoint) => tipText(entry, tipKey, history),
-        filter: (entry: PlotPoint) => !isEvent(entry)
+        filter: only({ type: "milestone" })
     })));
 
     yield Plot.barY(plotPoints, Plot.pointerX(Plot.stackY({
@@ -284,7 +349,7 @@ function* rectPointerMarks(plotPoints: PlotPoint[], history: HistoryEntry[], seg
         y: segmentKey,
         fill: "milestone",
         fillOpacity: 0.5,
-        filter: (entry: PlotPoint) => !isEvent(entry)
+        filter: only({ type: "milestone" })
     })));
 }
 
@@ -326,6 +391,7 @@ export function makeGraph(history: HistoryManager, view: View, game: Game, curre
         case "timestamp":
             if (view.showBars) {
                 marks.push(...barMarks(plotPoints, "dayDiff"));
+                marks.push(...rectMarks(plotPoints, filteredRuns.length));
                 marks.push(...lollipopMarks(plotPoints, false, filteredRuns.length));
                 marks.push(...rectPointerMarks(plotPoints, filteredRuns, "dayDiff", "day"));
             }

@@ -50,6 +50,20 @@ export const challengeGenes = {
     no_craft: "No Manual Crafting"
 };
 
+export const environmentEffects = {
+    hot: "Hot days",
+    cold: "Cold days",
+    // inspired: "Inspired",
+    // motivated: "Motivated"
+};
+
+export const milestoneTypes = {
+    "built": "Built",
+    "tech": "Researched",
+    "event": "Event",
+    "environment": "Environment effect"
+};
+
 export const viewModes = {
     "timestamp": "Timestamp",
     "duration": "Duration",

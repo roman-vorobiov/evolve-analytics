@@ -5,7 +5,6 @@ import type { HistoryManager, HistoryEntry } from "../history";
 import type { ViewConfig } from "../config";
 import type { LatestRun } from "../runTracking";
 import type { Game } from "../game";
-import type { additionalInformation } from "../enums";
 
 export type PlotPoint = {
     run: number,
@@ -17,7 +16,9 @@ export type PlotPoint = {
     combatDeaths?: number,
     junkTraits?: Record<string, number>,
     pending?: boolean,
-    future?: boolean
+    future?: boolean,
+    event?: boolean,
+    environment?: boolean
 }
 
 function makeMilestoneNamesMapping(view: ViewConfig): Record<string, string> {
@@ -96,7 +97,8 @@ class SegmentCounter {
                 yield {
                     milestone,
                     day,
-                    segment: day - preconditionDay
+                    segment: day - preconditionDay,
+                    event: true
                 };
             }
         }
@@ -124,7 +126,8 @@ class SegmentCounter {
                 yield {
                     milestone,
                     day: currentDay,
-                    segment: currentDay - preconditionDay
+                    segment: currentDay - preconditionDay,
+                    event: true
                 };
             }
         }
@@ -235,12 +238,12 @@ export function runAsPlotPoints(
         });
     };
 
-    for (const { milestone, day, segment, dayDiff } of counter.segments()) {
-        addEntry(milestone, { day, dayDiff, segment });
+    for (const { milestone, day, segment, dayDiff, event } of counter.segments()) {
+        addEntry(milestone, { day, dayDiff, segment, event });
     }
 
-    for (const { milestone, day, segment, dayDiff } of counter.pendingSegments(currentRun.totalDays)) {
-        addEntry(milestone, { day, dayDiff, segment, pending: true });
+    for (const { milestone, day, segment, dayDiff, event } of counter.pendingSegments(currentRun.totalDays)) {
+        addEntry(milestone, { day, dayDiff, segment, event, pending: true });
     }
 
     if (estimateFutureMilestones) {
@@ -272,7 +275,7 @@ export function asPlotPoints(filteredRuns: HistoryEntry[], history: HistoryManag
             junkTraits = transformMap(run.junkTraits, ([trait, rank]) => [game.traitName(trait), rank]);
         }
 
-        for (const { milestone, day, segment, dayDiff } of counter.segments()) {
+        for (const { milestone, day, segment, dayDiff, event } of counter.segments()) {
             const milestoneName = milestoneNames[milestone];
 
             entries.push({
@@ -283,10 +286,47 @@ export function asPlotPoints(filteredRuns: HistoryEntry[], history: HistoryManag
                 milestone: milestoneName,
                 day,
                 dayDiff,
-                segment
+                segment,
+                event
             });
         }
     }
+
+    // entries.push({
+    //     run: 0,
+    //     milestone: "Hot days",
+    //     day: 100,
+    //     segment: 50,
+    //     type: "environment",
+    //     status: "past"
+    // });
+
+    // entries.push({
+    //     run: 1,
+    //     milestone: "Motivated",
+    //     day: 125,
+    //     segment: 50,
+    //     type: "environment",
+    //     status: "past"
+    // });
+
+    // entries.push({
+    //     run: 2,
+    //     milestone: "Cold days",
+    //     day: 150,
+    //     segment: 50,
+    //     type: "environment",
+    //     status: "past"
+    // });
+
+    // entries.push({
+    //     run: 3,
+    //     milestone: "Inspired",
+    //     day: 175,
+    //     segment: 50,
+    //     type: "environment",
+    //     status: "past"
+    // });
 
     return entries;
 }
