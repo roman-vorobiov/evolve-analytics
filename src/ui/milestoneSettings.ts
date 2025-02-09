@@ -29,10 +29,16 @@ export function makeMilestoneSettings(view: View) {
     function makeMilestone(): string | undefined {
         switch (typeOptions.val()) {
             case "built":
-                return `built:${builtTargetOptions[0]._value}:${buildCountOption.val()}`;
+                if (builtTargetOptions[0]._value !== undefined) {
+                    return `built:${builtTargetOptions[0]._value}:${buildCountOption.val()}`;
+                }
+                break;
 
             case "tech":
-                return `tech:${researchedTargetOptions[0]._value}`;
+                if (researchedTargetOptions[0]._value !== undefined) {
+                    return `tech:${researchedTargetOptions[0]._value}`;
+                }
+                break;
 
             case "event":
                 return `event:${eventTargetOptions.val()}`;
