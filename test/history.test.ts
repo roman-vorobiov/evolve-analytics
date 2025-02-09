@@ -30,8 +30,24 @@ describe("History", () => {
             const game = new Game(makeGameState({ bioseed: 1 }));
             const history = makeHistory(game, blankHistory());
 
-            history.commitRun({ run: 123, universe: "standard", resets: {}, totalDays: 456, milestones: {} });
-            history.commitRun({ run: 124, universe: "standard", resets: {}, totalDays: 789, milestones: {} });
+            history.commitRun({
+                run: 123,
+                universe: "standard",
+                resets: {},
+                totalDays: 456,
+                milestones: {},
+                activeEffects: {},
+                effectsHistory: []
+            });
+            history.commitRun({
+                run: 124,
+                universe: "standard",
+                resets: {},
+                totalDays: 789,
+                milestones: {},
+                activeEffects: {},
+                effectsHistory: []
+            });
 
             expect(loadHistory()).toEqual({
                 milestones: {
@@ -59,7 +75,15 @@ describe("History", () => {
             const game = new Game(makeGameState({ bioseed: 1 }));
             const history = makeHistory(game, blankHistory());
 
-            history.commitRun({ run: 123, universe: "standard", resets: {}, totalDays: 456, milestones: {} });
+            history.commitRun({
+                run: 123,
+                universe: "standard",
+                resets: {},
+                totalDays: 456,
+                milestones: {},
+                activeEffects: {},
+                effectsHistory: []
+            });
 
             expect(history.milestones).toEqual({ [0]: "reset:bioseed" });
             expect(history.milestoneIDs).toEqual({ "reset:bioseed": 0 });
@@ -83,7 +107,15 @@ describe("History", () => {
                 runs: []
             });
 
-            history.commitRun({ run: 123, universe: "standard", resets: {}, totalDays: 456, milestones: {} });
+            history.commitRun({
+                run: 123,
+                universe: "standard",
+                resets: {},
+                totalDays: 456,
+                milestones: {},
+                activeEffects: {},
+                effectsHistory: []
+            });
 
             expect(history.milestones).toEqual({ [789]: "reset:bioseed" });
             expect(history.milestoneIDs).toEqual({ "reset:bioseed": 789 });
@@ -107,7 +139,15 @@ describe("History", () => {
                 runs: []
             });
 
-            history.commitRun({ run: 123, universe: "standard", resets: {}, totalDays: 456, milestones: { "tech:club": 10, "built:city-shed:1": 20 } });
+            history.commitRun({
+                run: 123,
+                universe: "standard",
+                resets: {},
+                totalDays: 456,
+                milestones: { "tech:club": 10, "built:city-shed:1": 20 },
+                activeEffects: {},
+                effectsHistory: []
+            });
 
             expect(history.milestones).toEqual({
                 [0]: "tech:club",
@@ -128,6 +168,46 @@ describe("History", () => {
                     [0, 10],
                     [1, 20],
                     [2, 456]
+                ]
+            });
+        });
+
+        it("should add all effects", () => {
+            const game = new Game(makeGameState({ bioseed: 1 }));
+            const history = makeHistory(game, {
+                milestones: {},
+                runs: []
+            });
+
+            history.commitRun({
+                run: 123,
+                universe: "standard",
+                resets: {},
+                totalDays: 456,
+                milestones: {},
+                activeEffects: { "effect:hot": 200 },
+                effectsHistory: [["effect:hot", 50, 100]]
+            });
+
+            expect(history.milestones).toEqual({
+                [0]: "reset:bioseed",
+                [1]: "effect:hot",
+            });
+            expect(history.milestoneIDs).toEqual({
+                "reset:bioseed": 0,
+                "effect:hot": 1
+            });
+
+            expect(history.runs.length).toBe(1);
+            expect(history.runs[0]).toEqual(<HistoryEntry> {
+                run: 123,
+                universe: "standard",
+                milestones: [
+                    [0, 456]
+                ],
+                effects: [
+                    [1, 50, 100],
+                    [1, 200, 456]
                 ]
             });
         });
@@ -155,7 +235,9 @@ describe("History", () => {
                     raceName: "Hello",
                     resets: {},
                     totalDays: 456,
-                    milestones: {}
+                    milestones: {},
+                    activeEffects: {},
+                    effectsHistory: []
                 };
             });
 
@@ -197,7 +279,15 @@ describe("History", () => {
                 ]
             });
 
-            history.commitRun({ run: 123, universe: "standard", resets: {}, totalDays: 456, milestones: { "tech:club": 10, "built:city-shed:1": 20 } });
+            history.commitRun({
+                run: 123,
+                universe: "standard",
+                resets: {},
+                totalDays: 456,
+                milestones: { "tech:club": 10, "built:city-shed:1": 20 },
+                activeEffects: {},
+                effectsHistory: []
+            });
 
             expect(history.milestones).toEqual({
                 [0]: "tech:club",

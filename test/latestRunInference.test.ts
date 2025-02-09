@@ -11,6 +11,8 @@ function makeRunStats(info: Partial<LatestRun>): LatestRun {
         resets: {},
         totalDays: 123,
         milestones: {},
+        activeEffects: {},
+        effectsHistory: [],
         ...info
     };
 }

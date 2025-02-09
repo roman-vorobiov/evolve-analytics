@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@jest/globals";
 
-import { migrate8 } from "../src/migration/8";
+import { migrate8 } from "../../src/migration/8";
 
 describe("Migration", () => {
     describe("8 -> 9", () => {
@@ -71,8 +71,8 @@ describe("Migration", () => {
 
             const latestRun = {
                 milestones: {
-                    "built:harbor:123": 1,
-                    "built:harbor:456": 2,
+                    "built:harbour:123": 1,
+                    "built:harbour:456": 2,
                     "built:foo:789": 3,
                 }
             };

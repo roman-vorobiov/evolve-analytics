@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@jest/globals";
 
-import { migrate6 } from "../src/migration/6";
+import { migrate6 } from "../../src/migration/6";
 
 describe("Migration", () => {
     describe("6 -> 7", () => {

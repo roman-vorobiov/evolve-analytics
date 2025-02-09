@@ -36,7 +36,9 @@ function makeCurrentRun(totalDays: number, milestones: LatestRun["milestones"]):
         universe: "standard",
         resets: {},
         totalDays,
-        milestones
+        milestones,
+        activeEffects: {},
+        effectsHistory: [],
     };
 }
 
@@ -297,6 +299,28 @@ describe("Export", () => {
             ]);
         });
 
+        it("should include enabled effects", () => {
+            const game = new Game(makeGameState({}));
+
+            const config = makeConfig(game, {
+                milestones: {
+                    "effect:hot": true,
+                    "effect:cold": false
+                }
+            });
+
+            const history = new HistoryManager(game, config, {
+                milestones: { "effect:hot": 0, "effect:cold": 1, "reset:mad": 2 },
+                runs: [
+                    { run: 123, universe: "standard", milestones: [], effects: [[0, 12, 23], [1, 34, 45]] }
+                ]
+            });
+
+            expect(asPlotPoints(history.runs, history, config.views[0], game)).toEqual(<PlotPoint[]> [
+                { run: 0, milestone: "Hot days", day: 23, segment: 11, effect: true },
+            ]);
+        });
+
         it.each([
             { universe: undefined, resetName: "Black Hole" },
             { universe: "heavy", resetName: "Black Hole" },
@@ -377,6 +401,52 @@ describe("Export", () => {
                 ]);
             });
 
+            it("should include all enabled active effects", () => {
+                const game = new Game(makeGameState({}));
+
+                const config = makeConfig(game, {
+                    milestones: {
+                        "effect:hot": true,
+                        "effect:cold": false,
+                        "reset:mad": true
+                    }
+                });
+
+                const currentRun = makeCurrentRun(123, {});
+                currentRun.activeEffects = {
+                    "effect:hot": 10,
+                    "effect:cold": 20
+                };
+
+                expect(runAsPlotPoints(currentRun, config.views[0], game, [], false, 456)).toEqual(<PlotPoint[]> [
+                    { run: 456, milestone: "MAD", day: 123, dayDiff: 123, segment: 123, pending: true },
+                    { run: 456, milestone: "Hot days", day: 123, segment: 113, effect: true, pending: true }
+                ]);
+            });
+
+            it("should include all enabled past effects", () => {
+                const game = new Game(makeGameState({}));
+
+                const config = makeConfig(game, {
+                    milestones: {
+                        "effect:hot": true,
+                        "effect:cold": false,
+                        "reset:mad": true
+                    }
+                });
+
+                const currentRun = makeCurrentRun(123, {});
+                currentRun.effectsHistory = [
+                    ["effect:hot", 2, 4],
+                    ["effect:cold", 3, 5],
+                ];
+
+                expect(runAsPlotPoints(currentRun, config.views[0], game, [], false, 456)).toEqual(<PlotPoint[]> [
+                    { run: 456, milestone: "MAD", day: 123, dayDiff: 123, segment: 123, pending: true },
+                    { run: 456, milestone: "Hot days", day: 4, segment: 2, effect: true }
+                ]);
+            });
+
             it.each([5, 10, 15])("should use the next milestone from PB as the current one", (day) => {
                 const game = new Game(makeGameState({}));
 
@@ -416,6 +486,30 @@ describe("Export", () => {
 
                 const bestRun: PlotPoint[] = [
                     { run: 1, milestone: "Womlings arrival", day: 10, segment: 10, event: true },
+                    { run: 1, milestone: "Wheel", day: 20, dayDiff: 20, segment: 20 },
+                    { run: 1, milestone: "MAD", day: 30, dayDiff: 10, segment: 10 }
+                ];
+
+                expect(runAsPlotPoints(currentRun, config.views[0], game, bestRun, false, 456)).toEqual(<PlotPoint[]> [
+                    { run: 456, milestone: "Wheel", day: 15, dayDiff: 15, segment: 15, pending: true }
+                ]);
+            });
+
+            it("should skip effect milestones", () => {
+                const game = new Game(makeGameState({}));
+
+                const config = makeConfig(game, {
+                    milestones: {
+                        "effect:hot": true,
+                        "tech:wheel": true,
+                        "reset:mad": true
+                    }
+                });
+
+                const currentRun = makeCurrentRun(15, {});
+
+                const bestRun: PlotPoint[] = [
+                    { run: 1, milestone: "Hot days", day: 10, segment: 10, effect: true },
                     { run: 1, milestone: "Wheel", day: 20, dayDiff: 20, segment: 20 },
                     { run: 1, milestone: "MAD", day: 30, dayDiff: 10, segment: 10 }
                 ];

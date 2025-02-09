@@ -10,14 +10,14 @@ export function makeMilestoneSettings(view: View) {
 
     const eventTargetOptions = makeSelect(Object.entries(events));
 
-    const environmentTargetOptions = makeSelect(Object.entries(environmentEffects));
+    const effectTargetOptions = makeSelect(Object.entries(environmentEffects));
 
     function selectOptions(type: string) {
         builtTargetOptions.toggle(type === "built");
         buildCountOption.toggle(type === "built");
         researchedTargetOptions.toggle(type === "tech");
         eventTargetOptions.toggle(type === "event");
-        environmentTargetOptions.toggle(type === "environment");
+        effectTargetOptions.toggle(type === "effect");
     }
 
     // Default form state
@@ -37,8 +37,8 @@ export function makeMilestoneSettings(view: View) {
             case "event":
                 return `event:${eventTargetOptions.val()}`;
 
-            case "environment":
-                return `environment:${environmentTargetOptions.val()}`;
+            case "effect":
+                return `effect:${effectTargetOptions.val()}`;
 
             default:
                 break;
@@ -60,13 +60,12 @@ export function makeMilestoneSettings(view: View) {
     });
 
     return $(`<div style="display: flex; flex-direction: row; gap: 8px"></div>`)
-        // .append(`<span>Milestone</span>`)
         .append(typeOptions)
         .append(builtTargetOptions)
         .append(buildCountOption)
         .append(researchedTargetOptions)
         .append(eventTargetOptions)
-        .append(environmentTargetOptions)
+        .append(effectTargetOptions)
         .append(addMilestoneNode)
         .append(removeMilestoneNode);
 }

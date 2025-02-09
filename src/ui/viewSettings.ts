@@ -89,7 +89,7 @@ export function makeViewSettings(view: View) {
         showBarsToggle.toggle(view.mode === "timestamp");
         showLinesToggle.toggle(view.mode === "timestamp");
         fillAreaToggle.toggle(view.showLines && view.mode === "timestamp");
-        avgWindowSlider.toggle(view.showLines || view.mode === "duration");
+        avgWindowSlider.toggle(view.showLines && view.mode !== "durationStacked");
     });
 
     const filterSettings = $(`<div class="flex-container" style="flex-direction: row;"></div>`)

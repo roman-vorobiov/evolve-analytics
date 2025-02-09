@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@jest/globals";
 
-import { migrate7 } from "../src/migration/7";
+import { migrate7 } from "../../src/migration/7";
 
 function makeView(mode: string) {
     return {

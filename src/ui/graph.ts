@@ -1,6 +1,6 @@
 import { applyFilters, findBestRun, runTime } from "../exports/historyFiltering";
 import { asPlotPoints, runAsPlotPoints, type PlotPoint } from "../exports/plotPoints";
-import { generateMilestoneNames } from "../milestones";
+import { generateMilestoneNames, isEffectMilestone } from "../milestones";
 import { compose } from "../utils";
 import type { View } from "../config";
 import type { HistoryEntry, HistoryManager } from "../history";
@@ -14,6 +14,13 @@ declare const Plot: typeof PlotType;
 const topTextOffset = -27;
 const marginTop = 30;
 
+const effectColors: Record<string, string> = {
+    "Hot days":  "#ff725c",
+    "Cold days": "#4269d0",
+    "Inspired":  "#3ca951",
+    "Motivated": "#efb118"
+};
+
 function only({ type, status }: { type?: string[] | string, status?: string[] | string }) {
     let impl = (point: PlotPoint) => true;
 
@@ -21,8 +28,8 @@ function only({ type, status }: { type?: string[] | string, status?: string[] | 
         if (point.event) {
             return "event";
         }
-        else if (point.environment) {
-            return "environment";
+        else if (point.effect) {
+            return "effect";
         }
         else {
             return "milestone";
@@ -121,7 +128,7 @@ function adjustedStackY<T>(options: T & PlotType.StackOptions) {
 
 function* timestamps(plotPoints: PlotPoint[], key: "day" | "segment") {
     const lastRunTimestamps = lastRunEntries(plotPoints)
-        .filter(not({ type: "environment", status: "pending" }))
+        .filter(point => !point.effect && !point.pending)
         .map(entry => entry[key]);
 
     yield Plot.axisY(lastRunTimestamps, {
@@ -181,7 +188,8 @@ function* lineMarks(plotPoints: PlotPoint[], history: HistoryEntry[], key: "day"
         x: "run",
         y: key,
         z: "milestone",
-        stroke: "milestone"
+        stroke: "milestone",
+        filter: only({ type: ["milestone", "event"] })
     }));
 }
 
@@ -204,23 +212,51 @@ function* barMarks(plotPoints: PlotPoint[], key: "dayDiff" | "segment") {
     }));
 }
 
-function* rectMarks(plotPoints: PlotPoint[], numRuns: number) {
-    const envitonmentColors: Record<string, string> = {
-        "Hot days":  "#ff725c",
-        "Cold days": "#4269d0",
-        "Inspired":  "#3ca951",
-        "Motivated": "#efb118"
-    };
-
-    yield Plot.rectY(plotPoints, {
-        x: "run",
-        y1: "day",
-        y2: (entry: PlotPoint) => entry.day - entry.segment,
-        stroke: (entry: PlotPoint) => envitonmentColors[entry.milestone] ?? "#ffffff",
-        strokeOpacity: 1,
-        strokeWidth: Math.max(1, Math.min(2, 40 / numRuns)),
-        filter: only({ type: "environment" })
+function inferBarWidth(plotPoints: PlotPoint[]) {
+    const plot = Plot.plot({
+        width: 800,
+        marks: [...barMarks(plotPoints, "dayDiff")]
     });
+
+    return Number($(plot).find("g[aria-label='bar'] > rect").attr("width"));
+}
+
+function* segmentMarks(plotPoints: PlotPoint[], numRuns: number) {
+    const effectPoints = plotPoints.filter(only({ type: "effect" }));
+
+    const barWidth = inferBarWidth(plotPoints);
+
+    const isTemperature = (entry: PlotPoint) => entry.milestone === "Hot days" || entry.milestone === "Cold days";
+
+    function* impl(dx: number, filter: (point: PlotPoint) => boolean) {
+        yield Plot.ruleX(effectPoints, {
+            x: "run",
+            dx,
+            y1: "day",
+            y2: (entry: PlotPoint) => entry.day - entry.segment,
+            stroke: (entry: PlotPoint) => effectColors[entry.milestone] ?? "#ffffff",
+            strokeWidth: Math.max(0.75, Math.min(2, 40 / numRuns)),
+            strokeOpacity: 0.75,
+            filter
+        });
+
+        const dotBase = {
+            x: "run",
+            dx,
+            r: 0.75,
+            fill: (entry: PlotPoint) => effectColors[entry.milestone] ?? "#ffffff",
+            stroke: (entry: PlotPoint) => effectColors[entry.milestone] ?? "#ffffff",
+            strokeWidth: Math.max(0.5, Math.min(2, 40 / numRuns)),
+            strokeOpacity: 0.75,
+            filter
+        };
+
+        yield Plot.dot(effectPoints, { ...dotBase, y: "day", filter: compose(filter, not({ status: "pending" })) });
+        yield Plot.dot(effectPoints, { ...dotBase, y: (entry: PlotPoint) => entry.day - entry.segment });
+    }
+
+    yield* impl(barWidth / 4, (point) => !isTemperature(point));
+    yield* impl(-barWidth / 4, (point) => isTemperature(point));
 }
 
 function* lollipopMarks(plotPoints: PlotPoint[], stack: boolean, numRuns: number) {
@@ -363,9 +399,17 @@ export function makeGraph(history: HistoryManager, view: View, game: Game, curre
     if (filteredRuns.length !== 0) {
         const lastRun = filteredRuns[filteredRuns.length - 1];
         milestones.sort((l, r) => {
-            const lIdx = lastRun.milestones.findIndex(([id]) => id === history.getMilestoneID(l));
-            const rIdx = lastRun.milestones.findIndex(([id]) => id === history.getMilestoneID(r));
-            return rIdx - lIdx;
+            if (!isEffectMilestone(l) && !isEffectMilestone(r)) {
+                const lIdx = lastRun.milestones.findIndex(([id]) => id === history.getMilestoneID(l));
+                const rIdx = lastRun.milestones.findIndex(([id]) => id === history.getMilestoneID(r));
+                return rIdx - lIdx;
+            }
+            else if (isEffectMilestone(l)) {
+                return 1;
+            }
+            else {
+                return -1;
+            }
         });
     }
 
@@ -391,7 +435,7 @@ export function makeGraph(history: HistoryManager, view: View, game: Game, curre
         case "timestamp":
             if (view.showBars) {
                 marks.push(...barMarks(plotPoints, "dayDiff"));
-                marks.push(...rectMarks(plotPoints, filteredRuns.length));
+                marks.push(...segmentMarks(plotPoints, filteredRuns.length));
                 marks.push(...lollipopMarks(plotPoints, false, filteredRuns.length));
                 marks.push(...rectPointerMarks(plotPoints, filteredRuns, "dayDiff", "day"));
             }
@@ -459,6 +503,16 @@ export function makeGraph(history: HistoryManager, view: View, game: Game, curre
 
         $(node).toggleClass("crossed", !view.milestones[milestone]);
     }
+
+    legendMilestones.each(function() {
+        const color = effectColors[$(this).text()];
+        if (color !== undefined) {
+            $(this).find("> svg")
+                .css("fill", "")
+                .css("fill-opacity", "0")
+                .css("stroke", color);
+        }
+    });
 
     legendMilestones.on("click", function() {
         const milestone = milestones[$(this).index() - 1];

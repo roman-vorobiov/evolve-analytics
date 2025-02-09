@@ -38,8 +38,8 @@ async function withCSSOverrides<T>(overrides: Record<string, Record<string, stri
 }
 
 async function copyToClipboard(node: JQuery) {
-    const isParent = (element: HTMLElement) => node.closest(element).length !== 0;
-    const isChild = (element: HTMLElement) => $(element).closest(node).length !== 0;
+    const isParent = (element: HTMLElement) => element.contains(node[0]);
+    const isChild = (element: HTMLElement) => node[0].contains(element);
 
     const width = Math.round(node.width()! + 10);
     const height = Math.round(node.height()! + 10);

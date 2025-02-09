@@ -1,5 +1,5 @@
 import { saveCurrentRun, loadLatestRun, discardLatestRun } from "./database";
-import { makeMilestoneChecker, type MilestoneChecker } from "./milestones";
+import { isEffectMilestone, makeMilestoneChecker, type MilestoneChecker } from "./milestones";
 import eventsInfo from "./events";
 import { patternMatcher, filterMap } from "./utils";
 import type { resets, universes } from "./enums";
@@ -14,6 +14,8 @@ export type LatestRun = {
     resets: Partial<Record<keyof typeof resets, number>>,
     totalDays: number,
     milestones: Record<string, number>,
+    activeEffects: Record<string, number>,
+    effectsHistory: [string, number, number][],
     raceName?: string,
     combatDeaths?: number,
     junkTraits?: Record<string, number>
@@ -73,7 +75,9 @@ function makeNewRunStats(game: Game): LatestRun {
         universe: game.universe,
         resets: game.resetCounts,
         totalDays: game.day,
-        milestones: {}
+        milestones: {},
+        activeEffects: {},
+        effectsHistory: []
     };
 }
 
@@ -84,7 +88,19 @@ function updateMilestones(runStats: LatestRun, checkers: MilestoneChecker[]) {
             continue;
         }
 
-        if (reached()) {
+        if (isEffectMilestone(milestone)) {
+            const isActive = reached();
+            const startDay = runStats.activeEffects[milestone];
+
+            if (isActive && startDay === undefined) {
+                runStats.activeEffects[milestone] = runStats.totalDays;
+            }
+            else if (!isActive && startDay !== undefined) {
+                runStats.effectsHistory.push([milestone, startDay, runStats.totalDays]);
+                delete runStats.activeEffects[milestone];
+            }
+        }
+        else if (reached()) {
             // Since this callback is invoked at the beginning of a day,
             // the milestone was reached the previous day
             runStats.milestones[milestone] = runStats.totalDays - 1;

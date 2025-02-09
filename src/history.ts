@@ -8,12 +8,14 @@ import type { Game } from "./game";
 import type { ConfigManager } from "./config";
 
 export type MilestoneReference = [number, number];
+export type EffectReference = [number, number, number];
 
 export type HistoryEntry = {
     run: number,
     starLevel?: number,
     universe: keyof typeof universes,
     milestones: MilestoneReference[],
+    effects?: EffectReference[],
     raceName?: string,
     combatDeaths?: number,
     junkTraits?: Record<string, number>
@@ -69,10 +71,19 @@ export class HistoryManager extends Subscribable {
 
         milestones.sort(([, l], [, r]) => l - r);
 
+        const effectsHistory = [
+            ...runStats.effectsHistory,
+            ...Object.entries(runStats.activeEffects).map(([effect, start]) => [effect, start, runStats.totalDays]) as [string, number, number][]
+        ];
+
+        const effects = effectsHistory
+            .map(([effect, start, end]) => [this.getMilestoneID(effect), start, end]) as EffectReference[];
+
         const entry: HistoryEntry = {
             run: runStats.run,
             universe: runStats.universe!,
-            milestones
+            milestones,
+            effects: effects.length === 0 ? undefined : effects
         };
 
         this.augmentEntry(entry, runStats);

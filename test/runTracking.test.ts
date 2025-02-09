@@ -13,7 +13,7 @@ function nextDay(evolve: Evolve) {
     evolve.craftCost = {};
 }
 
-function makeGameState(buildings: Partial<BuildingInfoTabs>): Evolve {
+function makeGameState(buildings: Partial<Evolve["global"]>): Evolve {
     return {
         races: {
             foo: { name: "Foo" }
@@ -186,5 +186,44 @@ describe("Run tracking", () => {
             "event_condition:alien": 2,
             "event:alien": 3
         });
+    });
+
+    it("should register new effects", () => {
+        const evolve = makeGameState({ race: { species: "foo", universe: "standard" } });
+        const game = new Game(evolve);
+
+        const config = makeConfig(game, [
+            "effect:inspired"
+        ]);
+
+        trackMilestones(game, config);
+
+        nextDay(evolve);
+        expect(loadLatestRun()?.milestones).toEqual({});
+        expect(loadLatestRun()?.activeEffects).toEqual({});
+        expect(loadLatestRun()?.effectsHistory).toEqual([]);
+
+        evolve.global.race.inspired = 123;
+        nextDay(evolve);
+        expect(loadLatestRun()?.milestones).toEqual({});
+        expect(loadLatestRun()?.activeEffects).toEqual({
+            "effect:inspired": 3
+        });
+        expect(loadLatestRun()?.effectsHistory).toEqual([]);
+
+        nextDay(evolve);
+        expect(loadLatestRun()?.milestones).toEqual({});
+        expect(loadLatestRun()?.activeEffects).toEqual({
+            "effect:inspired": 3
+        });
+        expect(loadLatestRun()?.effectsHistory).toEqual([]);
+
+        delete evolve.global.race.inspired;
+        nextDay(evolve);
+        expect(loadLatestRun()?.milestones).toEqual({});
+        expect(loadLatestRun()?.activeEffects).toEqual({});
+        expect(loadLatestRun()?.effectsHistory).toEqual([
+            ["effect:inspired", 3, 5]
+        ]);
     });
 });

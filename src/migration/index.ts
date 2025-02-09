@@ -4,6 +4,7 @@ import { migrate4 } from "./4";
 import { migrate6 } from "./6";
 import { migrate7 } from "./7";
 import { migrate8 } from "./8";
+import { migrate9 } from "./9";
 
 export function migrate() {
     let config: any = DB.loadConfig();
@@ -38,6 +39,11 @@ export function migrate() {
 
     if (config.version === 8) {
         migrate8(config, history, latestRun);
+        migrated = true;
+    }
+
+    if (config.version === 9) {
+        migrate9(config, latestRun);
         migrated = true;
     }
 

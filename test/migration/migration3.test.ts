@@ -1,6 +1,6 @@
 import { describe, expect, it } from "@jest/globals";
 
-import { migrateConfig, migrateHistory, migrateLatestRun } from "../src/migration/3";
+import { migrateConfig, migrateHistory, migrateLatestRun } from "../../src/migration/3";
 
 function makeDummyView(fields: any) {
     return {

@@ -2,18 +2,20 @@ export { buildings } from "./buildings";
 export { segments as buildingSegments } from "./segments";
 export { techs } from "./research";
 
+export type Temperature = "hot" | "cold" | "normal"
+
 export const events = {
-    "womlings": "Womlings arrival",
-    "steel": "Steel discovery",
-    "elerium": "Elerium discovery",
-    "oil": "Space Oil discovery",
-    "pit": "Pit discovery",
-    "alien": "Alien encounter",
-    "piracy": "Piracy unlock",
-    "alien_db": "Alien Database find",
-    "corrupt_gem": "Corrupt Soul Gem creation",
-    "vault": "Vault discovery",
-    "syndicate": "Syndicate unlock"
+    womlings: "Womlings arrival",
+    steel: "Steel discovery",
+    elerium: "Elerium discovery",
+    oil: "Space Oil discovery",
+    pit: "Pit discovery",
+    alien: "Alien encounter",
+    piracy: "Piracy unlock",
+    alien_db: "Alien Database find",
+    corrupt_gem: "Corrupt Soul Gem creation",
+    vault: "Vault discovery",
+    syndicate: "Syndicate unlock"
 };
 
 export const resets = {
@@ -53,27 +55,27 @@ export const challengeGenes = {
 export const environmentEffects = {
     hot: "Hot days",
     cold: "Cold days",
-    // inspired: "Inspired",
-    // motivated: "Motivated"
+    inspired: "Inspired",
+    motivated: "Motivated"
 };
 
 export const milestoneTypes = {
-    "built": "Built",
-    "tech": "Researched",
-    "event": "Event",
-    "environment": "Environment effect"
+    built: "Built",
+    tech: "Researched",
+    event: "Event",
+    effect: "Environment effect"
 };
 
 export const viewModes = {
-    "timestamp": "Timestamp",
-    "duration": "Duration",
-    "durationStacked": "Duration (stacked)",
+    timestamp: "Timestamp",
+    duration: "Duration",
+    durationStacked: "Duration (stacked)",
 };
 
 export const additionalInformation = {
-    "raceName": "Race name",
-    "combatDeaths": "Combat deaths",
-    "junkTraits": "Junk traits"
+    raceName: "Race name",
+    combatDeaths: "Combat deaths",
+    junkTraits: "Junk traits"
 };
 
 export function resetName(reset: keyof typeof resets, universe?: keyof typeof universes) {

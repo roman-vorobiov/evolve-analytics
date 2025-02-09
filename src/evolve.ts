@@ -31,7 +31,12 @@ export type Evolve = {
             servants?: object
         },
         resource: Record<string, { display: boolean }>,
-        tech: Record<string, number>
+        tech: Record<string, number>,
+        city: {
+            calendar: {
+                temp: number
+            }
+        }
     }
 }
 

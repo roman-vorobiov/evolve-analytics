@@ -1,4 +1,4 @@
-import { generateMilestoneNames } from "../milestones";
+import { generateMilestoneNames, isEffectMilestone, isEventMilestone } from "../milestones";
 import eventsInfo from "../events";
 import { zip, rotateMap, lastValue, patternMatch, transformMap, objectSubset } from "../utils";
 import type { HistoryManager, HistoryEntry } from "../history";
@@ -18,7 +18,7 @@ export type PlotPoint = {
     pending?: boolean,
     future?: boolean,
     event?: boolean,
-    environment?: boolean
+    effect?: boolean
 }
 
 function makeMilestoneNamesMapping(view: ViewConfig): Record<string, string> {
@@ -26,10 +26,6 @@ function makeMilestoneNamesMapping(view: ViewConfig): Record<string, string> {
     const milestoneNames = generateMilestoneNames(milestones, view.universe);
 
     return Object.fromEntries(zip(milestones, milestoneNames));
-}
-
-function isEventMilestone(milestone: string) {
-    return milestone.startsWith("event:");
 }
 
 type CounterOptions = {
@@ -53,7 +49,7 @@ class SegmentCounter {
         };
 
         if (options?.expected) {
-            if (!isEventMilestone(milestone)) {
+            if (!(isEventMilestone(milestone) || isEffectMilestone(milestone))) {
                 saveTo(this.expectedMilestones);
             }
         }
@@ -61,6 +57,7 @@ class SegmentCounter {
             patternMatch(milestone, [
                 [/event_condition:(.+)/, (event) => this.eventConditions.set(event, day)],
                 [/event:.+/, () => saveTo(this.events)],
+                [/effect:.+/, () => {}],
                 [/.+/, () => saveTo(this.milestones)]
             ]);
         }
@@ -252,6 +249,18 @@ export function runAsPlotPoints(
         }
     }
 
+    for (const [effect, start, end] of currentRun.effectsHistory) {
+        if (view.milestones[effect]) {
+            addEntry(effect, { day: end, segment: end - start, effect: true });
+        }
+    }
+
+    for (const [effect, start] of Object.entries(currentRun.activeEffects)) {
+        if (view.milestones[effect]) {
+            addEntry(effect, { day: currentRun.totalDays, segment: currentRun.totalDays - start, effect: true, pending: true });
+        }
+    }
+
     return entries;
 }
 
@@ -290,43 +299,21 @@ export function asPlotPoints(filteredRuns: HistoryEntry[], history: HistoryManag
                 event
             });
         }
+
+        for (const [effect, start, end] of run.effects ?? []) {
+            const milestone = history.getMilestone(effect);
+
+            if (view.milestones[milestone]) {
+                entries.push({
+                    run: i,
+                    milestone: milestoneNames[milestone],
+                    day: end,
+                    segment: end - start,
+                    effect: true
+                });
+            }
+        }
     }
-
-    // entries.push({
-    //     run: 0,
-    //     milestone: "Hot days",
-    //     day: 100,
-    //     segment: 50,
-    //     type: "environment",
-    //     status: "past"
-    // });
-
-    // entries.push({
-    //     run: 1,
-    //     milestone: "Motivated",
-    //     day: 125,
-    //     segment: 50,
-    //     type: "environment",
-    //     status: "past"
-    // });
-
-    // entries.push({
-    //     run: 2,
-    //     milestone: "Cold days",
-    //     day: 150,
-    //     segment: 50,
-    //     type: "environment",
-    //     status: "past"
-    // });
-
-    // entries.push({
-    //     run: 3,
-    //     milestone: "Inspired",
-    //     day: 175,
-    //     segment: 50,
-    //     type: "environment",
-    //     status: "past"
-    // });
 
     return entries;
 }

@@ -1,8 +1,8 @@
 import { describe, expect, it, beforeEach } from "@jest/globals";
-import { LocalStorageMock } from "./fixture";
+import { LocalStorageMock } from "../fixture";
 
-import { loadConfig, loadHistory, loadLatestRun } from "../src/database";
-import { migrate } from "../src/migration";
+import { loadConfig, loadHistory, loadLatestRun } from "../../src/database";
+import { migrate } from "../../src/migration";
 
 describe("Migration", () => {
     beforeEach(() => {
@@ -80,7 +80,7 @@ describe("Migration", () => {
         migrate();
 
         expect(loadConfig()).toEqual({
-            version: 9,
+            version: 10,
             recordRuns: true,
             views: [
                 {
@@ -146,7 +146,9 @@ describe("Migration", () => {
             milestones: {
                 "event:womlings": 10,
                 "built:arpa-launch_facility:123": 96
-            }
+            },
+            activeEffects: {},
+            effectsHistory: []
         });
     });
 
@@ -175,7 +177,7 @@ describe("Migration", () => {
         migrate();
 
         expect(loadConfig()).toEqual({
-            version: 9,
+            version: 10,
             recordRuns: true,
             views: []
         });

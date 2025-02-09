@@ -1,5 +1,5 @@
 import type { universes } from "../enums";
-import type { LatestRun as LatestRun7 } from "../runTracking";
+import type { LatestRun9 as LatestRun7 } from "./9";
 
 export type LatestRun6 = Omit<LatestRun7, "universe"> & {
     universe: keyof typeof universes | "bigbang"

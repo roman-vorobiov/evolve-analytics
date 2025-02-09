@@ -52,7 +52,15 @@ describe("Latest run", () => {
         });
 
         describe("Current run", () => {
-            const run: LatestRun = { run: 123, universe: "standard", resets: {}, totalDays: 456, milestones: { foo: 123, bar: 234 } };
+            const run: LatestRun = {
+                run: 123,
+                universe: "standard",
+                resets: {},
+                totalDays: 456,
+                milestones: { foo: 123, bar: 234 },
+                activeEffects: {},
+                effectsHistory: [],
+            };
 
             let game: Game;
             let config: ConfigManager;
@@ -85,7 +93,15 @@ describe("Latest run", () => {
         });
 
         describe("Previous run", () => {
-            const run: LatestRun = { run: 123, universe: "standard", resets: {}, totalDays: 456, milestones: {} };
+            const run: LatestRun = {
+                run: 123,
+                universe: "standard",
+                resets: {},
+                totalDays: 456,
+                milestones: {},
+                activeEffects: {},
+                effectsHistory: [],
+            };
 
             let game: Game;
             let config: ConfigManager;
@@ -114,7 +130,15 @@ describe("Latest run", () => {
         });
 
         describe("Paused", () => {
-            const run: LatestRun = { run: 123, universe: "standard", resets: {}, totalDays: 456, milestones: {} };
+            const run: LatestRun = {
+                run: 123,
+                universe: "standard",
+                resets: {},
+                totalDays: 456,
+                milestones: {},
+                activeEffects: {},
+                effectsHistory: [],
+            };
 
             let game: Game;
             let config: ConfigManager;
@@ -143,7 +167,15 @@ describe("Latest run", () => {
         });
 
         describe("Other run", () => {
-            const run: LatestRun = { run: 123, universe: "standard", resets: {}, totalDays: 456, milestones: {} };
+            const run: LatestRun = {
+                run: 123,
+                universe: "standard",
+                resets: {},
+                totalDays: 456,
+                milestones: {},
+                activeEffects: {},
+                effectsHistory: [],
+            };
 
             let game: Game;
             let config: ConfigManager;

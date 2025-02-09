@@ -1,4 +1,4 @@
-import { resets } from "./enums";
+import { resets, type Temperature } from "./enums";
 import { transformMap } from "./utils";
 import { Subscribable } from "./subscribable";
 import { challengeGenes } from "./enums";
@@ -46,6 +46,25 @@ export class Game extends Subscribable {
 
     get combatDeaths() {
         return this.evolve.global.stats.died ?? 0;
+    }
+
+    get temperature(): Temperature {
+        switch (this.evolve.global.city.calendar.temp) {
+            case 2:
+                return "hot";
+            case 0:
+                return "cold";
+            default:
+                return "normal"
+        }
+    }
+
+    get inspired() {
+        return (this.evolve.global.race.inspired ?? 0) !== 0;
+    }
+
+    get motivated() {
+        return (this.evolve.global.race.motivated ?? 0) !== 0;
     }
 
     hasChallengeGene(gene: keyof typeof challengeGenes) {

@@ -1,5 +1,6 @@
 import { resetName, buildings, buildingSegments, techs, events, environmentEffects } from "./enums";
 import eventsInfo from "./events";
+import effectsInfo from "./effects";
 import { patternMatch } from "./utils";
 import type { resets, universes } from "./enums";
 import type { Game } from "./game";
@@ -14,7 +15,8 @@ export function makeMilestoneChecker(game: Game, milestone: string): MilestoneCh
         [/built:(.+?)-(.+?):(\d+)/, (tab, id, count) => () => game.built(tab, id, Number(count))],
         [/tech:(.+)/, (id) => () => game.researched(id)],
         [/event:(.+)/, (id) => () => eventsInfo[id as keyof typeof events].triggered(game)],
-        [/event_condition:(.+)/, (id) => () => eventsInfo[id as keyof typeof events].conditionMet?.(game) ?? true]
+        [/event_condition:(.+)/, (id) => () => eventsInfo[id as keyof typeof events].conditionMet?.(game) ?? true],
+        [/effect:(.+)/, (id) => () => effectsInfo[id as keyof typeof environmentEffects](game) ?? false],
     ]);
 
     return {
@@ -36,7 +38,7 @@ export function milestoneName(milestone: string, universe?: keyof typeof univers
         [/tech:(.+)/, (id) => [...techName(id), false]],
         [/event:(.+)/, (id) => [events[id as keyof typeof events], "Event", false]],
         [/event_condition:(.+)/, (id) => [events[id as keyof typeof events], "Event condition", false]],
-        [/environment:(.+)/, (id) => [environmentEffects[id as keyof typeof environmentEffects], "Effect", false]],
+        [/effect:(.+)/, (id) => [environmentEffects[id as keyof typeof environmentEffects], "Effect", false]],
         [/reset:(.+)/, (reset) => [resetName(reset as keyof typeof resets, universe), "Reset", false]],
     ]);
 
@@ -67,4 +69,12 @@ export function generateMilestoneNames(milestones: string[], universe?: keyof ty
     }
 
     return names;
+}
+
+export function isEventMilestone(milestone: string) {
+    return milestone.startsWith("event:");
+}
+
+export function isEffectMilestone(milestone: string) {
+    return milestone.startsWith("effect:");
 }
