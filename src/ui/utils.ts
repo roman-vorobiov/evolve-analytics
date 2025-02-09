@@ -165,16 +165,16 @@ export function makeToggleableNumberInput(
     label: string,
     placeholder: string,
     defaultValue: number | undefined,
-    onStateChange: (value: number | undefined) => void
+    onStateChange: (value: string) => void
 ) {
     const enabled = defaultValue !== undefined;
 
     const inputNode = makeNumberInput(placeholder, defaultValue)
-        .on("change", function(this: HTMLInputElement) { onStateChange(Number(this.value)); });
+        .on("change", function(this: HTMLInputElement) { onStateChange(this.value); });
 
     const toggleNode = makeCheckbox(label, enabled, value => {
         inputNode.prop("disabled", !value);
-        onStateChange(value ? Number(inputNode.val()) : undefined);
+        onStateChange(value ? inputNode.val() as string : "");
     });
 
     inputNode.prop("disabled", !enabled);

@@ -108,6 +108,10 @@ describe("Export", () => {
                 ]
             });
 
+            expect(applyFilters(history, makeView({ starLevel: 0 }))).toEqual([
+                history.runs[1]
+            ]);
+
             expect(applyFilters(history, makeView({ starLevel: 1 }))).toEqual([
                 history.runs[2]
             ]);

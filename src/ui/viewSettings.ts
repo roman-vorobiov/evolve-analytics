@@ -36,7 +36,7 @@ export function makeViewSettings(view: View) {
             case "numRuns":
             case "daysScale":
             case "starLevel":
-                view[key] = Number(value) || undefined;
+                view[key] = value === "" ? undefined : Number(value);
                 break;
 
             default:
