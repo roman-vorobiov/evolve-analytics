@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.11.2
+// @version      0.12.0
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -1156,17 +1156,17 @@
     };
 
     const events = {
-        "womlings": "Womlings arrival",
-        "steel": "Steel discovery",
-        "elerium": "Elerium discovery",
-        "oil": "Space Oil discovery",
-        "pit": "Pit discovery",
-        "alien": "Alien encounter",
-        "piracy": "Piracy unlock",
-        "alien_db": "Alien Database find",
-        "corrupt_gem": "Corrupt Soul Gem creation",
-        "vault": "Vault discovery",
-        "syndicate": "Syndicate unlock"
+        womlings: "Womlings arrival",
+        steel: "Steel discovery",
+        elerium: "Elerium discovery",
+        oil: "Space Oil discovery",
+        pit: "Pit discovery",
+        alien: "Alien encounter",
+        piracy: "Piracy unlock",
+        alien_db: "Alien Database find",
+        corrupt_gem: "Corrupt Soul Gem creation",
+        vault: "Vault discovery",
+        syndicate: "Syndicate unlock"
     };
     const resets = {
         mad: "MAD",
@@ -1199,15 +1199,27 @@
         no_trade: "No Free Trade",
         no_craft: "No Manual Crafting"
     };
+    const environmentEffects = {
+        hot: "Hot days",
+        cold: "Cold days",
+        inspired: "Inspired",
+        motivated: "Motivated"
+    };
+    const milestoneTypes = {
+        built: "Built",
+        tech: "Researched",
+        event: "Event",
+        effect: "Environment effect"
+    };
     const viewModes = {
-        "timestamp": "Timestamp",
-        "duration": "Duration",
-        "durationStacked": "Duration (stacked)",
+        timestamp: "Timestamp",
+        duration: "Duration",
+        durationStacked: "Duration (stacked)",
     };
     const additionalInformation = {
-        "raceName": "Race name",
-        "combatDeaths": "Combat deaths",
-        "junkTraits": "Junk traits"
+        raceName: "Race name",
+        combatDeaths: "Combat deaths",
+        junkTraits: "Junk traits"
     };
     function resetName(reset, universe) {
         if (reset === "blackhole" && universe === "magic") {
@@ -1364,12 +1376,20 @@
         }
     });
 
+    var effectsInfo = {
+        "hot": (game) => game.temperature === "hot",
+        "cold": (game) => game.temperature === "cold",
+        "inspired": (game) => game.inspired,
+        "motivated": (game) => game.motivated
+    };
+
     function makeMilestoneChecker(game, milestone) {
         const impl = patternMatch(milestone, [
             [/built:(.+?)-(.+?):(\d+)/, (tab, id, count) => () => game.built(tab, id, Number(count))],
             [/tech:(.+)/, (id) => () => game.researched(id)],
             [/event:(.+)/, (id) => () => eventsInfo[id].triggered(game)],
-            [/event_condition:(.+)/, (id) => () => eventsInfo[id].conditionMet?.(game) ?? true]
+            [/event_condition:(.+)/, (id) => () => eventsInfo[id].conditionMet?.(game) ?? true],
+            [/effect:(.+)/, (id) => () => effectsInfo[id](game) ?? false],
         ]);
         return {
             milestone,
@@ -1388,7 +1408,8 @@
             [/tech:(.+)/, (id) => [...techName(id), false]],
             [/event:(.+)/, (id) => [events[id], "Event", false]],
             [/event_condition:(.+)/, (id) => [events[id], "Event condition", false]],
-            [/reset:(.+)/, (reset) => [resetName(reset, universe), "Reset", false]]
+            [/effect:(.+)/, (id) => [environmentEffects[id], "Effect", false]],
+            [/reset:(.+)/, (reset) => [resetName(reset, universe), "Reset", false]],
         ]);
         return name ?? [milestone, "Unknown", false];
     }
@@ -1412,6 +1433,12 @@
             }
         }
         return names;
+    }
+    function isEventMilestone(milestone) {
+        return milestone.startsWith("event:");
+    }
+    function isEffectMilestone(milestone) {
+        return milestone.startsWith("effect:");
     }
 
     const viewModes7 = {
@@ -1439,7 +1466,7 @@
         };
     }
 
-    function migrateConfig$1(config) {
+    function migrateConfig$2(config) {
         const resetIDs = rotateMap(resets);
         const viewModeIDs = rotateMap(viewModes7);
         function convertReset(resetName) {
@@ -1557,7 +1584,7 @@
             runs: history.runs
         };
     }
-    function migrateLatestRun$2(latestRun, config, history) {
+    function migrateLatestRun$3(latestRun, config, history) {
         const resetIDs = rotateMap(resets);
         const newRun = {
             run: latestRun.run,
@@ -1606,14 +1633,14 @@
         return newRun;
     }
     function migrate3(config, history, latestRun) {
-        const newConfig = migrateConfig$1(config);
+        const newConfig = migrateConfig$2(config);
         let newHistory = null;
         if (history !== null) {
             newHistory = migrateHistory$2(history, newConfig);
         }
         let newLatestRun = null;
         if (latestRun !== null && newHistory !== null) {
-            newLatestRun = migrateLatestRun$2(latestRun, newConfig, newHistory);
+            newLatestRun = migrateLatestRun$3(latestRun, newConfig, newHistory);
         }
         return [newConfig, newHistory, newLatestRun];
     }
@@ -1631,7 +1658,7 @@
         };
     }
 
-    function migrateLatestRun$1(latestRun) {
+    function migrateLatestRun$2(latestRun) {
         if (latestRun.universe === "bigbang") {
             delete latestRun.universe;
         }
@@ -1660,7 +1687,7 @@
     }
     function migrate6(config, history, latestRun) {
         if (latestRun !== null) {
-            migrateLatestRun$1(latestRun);
+            migrateLatestRun$2(latestRun);
         }
         if (migrateHistory$1(history)) {
             config.version = 7;
@@ -1676,7 +1703,7 @@
     function migrateView(view) {
         view.milestones = migrateMilestones(view.milestones);
     }
-    function migrateConfig(config) {
+    function migrateConfig$1(config) {
         for (const view of config.views) {
             migrateView(view);
         }
@@ -1685,12 +1712,26 @@
     function migrateHistory(history) {
         history.milestones = migrateMilestones(history.milestones);
     }
-    function migrateLatestRun(latestRun) {
+    function migrateLatestRun$1(latestRun) {
         latestRun.milestones = migrateMilestones(latestRun.milestones);
     }
     function migrate8(config, history, latestRun) {
-        migrateConfig(config);
+        migrateConfig$1(config);
         migrateHistory(history);
+        if (latestRun !== null) {
+            migrateLatestRun$1(latestRun);
+        }
+    }
+
+    function migrateConfig(config) {
+        config.version = 10;
+    }
+    function migrateLatestRun(latestRun) {
+        latestRun.activeEffects = {};
+        latestRun.effectsHistory = [];
+    }
+    function migrate9(config, latestRun) {
+        migrateConfig(config);
         if (latestRun !== null) {
             migrateLatestRun(latestRun);
         }
@@ -1722,6 +1763,10 @@
         }
         if (config.version === 8) {
             migrate8(config, history, latestRun);
+            migrated = true;
+        }
+        if (config.version === 9) {
+            migrate9(config, latestRun);
             migrated = true;
         }
         if (migrated) {
@@ -1792,6 +1837,22 @@
         }
         get combatDeaths() {
             return this.evolve.global.stats.died ?? 0;
+        }
+        get temperature() {
+            switch (this.evolve.global.city.calendar.temp) {
+                case 2:
+                    return "hot";
+                case 0:
+                    return "cold";
+                default:
+                    return "normal";
+            }
+        }
+        get inspired() {
+            return (this.evolve.global.race.inspired ?? 0) !== 0;
+        }
+        get motivated() {
+            return (this.evolve.global.race.motivated ?? 0) !== 0;
         }
         hasChallengeGene(gene) {
             return gene in this.evolve.global.race;
@@ -2019,7 +2080,7 @@
         }
     }
     function getConfig(game) {
-        const config = loadConfig() ?? { version: 9, recordRuns: true, views: [] };
+        const config = loadConfig() ?? { version: 10, recordRuns: true, views: [] };
         return new ConfigManager(game, config);
     }
 
@@ -2067,7 +2128,9 @@
             universe: game.universe,
             resets: game.resetCounts,
             totalDays: game.day,
-            milestones: {}
+            milestones: {},
+            activeEffects: {},
+            effectsHistory: []
         };
     }
     function updateMilestones(runStats, checkers) {
@@ -2076,7 +2139,18 @@
             if (milestone in runStats.milestones) {
                 continue;
             }
-            if (reached()) {
+            if (isEffectMilestone(milestone)) {
+                const isActive = reached();
+                const startDay = runStats.activeEffects[milestone];
+                if (isActive && startDay === undefined) {
+                    runStats.activeEffects[milestone] = runStats.totalDays;
+                }
+                else if (!isActive && startDay !== undefined) {
+                    runStats.effectsHistory.push([milestone, startDay, runStats.totalDays]);
+                    delete runStats.activeEffects[milestone];
+                }
+            }
+            else if (reached()) {
                 // Since this callback is invoked at the beginning of a day,
                 // the milestone was reached the previous day
                 runStats.milestones[milestone] = runStats.totalDays - 1;
@@ -2238,10 +2312,17 @@
                 [this.getMilestoneID(`reset:${resetType}`), runStats.totalDays]
             ];
             milestones.sort(([, l], [, r]) => l - r);
+            const effectsHistory = [
+                ...runStats.effectsHistory,
+                ...Object.entries(runStats.activeEffects).map(([effect, start]) => [effect, start, runStats.totalDays])
+            ];
+            const effects = effectsHistory
+                .map(([effect, start, end]) => [this.getMilestoneID(effect), start, end]);
             const entry = {
                 run: runStats.run,
                 universe: runStats.universe,
-                milestones
+                milestones,
+                effects: effects.length === 0 ? undefined : effects
             };
             this.augmentEntry(entry, runStats);
             this.history.runs.push(entry);
@@ -2332,9 +2413,6 @@
         const milestoneNames = generateMilestoneNames(milestones, view.universe);
         return Object.fromEntries(zip(milestones, milestoneNames));
     }
-    function isEventMilestone(milestone) {
-        return milestone.startsWith("event:");
-    }
     class SegmentCounter {
         view;
         milestones = new Map();
@@ -2352,7 +2430,7 @@
                 }
             };
             if (options?.expected) {
-                if (!isEventMilestone(milestone)) {
+                if (!(isEventMilestone(milestone) || isEffectMilestone(milestone))) {
                     saveTo(this.expectedMilestones);
                 }
             }
@@ -2360,6 +2438,7 @@
                 patternMatch(milestone, [
                     [/event_condition:(.+)/, (event) => this.eventConditions.set(event, day)],
                     [/event:.+/, () => saveTo(this.events)],
+                    [/effect:.+/, () => { }],
                     [/.+/, () => saveTo(this.milestones)]
                 ]);
             }
@@ -2391,7 +2470,8 @@
                     yield {
                         milestone,
                         day,
-                        segment: day - preconditionDay
+                        segment: day - preconditionDay,
+                        event: true
                     };
                 }
             }
@@ -2416,7 +2496,8 @@
                     yield {
                         milestone,
                         day: currentDay,
-                        segment: currentDay - preconditionDay
+                        segment: currentDay - preconditionDay,
+                        event: true
                     };
                 }
             }
@@ -2500,15 +2581,25 @@
                 ...options
             });
         };
-        for (const { milestone, day, segment, dayDiff } of counter.segments()) {
-            addEntry(milestone, { day, dayDiff, segment });
+        for (const { milestone, day, segment, dayDiff, event } of counter.segments()) {
+            addEntry(milestone, { day, dayDiff, segment, event });
         }
-        for (const { milestone, day, segment, dayDiff } of counter.pendingSegments(currentRun.totalDays)) {
-            addEntry(milestone, { day, dayDiff, segment, pending: true });
+        for (const { milestone, day, segment, dayDiff, event } of counter.pendingSegments(currentRun.totalDays)) {
+            addEntry(milestone, { day, dayDiff, segment, event, pending: true });
         }
         if (estimateFutureMilestones) {
             for (const { milestone, day, segment, dayDiff } of counter.futureSegments(currentRun.totalDays)) {
                 addEntry(milestone, { day, dayDiff, segment, future: true });
+            }
+        }
+        for (const [effect, start, end] of currentRun.effectsHistory) {
+            if (view.milestones[effect]) {
+                addEntry(effect, { day: end, segment: end - start, effect: true });
+            }
+        }
+        for (const [effect, start] of Object.entries(currentRun.activeEffects)) {
+            if (view.milestones[effect]) {
+                addEntry(effect, { day: currentRun.totalDays, segment: currentRun.totalDays - start, effect: true, pending: true });
             }
         }
         return entries;
@@ -2527,7 +2618,7 @@
             if (run.junkTraits !== undefined) {
                 junkTraits = transformMap(run.junkTraits, ([trait, rank]) => [game.traitName(trait), rank]);
             }
-            for (const { milestone, day, segment, dayDiff } of counter.segments()) {
+            for (const { milestone, day, segment, dayDiff, event } of counter.segments()) {
                 const milestoneName = milestoneNames[milestone];
                 entries.push({
                     run: i,
@@ -2537,8 +2628,21 @@
                     milestone: milestoneName,
                     day,
                     dayDiff,
-                    segment
+                    segment,
+                    event
                 });
+            }
+            for (const [effect, start, end] of run.effects ?? []) {
+                const milestone = history.getMilestone(effect);
+                if (view.milestones[milestone]) {
+                    entries.push({
+                        run: i,
+                        milestone: milestoneNames[milestone],
+                        day: end,
+                        segment: end - start,
+                        effect: true
+                    });
+                }
             }
         }
         return entries;
@@ -2546,8 +2650,53 @@
 
     const topTextOffset = -27;
     const marginTop = 30;
-    function isEvent(entry) {
-        return entry.dayDiff === undefined;
+    const effectColors = {
+        "Hot days": "#ff725c",
+        "Cold days": "#4269d0",
+        "Inspired": "#3ca951",
+        "Motivated": "#efb118"
+    };
+    function only({ type, status }) {
+        let impl = (point) => true;
+        function getType(point) {
+            if (point.event) {
+                return "event";
+            }
+            else if (point.effect) {
+                return "effect";
+            }
+            else {
+                return "milestone";
+            }
+        }
+        function getStatus(point) {
+            if (point.pending) {
+                return "pending";
+            }
+            else if (point.future) {
+                return "future";
+            }
+            else {
+                return "past";
+            }
+        }
+        if (Array.isArray(type)) {
+            impl = compose(impl, (point) => type.includes(getType(point)));
+        }
+        else if (type !== undefined) {
+            impl = compose(impl, (point) => getType(point) === type);
+        }
+        if (Array.isArray(status)) {
+            impl = compose(impl, (point) => status.includes(getStatus(point)));
+        }
+        else if (status !== undefined) {
+            impl = compose(impl, (point) => getStatus(point) === status);
+        }
+        return impl;
+    }
+    function not(filter) {
+        const impl = only(filter);
+        return (point) => !impl(point);
     }
     function calculateYScale(plotPoints, view) {
         if (view.daysScale) {
@@ -2596,7 +2745,7 @@
     }
     function* timestamps(plotPoints, key) {
         const lastRunTimestamps = lastRunEntries(plotPoints)
-            .filter(entry => !entry.pending)
+            .filter(point => !point.effect && !point.pending)
             .map(entry => entry[key]);
         yield Plot.axisY(lastRunTimestamps, {
             anchor: "right",
@@ -2631,7 +2780,7 @@
             z: "milestone",
             fill: "milestone",
             fillOpacity: 0.5,
-            filter: (entry) => !isEvent(entry) && !entry.future
+            filter: only({ type: "milestone", status: ["past", "pending"] })
         }));
         yield Plot.areaY(plotPoints, smooth(smoothness, history, {
             x: "run",
@@ -2640,7 +2789,7 @@
             z: "milestone",
             fill: "milestone",
             fillOpacity: 0.5,
-            filter: isEvent
+            filter: only({ type: "event" })
         }));
     }
     function* lineMarks(plotPoints, history, key, smoothness) {
@@ -2648,7 +2797,8 @@
             x: "run",
             y: key,
             z: "milestone",
-            stroke: "milestone"
+            stroke: "milestone",
+            filter: only({ type: ["milestone", "event"] })
         }));
     }
     function* barMarks(plotPoints, key) {
@@ -2658,15 +2808,53 @@
             z: "milestone",
             fill: "milestone",
             fillOpacity: (entry) => entry.future ? 0.25 : 0.5,
-            filter: (entry) => !isEvent(entry)
+            filter: only({ type: "milestone" })
         });
         yield Plot.tickY(plotPoints, adjustedStackY({
             x: "run",
             y: key,
             z: "milestone",
             stroke: "milestone",
-            filter: (entry) => !isEvent(entry)
+            filter: only({ type: "milestone" })
         }));
+    }
+    function inferBarWidth(plotPoints) {
+        const plot = Plot.plot({
+            width: 800,
+            marks: [...barMarks(plotPoints, "dayDiff")]
+        });
+        return Number($(plot).find("g[aria-label='bar'] > rect").attr("width"));
+    }
+    function* segmentMarks(plotPoints, numRuns) {
+        const effectPoints = plotPoints.filter(only({ type: "effect" }));
+        const barWidth = inferBarWidth(plotPoints);
+        const isTemperature = (entry) => entry.milestone === "Hot days" || entry.milestone === "Cold days";
+        function* impl(dx, filter) {
+            yield Plot.ruleX(effectPoints, {
+                x: "run",
+                dx,
+                y1: "day",
+                y2: (entry) => entry.day - entry.segment,
+                stroke: (entry) => effectColors[entry.milestone] ?? "#ffffff",
+                strokeWidth: Math.max(0.75, Math.min(2, 40 / numRuns)),
+                strokeOpacity: 0.75,
+                filter
+            });
+            const dotBase = {
+                x: "run",
+                dx,
+                r: 0.75,
+                fill: (entry) => effectColors[entry.milestone] ?? "#ffffff",
+                stroke: (entry) => effectColors[entry.milestone] ?? "#ffffff",
+                strokeWidth: Math.max(0.5, Math.min(2, 40 / numRuns)),
+                strokeOpacity: 0.75,
+                filter
+            };
+            yield Plot.dot(effectPoints, { ...dotBase, y: "day", filter: compose(filter, not({ status: "pending" })) });
+            yield Plot.dot(effectPoints, { ...dotBase, y: (entry) => entry.day - entry.segment });
+        }
+        yield* impl(barWidth / 4, (point) => !isTemperature(point));
+        yield* impl(-barWidth / 4, (point) => isTemperature(point));
     }
     function* lollipopMarks(plotPoints, stack, numRuns) {
         const dotBase = {
@@ -2674,7 +2862,7 @@
             r: Math.min(2, 80 / numRuns),
             fill: "milestone",
             stroke: "milestone",
-            filter: (entry) => isEvent(entry) && !entry.pending
+            filter: only({ type: "event", status: "past" })
         };
         if (stack) {
             yield Plot.ruleX(plotPoints, Plot.stackY({
@@ -2682,7 +2870,7 @@
                 y: "segment",
                 stroke: "milestone",
                 strokeOpacity: 0.5,
-                filter: isEvent
+                filter: only({ type: "event" })
             }));
             yield Plot.dot(plotPoints, adjustedStackY({ ...dotBase, y: "segment" }));
         }
@@ -2692,8 +2880,8 @@
                 y1: "day",
                 y2: (entry) => entry.day - entry.segment,
                 stroke: "milestone",
-                strokeOpacity: 0.5,
-                filter: isEvent
+                strokeOpacity: 1,
+                filter: only({ type: "event" })
             });
             yield Plot.dot(plotPoints, { ...dotBase, y: "day" });
         }
@@ -2767,14 +2955,14 @@
             dy: topTextOffset,
             frameAnchor: "top-left",
             text: (entry) => tipText(entry, tipKey, history),
-            filter: (entry) => !isEvent(entry)
+            filter: only({ type: "milestone" })
         })));
         yield Plot.barY(plotPoints, Plot.pointerX(Plot.stackY({
             x: "run",
             y: segmentKey,
             fill: "milestone",
             fillOpacity: 0.5,
-            filter: (entry) => !isEvent(entry)
+            filter: only({ type: "milestone" })
         })));
     }
     function makeGraph(history, view, game, currentRun, onSelect) {
@@ -2785,9 +2973,17 @@
         if (filteredRuns.length !== 0) {
             const lastRun = filteredRuns[filteredRuns.length - 1];
             milestones.sort((l, r) => {
-                const lIdx = lastRun.milestones.findIndex(([id]) => id === history.getMilestoneID(l));
-                const rIdx = lastRun.milestones.findIndex(([id]) => id === history.getMilestoneID(r));
-                return rIdx - lIdx;
+                if (!isEffectMilestone(l) && !isEffectMilestone(r)) {
+                    const lIdx = lastRun.milestones.findIndex(([id]) => id === history.getMilestoneID(l));
+                    const rIdx = lastRun.milestones.findIndex(([id]) => id === history.getMilestoneID(r));
+                    return rIdx - lIdx;
+                }
+                else if (isEffectMilestone(l)) {
+                    return 1;
+                }
+                else {
+                    return -1;
+                }
             });
         }
         const plotPoints = asPlotPoints(filteredRuns, history, view, game);
@@ -2806,6 +3002,7 @@
             case "timestamp":
                 if (view.showBars) {
                     marks.push(...barMarks(plotPoints, "dayDiff"));
+                    marks.push(...segmentMarks(plotPoints, filteredRuns.length));
                     marks.push(...lollipopMarks(plotPoints, false, filteredRuns.length));
                     marks.push(...rectPointerMarks(plotPoints, filteredRuns, "dayDiff", "day"));
                 }
@@ -2858,6 +3055,15 @@
             const milestone = milestones[i];
             $(node).toggleClass("crossed", !view.milestones[milestone]);
         }
+        legendMilestones.each(function () {
+            const color = effectColors[$(this).text()];
+            if (color !== undefined) {
+                $(this).find("> svg")
+                    .css("fill", "")
+                    .css("fill-opacity", "0")
+                    .css("stroke", color);
+            }
+        });
         legendMilestones.on("click", function () {
             const milestone = milestones[$(this).index() - 1];
             view.toggleMilestone(milestone);
@@ -3072,7 +3278,7 @@
             showBarsToggle.toggle(view.mode === "timestamp");
             showLinesToggle.toggle(view.mode === "timestamp");
             fillAreaToggle.toggle(view.showLines && view.mode === "timestamp");
-            avgWindowSlider.toggle(view.showLines || view.mode === "duration");
+            avgWindowSlider.toggle(view.showLines && view.mode !== "durationStacked");
         });
         const filterSettings = $(`<div class="flex-container" style="flex-direction: row;"></div>`)
             .append(makeSetting("Reset type", resetTypeInput))
@@ -3096,25 +3302,34 @@
         const buildCountOption = makeNumberInput("Count", 1);
         const researchedTargetOptions = makeAutocompleteInput("Tech", Object.entries(techs).map(([id, name]) => ({ value: id, label: name })));
         const eventTargetOptions = makeSelect(Object.entries(events));
+        const effectTargetOptions = makeSelect(Object.entries(environmentEffects));
         function selectOptions(type) {
             builtTargetOptions.toggle(type === "built");
             buildCountOption.toggle(type === "built");
             researchedTargetOptions.toggle(type === "tech");
             eventTargetOptions.toggle(type === "event");
+            effectTargetOptions.toggle(type === "effect");
         }
         // Default form state
         selectOptions("built");
-        const typeOptions = makeSelect([["built", "Built"], ["tech", "Researched"], ["event", "Event"]])
+        const typeOptions = makeSelect(Object.entries(milestoneTypes))
             .on("change", function () { selectOptions(this.value); });
         function makeMilestone() {
-            if (typeOptions.val() === "built") {
-                return `built:${builtTargetOptions[0]._value}:${buildCountOption.val()}`;
-            }
-            else if (typeOptions.val() === "tech") {
-                return `tech:${researchedTargetOptions[0]._value}`;
-            }
-            else if (typeOptions.val() === "event") {
-                return `event:${eventTargetOptions.val()}`;
+            switch (typeOptions.val()) {
+                case "built":
+                    if (builtTargetOptions[0]._value !== undefined) {
+                        return `built:${builtTargetOptions[0]._value}:${buildCountOption.val()}`;
+                    }
+                    break;
+                case "tech":
+                    if (researchedTargetOptions[0]._value !== undefined) {
+                        return `tech:${researchedTargetOptions[0]._value}`;
+                    }
+                    break;
+                case "event":
+                    return `event:${eventTargetOptions.val()}`;
+                case "effect":
+                    return `effect:${effectTargetOptions.val()}`;
             }
         }
         const addMilestoneNode = makeSlimButton("Add").on("click", () => {
@@ -3130,12 +3345,12 @@
             }
         });
         return $(`<div style="display: flex; flex-direction: row; gap: 8px"></div>`)
-            .append(`<span>Milestone</span>`)
             .append(typeOptions)
             .append(builtTargetOptions)
             .append(buildCountOption)
             .append(researchedTargetOptions)
             .append(eventTargetOptions)
+            .append(effectTargetOptions)
             .append(addMilestoneNode)
             .append(removeMilestoneNode);
     }
@@ -3172,8 +3387,8 @@
         return result;
     }
     async function copyToClipboard(node) {
-        const isParent = (element) => node.closest(element).length !== 0;
-        const isChild = (element) => $(element).closest(node).length !== 0;
+        const isParent = (element) => element.contains(node[0]);
+        const isChild = (element) => node[0].contains(element);
         const width = Math.round(node.width() + 10);
         const height = Math.round(node.height() + 10);
         const cssOverrides = {
