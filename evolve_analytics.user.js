@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.12.1
+// @version      0.12.2
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -23,8 +23,26 @@
             () => localStorage.removeItem(key)
         ];
     }
+    function makeEncodedDatabaseFunctions(key) {
+        return [
+            (obj) => localStorage.setItem(key, LZString.compressToBase64(JSON.stringify(obj))),
+            () => {
+                const raw = localStorage.getItem(key);
+                if (raw === null) {
+                    return null;
+                }
+                else if (raw.startsWith("{")) {
+                    return JSON.parse(raw);
+                }
+                else {
+                    return JSON.parse(LZString.decompressFromBase64(raw));
+                }
+            },
+            () => localStorage.removeItem(key)
+        ];
+    }
     const [saveConfig, loadConfig] = makeDatabaseFunctions("sneed.analytics.config");
-    const [saveHistory, loadHistory] = makeDatabaseFunctions("sneed.analytics.history");
+    const [saveHistory, loadHistory] = makeEncodedDatabaseFunctions("sneed.analytics.history");
     const [saveCurrentRun, loadLatestRun, discardLatestRun] = makeDatabaseFunctions("sneed.analytics.latest");
 
     const buildings = {
@@ -1737,6 +1755,10 @@
         }
     }
 
+    function migrate10(config) {
+        config.version = 11;
+    }
+
     function migrate() {
         let config = loadConfig();
         let history = loadHistory();
@@ -1767,6 +1789,10 @@
         }
         if (config.version === 9) {
             migrate9(config, latestRun);
+            migrated = true;
+        }
+        if (config.version === 10) {
+            migrate10(config);
             migrated = true;
         }
         if (migrated) {
@@ -2080,7 +2106,7 @@
         }
     }
     function getConfig(game) {
-        const config = loadConfig() ?? { version: 10, recordRuns: true, views: [] };
+        const config = loadConfig() ?? { version: 11, recordRuns: true, views: [] };
         return new ConfigManager(game, config);
     }
 
@@ -3202,10 +3228,10 @@
     function makeToggleableNumberInput(label, placeholder, defaultValue, onStateChange) {
         const enabled = defaultValue !== undefined;
         const inputNode = makeNumberInput(placeholder, defaultValue)
-            .on("change", function () { onStateChange(Number(this.value)); });
+            .on("change", function () { onStateChange(this.value); });
         const toggleNode = makeCheckbox(label, enabled, value => {
             inputNode.prop("disabled", !value);
-            onStateChange(value ? Number(inputNode.val()) : undefined);
+            onStateChange(value ? inputNode.val() : "");
         });
         inputNode.prop("disabled", !enabled);
         return $(`<div></div>`)
@@ -3241,7 +3267,7 @@
                 case "numRuns":
                 case "daysScale":
                 case "starLevel":
-                    view[key] = Number(value) || undefined;
+                    view[key] = value === "" ? undefined : Number(value);
                     break;
                 default:
                     view[key] = value;
