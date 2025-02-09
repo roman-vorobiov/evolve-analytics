@@ -1,6 +1,7 @@
 import { createFilter } from "@rollup/pluginutils";
 import typescript from "@rollup/plugin-typescript";
 import tla from "rollup-plugin-tla";
+import externalGlobals from "rollup-plugin-external-globals";
 import { promises as fs } from "fs";
 
 function css() {
@@ -27,7 +28,7 @@ export default {
         banner: () => fs.readFile("evolve_analytics.meta.js", "utf-8")
     },
     external: ["jqueryui"],
-    plugins: [typescript(), css(), tla()],
+    plugins: [typescript(), css(), tla(), externalGlobals({ "lz-string": "LZString" })],
     watch: {
         include: "src/**"
     }

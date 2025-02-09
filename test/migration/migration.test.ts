@@ -79,8 +79,9 @@ describe("Migration", () => {
 
         migrate();
 
+        expect(localStorage.getItem("sneed.analytics.config")!.startsWith("{")).toBe(true);
         expect(loadConfig()).toEqual({
-            version: 10,
+            version: 11,
             recordRuns: true,
             views: [
                 {
@@ -104,6 +105,7 @@ describe("Migration", () => {
             ]
         });
 
+        expect(localStorage.getItem("sneed.analytics.history")!.startsWith("N4")).toBe(true);
         expect(loadHistory()).toEqual({
             milestones: {
                 "built:arpa-launch_facility:123": 0,
@@ -126,6 +128,7 @@ describe("Migration", () => {
             ]
         });
 
+        expect(localStorage.getItem("sneed.analytics.latest")!.startsWith("{")).toBe(true);
         expect(loadLatestRun()).toEqual({
             run: 626,
             universe: "heavy",
@@ -177,7 +180,7 @@ describe("Migration", () => {
         migrate();
 
         expect(loadConfig()).toEqual({
-            version: 10,
+            version: 11,
             recordRuns: true,
             views: []
         });
