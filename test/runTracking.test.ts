@@ -223,7 +223,7 @@ describe("Run tracking", () => {
         expect(loadLatestRun()?.milestones).toEqual({});
         expect(loadLatestRun()?.activeEffects).toEqual({});
         expect(loadLatestRun()?.effectsHistory).toEqual([
-            ["effect:inspired", 3, 5]
+            ["effect:inspired", 3, 4]
         ]);
     });
 });

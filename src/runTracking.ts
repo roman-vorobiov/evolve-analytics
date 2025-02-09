@@ -96,7 +96,7 @@ function updateMilestones(runStats: LatestRun, checkers: MilestoneChecker[]) {
                 runStats.activeEffects[milestone] = runStats.totalDays;
             }
             else if (!isActive && startDay !== undefined) {
-                runStats.effectsHistory.push([milestone, startDay, runStats.totalDays]);
+                runStats.effectsHistory.push([milestone, startDay, runStats.totalDays - 1]);
                 delete runStats.activeEffects[milestone];
             }
         }
