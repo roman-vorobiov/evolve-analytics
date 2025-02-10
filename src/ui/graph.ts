@@ -348,19 +348,22 @@ function* linePointerMarks(plotPoints: PlotPoint[], history: HistoryEntry[], key
         py: key,
         dy: topTextOffset,
         frameAnchor: "top-left",
-        text: (p: PlotPoint) => tipText(p, key, history)
+        text: (p: PlotPoint) => tipText(p, key, history),
+        filter: not({ type: "effect" })
     }));
 
     yield Plot.ruleX(plotPoints, Plot.pointerX({
         x: "run",
-        py: key
+        py: key,
+        filter: not({ type: "effect" })
     }));
 
     yield Plot.dot(plotPoints, Plot.pointerX({
         x: "run",
         y: key,
         fill: "currentColor",
-        r: 2
+        r: 2,
+        filter: not({ type: "effect" })
     }));
 }
 
