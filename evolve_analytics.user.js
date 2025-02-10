@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.13.0
+// @version      0.13.1
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -2956,17 +2956,20 @@
             py: key,
             dy: topTextOffset,
             frameAnchor: "top-left",
-            text: (p) => tipText(p, key, history)
+            text: (p) => tipText(p, key, history),
+            filter: not({ type: "effect" })
         }));
         yield Plot.ruleX(plotPoints, Plot.pointerX({
             x: "run",
-            py: key
+            py: key,
+            filter: not({ type: "effect" })
         }));
         yield Plot.dot(plotPoints, Plot.pointerX({
             x: "run",
             y: key,
             fill: "currentColor",
-            r: 2
+            r: 2,
+            filter: not({ type: "effect" })
         }));
     }
     function* rectPointerMarks(plotPoints, history, segmentKey, tipKey) {
