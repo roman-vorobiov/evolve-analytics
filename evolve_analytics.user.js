@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.13.2
+// @version      0.13.3
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -1484,7 +1484,7 @@
         };
     }
 
-    function migrateConfig$2(config) {
+    function migrateConfig$3(config) {
         const resetIDs = rotateMap(resets);
         const viewModeIDs = rotateMap(viewModes7);
         function convertReset(resetName) {
@@ -1522,7 +1522,7 @@
             })
         };
     }
-    function migrateHistory$2(history, config) {
+    function migrateHistory$3(history, config) {
         const oldNames = rotateMap(history.milestones);
         const newNames = Object.fromEntries(config.views.flatMap(v => Object.keys(v.milestones).map(m => [m, milestoneName(m)[0]])));
         function resetName(run) {
@@ -1602,7 +1602,7 @@
             runs: history.runs
         };
     }
-    function migrateLatestRun$3(latestRun, config, history) {
+    function migrateLatestRun$4(latestRun, config, history) {
         const resetIDs = rotateMap(resets);
         const newRun = {
             run: latestRun.run,
@@ -1651,14 +1651,14 @@
         return newRun;
     }
     function migrate3(config, history, latestRun) {
-        const newConfig = migrateConfig$2(config);
+        const newConfig = migrateConfig$3(config);
         let newHistory = null;
         if (history !== null) {
-            newHistory = migrateHistory$2(history, newConfig);
+            newHistory = migrateHistory$3(history, newConfig);
         }
         let newLatestRun = null;
         if (latestRun !== null && newHistory !== null) {
-            newLatestRun = migrateLatestRun$3(latestRun, newConfig, newHistory);
+            newLatestRun = migrateLatestRun$4(latestRun, newConfig, newHistory);
         }
         return [newConfig, newHistory, newLatestRun];
     }
@@ -1676,12 +1676,12 @@
         };
     }
 
-    function migrateLatestRun$2(latestRun) {
+    function migrateLatestRun$3(latestRun) {
         if (latestRun.universe === "bigbang") {
             delete latestRun.universe;
         }
     }
-    function migrateHistory$1(history) {
+    function migrateHistory$2(history) {
         for (let i = 0; i !== history.runs.length; ++i) {
             const run = history.runs[i];
             const nextRun = history.runs[i + 1];
@@ -1705,9 +1705,9 @@
     }
     function migrate6(config, history, latestRun) {
         if (latestRun !== null) {
-            migrateLatestRun$2(latestRun);
+            migrateLatestRun$3(latestRun);
         }
-        if (migrateHistory$1(history)) {
+        if (migrateHistory$2(history)) {
             config.version = 7;
         }
     }
@@ -1721,42 +1721,65 @@
     function migrateView(view) {
         view.milestones = migrateMilestones(view.milestones);
     }
-    function migrateConfig$1(config) {
+    function migrateConfig$2(config) {
         for (const view of config.views) {
             migrateView(view);
         }
         config.version = 9;
     }
-    function migrateHistory(history) {
+    function migrateHistory$1(history) {
         history.milestones = migrateMilestones(history.milestones);
     }
-    function migrateLatestRun$1(latestRun) {
+    function migrateLatestRun$2(latestRun) {
         latestRun.milestones = migrateMilestones(latestRun.milestones);
     }
     function migrate8(config, history, latestRun) {
+        migrateConfig$2(config);
+        migrateHistory$1(history);
+        if (latestRun !== null) {
+            migrateLatestRun$2(latestRun);
+        }
+    }
+
+    function migrateConfig$1(config) {
+        config.version = 10;
+    }
+    function migrateLatestRun$1(latestRun) {
+        latestRun.activeEffects = {};
+        latestRun.effectsHistory = [];
+    }
+    function migrate9(config, latestRun) {
         migrateConfig$1(config);
-        migrateHistory(history);
         if (latestRun !== null) {
             migrateLatestRun$1(latestRun);
         }
     }
 
+    function migrate10(config) {
+        config.version = 11;
+    }
+
     function migrateConfig(config) {
-        config.version = 10;
+        config.version = 12;
+    }
+    function migrateHistory(history) {
+        for (const run of history.runs) {
+            for (const ref of run.milestones) {
+                ref[1] = Math.max(0, ref[1]);
+            }
+        }
     }
     function migrateLatestRun(latestRun) {
-        latestRun.activeEffects = {};
-        latestRun.effectsHistory = [];
+        for (const [milestone, day] of Object.entries(latestRun.milestones)) {
+            latestRun.milestones[milestone] = Math.max(0, day);
+        }
     }
-    function migrate9(config, latestRun) {
+    function migrate11(config, history, latestRun) {
         migrateConfig(config);
+        migrateHistory(history);
         if (latestRun !== null) {
             migrateLatestRun(latestRun);
         }
-    }
-
-    function migrate10(config) {
-        config.version = 11;
     }
 
     function migrate() {
@@ -1793,6 +1816,10 @@
         }
         if (config.version === 10) {
             migrate10(config);
+            migrated = true;
+        }
+        if (config.version === 11) {
+            migrate11(config, history, latestRun);
             migrated = true;
         }
         if (migrated) {
@@ -2106,7 +2133,7 @@
         }
     }
     function getConfig(game) {
-        const config = loadConfig() ?? { version: 11, recordRuns: true, views: [] };
+        const config = loadConfig() ?? { version: 12, recordRuns: true, views: [] };
         return new ConfigManager(game, config);
     }
 
@@ -2179,7 +2206,7 @@
             else if (reached()) {
                 // Since this callback is invoked at the beginning of a day,
                 // the milestone was reached the previous day
-                runStats.milestones[milestone] = runStats.totalDays - 1;
+                runStats.milestones[milestone] = Math.max(0, runStats.totalDays - 1);
             }
         }
     }
