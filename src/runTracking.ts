@@ -103,7 +103,7 @@ function updateMilestones(runStats: LatestRun, checkers: MilestoneChecker[]) {
         else if (reached()) {
             // Since this callback is invoked at the beginning of a day,
             // the milestone was reached the previous day
-            runStats.milestones[milestone] = runStats.totalDays - 1;
+            runStats.milestones[milestone] = Math.max(0, runStats.totalDays - 1);
         }
     }
 }

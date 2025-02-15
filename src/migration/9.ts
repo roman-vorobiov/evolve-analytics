@@ -1,6 +1,5 @@
 import type { resets, universes } from "../enums";
 import type { Config } from "../config";
-import type { LatestRun as LatestRun10 } from "../runTracking";
 
 export type LatestRun9 = {
     run: number,

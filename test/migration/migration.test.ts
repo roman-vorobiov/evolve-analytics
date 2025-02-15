@@ -85,7 +85,7 @@ describe("Migration", () => {
 
         expect(localStorage.getItem("sneed.analytics.config")!.startsWith("{")).toBe(true);
         expect(loadConfig()).toEqual({
-            version: 11,
+            version: 12,
             recordRuns: true,
             views: [
                 {
@@ -184,7 +184,7 @@ describe("Migration", () => {
         migrate();
 
         expect(loadConfig()).toEqual({
-            version: 11,
+            version: 12,
             recordRuns: true,
             views: []
         });
