@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach, jest } from "@jest/globals";
+import { describe, expect, it, beforeEach, jest, afterEach } from "@jest/globals";
 import { LocalStorageMock } from "./fixture";
 
 import { loadLatestRun } from "../src/database";
@@ -59,6 +59,10 @@ describe("Run tracking", () => {
             configurable: true,
             value: new LocalStorageMock()
         });
+    });
+
+    afterEach(() => {
+        delete (global as any).localStorage;
     });
 
     it("should save each day", () => {

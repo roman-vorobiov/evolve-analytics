@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach } from "@jest/globals";
+import { describe, expect, it, beforeEach, afterEach } from "@jest/globals";
 import { LocalStorageMock } from "../fixture";
 
 import { loadConfig, loadHistory, loadLatestRun } from "../../src/database";
@@ -10,6 +10,10 @@ describe("Migration", () => {
             configurable: true,
             value: new LocalStorageMock()
         });
+    });
+
+    afterEach(() => {
+        delete (global as any).localStorage;
     });
 
     it("should run all migrations", () => {

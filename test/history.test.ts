@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach } from "@jest/globals";
+import { describe, expect, it, beforeEach, afterEach } from "@jest/globals";
 import { LocalStorageMock, makeGameState } from "./fixture";
 
 import { loadHistory } from "../src/database";
@@ -23,6 +23,10 @@ describe("History", () => {
             configurable: true,
             value: new LocalStorageMock()
         });
+    });
+
+    afterEach(() => {
+        delete (global as any).localStorage;
     });
 
     describe("New entry", () => {

@@ -25,6 +25,7 @@ describe("Latest run", () => {
     });
 
     afterEach(() => {
+        delete (global as any).localStorage;
         jest.clearAllMocks();
     });
 

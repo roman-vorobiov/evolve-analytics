@@ -13,10 +13,7 @@ function makeGameState(global: RecursivePartial<Evolve["global"]>): Evolve {
 }
 
 function mockTechDOM(mock: Mock) {
-    Object.defineProperty(global, "$", {
-        configurable: true,
-        value: mock
-    });
+    (global as any).$ = mock;
 
     return mock;
 }

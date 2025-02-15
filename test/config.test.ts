@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach } from "@jest/globals";
+import { describe, expect, it, beforeEach, afterEach } from "@jest/globals";
 import { LocalStorageMock, makeGameState } from "./fixture";
 
 import { Game } from "../src/game";
@@ -33,6 +33,10 @@ describe("Config", () => {
             configurable: true,
             value: new LocalStorageMock()
         });
+    });
+
+    afterEach(() => {
+        delete (global as any).localStorage;
     });
 
     it("should collect milestones from each view", () => {
