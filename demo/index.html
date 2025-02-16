@@ -7,6 +7,8 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Lato&display=swap">
     <link rel="stylesheet" href="https://unpkg.com/buefy@0.9.13/dist/buefy.min.css">
     <link rel="stylesheet" type="text/css" href="https://pmotschmann.github.io/Evolve/evolve/evolve.css">
+    <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/themes/classic.min.css"/>
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/pickr.min.js"></script>
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/d3@7"></script>
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6"></script>
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.min.js"></script>
@@ -60,7 +62,10 @@
             }
         }
 
-        setInterval(() => { window.evolve.craftCost = {}; }, 5000);
+        // setInterval(() => {
+        //     ++window.evolve.global.stats.days;
+        //     window.evolve.craftCost = {};
+        // }, 1000);
     </script>
 </head>
 <body style>

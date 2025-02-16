@@ -16,11 +16,13 @@ export type ViewConfig = {
     numRuns?: number,
     daysScale?: number,
     milestones: Record<string, boolean>,
+    milestoneColors?: Record<string, string>,
     additionalInfo: Array<keyof typeof additionalInformation>
 }
 
 export type View = ViewConfig & {
     toggleMilestone(milestone: string): void;
+    setMilestoneColor(milestone: string, color: string): void;
     addMilestone(milestone: string): void;
     removeMilestone(milestone: string): void;
     toggleAdditionalInfo(key: keyof typeof additionalInformation): void;
@@ -43,6 +45,13 @@ function makeViewProxy(config: ConfigManager, view: ViewConfig): View {
                         view.milestones[milestone] = !enabled;
                         config.emit("viewUpdated", receiver);
                     }
+                };
+            }
+            else if (prop === "setMilestoneColor") {
+                return (milestone: string, color: string) => {
+                    view.milestoneColors ??= {};
+                    view.milestoneColors[milestone] = color;
+                    config.emit("viewUpdated", receiver);
                 };
             }
             else if (prop === "addMilestone") {

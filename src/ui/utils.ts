@@ -1,3 +1,4 @@
+import { default as Pickr } from "@simonwep/pickr";
 import type { default as JQuery } from "jquery";
 import "jqueryui";
 
@@ -182,4 +183,93 @@ export function makeToggleableNumberInput(
     return $(`<div></div>`)
         .append(toggleNode)
         .append(inputNode);
+}
+
+function makeColorPickerTrigger(target: JQuery<HTMLElement>, overflow: number = 0) {
+    const width = Number(target.attr("width"));
+    const height = Number(target.attr("height"));
+
+    const trigger = $(`<button></button>`)
+        .css("position", "absolute")
+        .css("padding", "0")
+        .css("top", "0px")
+        .css("left", `-${overflow}px`)
+        .css("width", `${width + overflow * 2}px`)
+        .css("height", `${height + overflow * 2}px`)
+        .css("background", "transparent")
+        .css("border", "none")
+        .css("cursor", "pointer");
+
+    target.parent().css("position", "relative");
+    trigger.insertAfter(target);
+
+    return trigger;
+}
+
+export function makeColorPicker(
+    target: JQuery<HTMLElement>,
+    overflow: number,
+    defaultColor: string,
+    callbacks: {
+        onChange: (value: string) => void,
+        onSave: (value: string) => void,
+        currentColor: () => string
+    }
+) {
+    const trigger = makeColorPickerTrigger(target, overflow);
+
+    const pickr = new Pickr({
+        container: "#analyticsPanel",
+        el: trigger[0],
+
+        useAsButton: true,
+        position: "top-middle",
+
+        theme: "classic",
+        appClass: "color-picker",
+
+        lockOpacity: true,
+        default: defaultColor,
+
+        swatches: [
+            "#4269d0",
+            "#efb118",
+            "#ff725c",
+            "#6cc5b0",
+            "#3ca951",
+            "#ff8ab7",
+            "#a463f2",
+            "#97bbf5",
+            "#9c6b4e",
+            "#9498a0"
+        ],
+
+        components: {
+            palette: true,
+            hue: true,
+            interaction: {
+                input: true,
+                save: true
+            }
+        }
+    });
+
+    pickr.on("hide", (instance: Pickr) => {
+        if (instance.getColor().toHEXA().toString() !== callbacks.currentColor()) {
+            instance.setColor(defaultColor);
+            callbacks.onChange(defaultColor);
+        }
+    });
+
+    pickr.on("save", (value: Pickr.HSVaColor | null, instance: Pickr) => {
+        const hex = value?.toHEXA().toString();
+        if (hex !== undefined) {
+            callbacks.onSave(hex);
+        }
+        instance.hide();
+    });
+
+    pickr.on("change", (value: Pickr.HSVaColor) => {
+        callbacks.onChange(value.toHEXA().toString());
+    });
 }

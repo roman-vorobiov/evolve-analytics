@@ -1,45 +1,164 @@
-html.dark .bg-dark {
-    background: #181818
+html.dark {
+    .bg-dark {
+        background: #181818;
+    }
+
+    .color-picker {
+        background-color: #f5f5f5;
+        border: .0625rem solid #000000;
+        color: #363636;
+
+        input[type="text"] {
+            background: #ffffff !important;
+        }
+    }
 }
 
-html.light .bg-dark {
-    background: #dddddd
+html.light {
+    .bg-dark {
+        background: #dddddd;
+    }
+
+    .color-picker {
+        background-color: #f5f5f5;
+        border: .0625rem solid #000000;
+        color: #363636;
+
+        input[type="text"] {
+            background: #ffffff !important;
+        }
+    }
 }
 
-html.darkNight .bg-dark {
-    background: #181818
+html.redgreen {
+    .bg-dark {
+        background: #181818;
+    }
+
+    .color-picker {
+        background-color: #0f0f0f;
+        border: .0625rem solid #999999;
+        color: #ffffff;
+
+        input[type="text"] {
+            background: #ffffff !important;
+        }
+    }
 }
 
-html.gruvboxLight .bg-dark {
-    background: #a89984
+html.darkNight {
+    .bg-dark {
+        background: #181818;
+    }
+
+    .color-picker {
+        background-color: #0f0f0f;
+        border: .0625rem solid #999999;
+        color: #b8b8b8;
+
+        input[type="text"] {
+            background: #b8b8b8 !important;
+        }
+    }
 }
 
-html.gruvboxDark .bg-dark {
-    background: #1d2021
+html.gruvboxLight {
+    .bg-dark {
+        background: #a89984;
+    }
+
+    .color-picker {
+        background-color: #fbf1c7;
+        border: .0625rem solid #3c3836;
+        color: #3c3836;
+
+        input[type="text"] {
+            background: #3c3836 !important;
+        }
+    }
 }
 
-html.orangeSoda .bg-dark {
-    background: #181818
+html.gruvboxDark {
+    .bg-dark {
+        background: #1d2021;
+    }
+
+    .color-picker {
+        background-color: #282828;
+        border: .0625rem solid #665c54;
+        color: #ebdbb2;
+
+        input[type="text"] {
+            background: #ebdbb2 !important;
+        }
+    }
 }
 
-html.dracula .bg-dark {
-    background: #1a1c24
+html.orangeSoda {
+    .bg-dark {
+        background: #181818;
+    }
+
+    .color-picker {
+        background-color: #292929;
+        border: .0625rem solid #313638;
+        color: #313638;
+
+        input[type="text"] {
+            background: #ebdbb2 !important;
+        }
+    }
+}
+
+html.dracula {
+    .bg-dark {
+        background: #1a1c24;
+    }
+
+    .color-picker {
+        background-color: #1a1c24;
+        border: .0625rem solid #44475a;
+        color: #44475a;
+
+        input[type="text"] {
+            background: #f8f8f2 !important;
+        }
+    }
 }
 
 .w-fit {
-    width: fit-content
+    width: fit-content;
 }
 
 .w-full {
-    width: 100%
+    width: 100%;
 }
 
 .crossed {
-    text-decoration: line-through
+    text-decoration: line-through;
 }
 
 .flex-container {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px
+    gap: 8px;
+}
+
+.color-picker {
+    border-radius: .25rem;
+    width: fit-content !important;
+
+    ::before {
+        background: none !important;
+    }
+
+    .pcr-save {
+        background-color: #4269d0;
+        color: #ebdbb2;
+    }
+
+    .pcr-swatches {
+        display: flex;
+        width: fit-content;
+    }
 }

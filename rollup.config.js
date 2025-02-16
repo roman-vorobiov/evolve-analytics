@@ -28,7 +28,15 @@ export default {
         banner: () => fs.readFile("evolve_analytics.meta.js", "utf-8")
     },
     external: ["jqueryui"],
-    plugins: [typescript(), css(), tla(), externalGlobals({ "lz-string": "LZString" })],
+    plugins: [
+        typescript(),
+        css(),
+        tla(),
+        externalGlobals({
+            "lz-string": "LZString",
+            "@simonwep/pickr": "Pickr"
+        })
+    ],
     watch: {
         include: "src/**"
     }

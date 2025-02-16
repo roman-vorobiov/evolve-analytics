@@ -72,7 +72,7 @@ export class Game extends Subscribable {
     }
 
     traitName(trait: string) {
-        return this.evolve.traits[trait].name;
+        return this.evolve.traits[trait]?.name ?? "Unknown";
     }
 
     traitValue(trait: string) {
