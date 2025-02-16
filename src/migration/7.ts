@@ -1,5 +1,5 @@
 import type { resets, universes, additionalInformation } from "../enums";
-import type { ViewConfig as ViewConfig8, Config as Config8 } from "../config";
+import type { ViewConfig12 as ViewConfig8, Config12 as Config8 } from "./12";
 
 export const viewModes7 = {
     "total": "Total",

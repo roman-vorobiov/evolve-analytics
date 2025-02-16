@@ -85,7 +85,7 @@ describe("Migration", () => {
 
         expect(localStorage.getItem("sneed.analytics.config")!.startsWith("{")).toBe(true);
         expect(loadConfig()).toEqual({
-            version: 12,
+            version: 13,
             recordRuns: true,
             views: [
                 {
@@ -98,11 +98,11 @@ describe("Migration", () => {
                     universe: "heavy",
                     numRuns: 50,
                     milestones: {
-                        "built:arpa-launch_facility:123": true,
-                        "built:space-world_controller:1": false,
-                        "tech:metaphysics": true,
-                        "event:womlings": true,
-                        "reset:ascend": true
+                        "reset:ascend": { index: 0, enabled: true },
+                        "tech:metaphysics": { index: 1, enabled: true },
+                        "built:space-world_controller:1": { index: 2, enabled: false },
+                        "built:arpa-launch_facility:123": { index: 3, enabled: true },
+                        "event:womlings": { index: 4, enabled: true }
                     },
                     additionalInfo: []
                 }
@@ -184,7 +184,7 @@ describe("Migration", () => {
         migrate();
 
         expect(loadConfig()).toEqual({
-            version: 12,
+            version: 13,
             recordRuns: true,
             views: []
         });

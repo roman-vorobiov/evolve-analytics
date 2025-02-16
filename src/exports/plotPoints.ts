@@ -69,7 +69,7 @@ class SegmentCounter {
 
         // Past milestones
         for (const [milestone, day] of this.milestones.entries()) {
-            if (this.view.milestones[milestone]) {
+            if (this.view.milestones[milestone].enabled) {
                 yield {
                     milestone,
                     day,
@@ -79,14 +79,14 @@ class SegmentCounter {
             }
 
             previousDay = day;
-            if (this.view.milestones[milestone]) {
+            if (this.view.milestones[milestone].enabled) {
                 previousEnabledDay = day;
             }
         }
 
         // Past events
         for (const [milestone, day] of this.events.entries()) {
-            if (this.view.milestones[milestone]) {
+            if (this.view.milestones[milestone].enabled) {
                 const event = milestone.slice('event:'.length) as keyof typeof eventsInfo;
                 const defaultTriggerDay = (eventsInfo[event]?.conditionMet === undefined) ? 0 : day
                 const preconditionDay = this.eventConditions.get(event) ?? defaultTriggerDay;
@@ -103,11 +103,11 @@ class SegmentCounter {
 
     *pendingSegments(currentDay: number) {
         const lastMilestoneDay = lastValue(this.milestones) ?? 0;
-        const lastEnabledMilestoneDay = lastValue(this.milestones, (milestone) => this.view.milestones[milestone]) ?? 0;
+        const lastEnabledMilestoneDay = lastValue(this.milestones, (milestone) => this.view.milestones[milestone].enabled) ?? 0;
 
         // Pending milestone
         const milestone = this.futureMilestones[0]?.[0] ?? `reset:${this.view.resetType}`;
-        if (this.view.milestones[milestone]) {
+        if (this.view.milestones[milestone].enabled) {
             yield {
                 milestone,
                 day: currentDay,
@@ -119,7 +119,7 @@ class SegmentCounter {
         // Pending events
         for (const [event, preconditionDay] of this.eventConditions.entries()) {
             const milestone = `event:${event}`;
-            if (this.view.milestones[milestone] && !this.events.has(milestone)) {
+            if (this.view.milestones[milestone].enabled && !this.events.has(milestone)) {
                 yield {
                     milestone,
                     day: currentDay,
@@ -250,13 +250,13 @@ export function runAsPlotPoints(
     }
 
     for (const [effect, start, end] of currentRun.effectsHistory) {
-        if (view.milestones[effect]) {
+        if (view.milestones[effect].enabled) {
             addEntry(effect, { day: end, segment: end - start, effect: true });
         }
     }
 
     for (const [effect, start] of Object.entries(currentRun.activeEffects)) {
-        if (view.milestones[effect]) {
+        if (view.milestones[effect].enabled) {
             addEntry(effect, { day: currentRun.totalDays, segment: currentRun.totalDays - start, effect: true, pending: true });
         }
     }
@@ -303,7 +303,7 @@ export function asPlotPoints(filteredRuns: HistoryEntry[], history: HistoryManag
         for (const [effect, start, end] of run.effects ?? []) {
             const milestone = history.getMilestone(effect);
 
-            if (view.milestones[milestone]) {
+            if (view.milestones[milestone].enabled) {
                 entries.push({
                     run: i,
                     milestone: milestoneNames[milestone],

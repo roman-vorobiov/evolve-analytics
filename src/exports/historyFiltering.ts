@@ -11,10 +11,6 @@ function getResetType(entry: HistoryEntry, history: HistoryManager) {
     }
 }
 
-export function runTime(entry: HistoryEntry) {
-    return entry.milestones[entry.milestones.length - 1]?.[1];
-}
-
 export function shouldIncludeRun(entry: HistoryEntry, view: ViewConfig, history: HistoryManager) {
     if (view.universe !== undefined && entry.universe !== view.universe) {
         return false;
@@ -52,37 +48,4 @@ export function applyFilters(history: HistoryManager, view: ViewConfig): History
     }
 
     return runs.reverse();
-}
-
-function findBestRunImpl(history: HistoryManager, view: ViewConfig): HistoryEntry | undefined {
-    let best: HistoryEntry | undefined = undefined;
-
-    for (const run of history.runs) {
-        if (!shouldIncludeRun(run, view, history)) {
-            continue;
-        }
-
-        if (best === undefined || runTime(run) < runTime(best)) {
-            best = run;
-        }
-    }
-
-    return best;
-}
-
-const bestRunCache: Record<string, HistoryEntry> = {};
-
-export function findBestRun(history: HistoryManager, view: ViewConfig): HistoryEntry | undefined {
-    const cacheKey = `${view.resetType}.${view.universe ?? "*"}.${view.starLevel ?? "*"}`;
-    const cacheEntry = bestRunCache[cacheKey];
-    if (cacheEntry !== undefined) {
-        return cacheEntry;
-    }
-
-    const best = findBestRunImpl(history, view);
-    if (best !== undefined) {
-        bestRunCache[cacheKey] = best;
-    }
-
-    return best;
 }

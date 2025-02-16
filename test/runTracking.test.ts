@@ -46,7 +46,7 @@ function makeConfig(game: Game, milestones: string[]): ConfigManager {
                 fillArea: true,
                 smoothness: 0,
                 resetType: "mad",
-                milestones: Object.fromEntries(milestones?.map(m => [m, true]) ?? []),
+                milestones: Object.fromEntries(milestones?.map((m, index) => [m, { index, enabled: true }]) ?? []),
                 additionalInfo: []
             }
         ]

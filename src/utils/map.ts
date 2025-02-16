@@ -1,5 +1,5 @@
-export function transformMap<K extends keyof any, V, KNew extends keyof any, VNew>(obj: Record<K, V>, fn: (kv: [K, V]) => [KNew, VNew]): Record<KNew, VNew> {
-    return Object.fromEntries(Object.entries(obj).map(([k, v]) => fn([k as K, v as V]))) as Record<KNew, VNew>;
+export function transformMap<K extends keyof any, V, KNew extends keyof any, VNew>(obj: Record<K, V>, fn: (kv: [K, V], idx: number) => [KNew, VNew]): Record<KNew, VNew> {
+    return Object.fromEntries(Object.entries(obj).map(([k, v], idx) => fn([k as K, v as V], idx))) as Record<KNew, VNew>;
 }
 
 export function filterMap<K extends string, V>(obj: Record<K, V>, fn: (kv: [K, V]) => boolean): Record<K, V> {

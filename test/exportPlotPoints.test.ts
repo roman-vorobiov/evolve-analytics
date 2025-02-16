@@ -49,8 +49,8 @@ describe("Export", () => {
 
             const config = makeConfig(game, {
                 milestones: {
-                    "tech:club": true,
-                    "reset:mad": true
+                    "tech:club": { index: 0, enabled: true },
+                    "reset:mad": { index: 1, enabled: true }
                 }
             });
 
@@ -75,9 +75,9 @@ describe("Export", () => {
 
             const config = makeConfig(game, {
                 milestones: {
-                    "tech:club": true,
-                    "tech:wheel": false,
-                    "reset:mad": true
+                    "tech:club": { index: 0, enabled: true },
+                    "tech:wheel": { index: 1, enabled: false },
+                    "reset:mad": { index: 2, enabled: true }
                 }
             });
 
@@ -99,9 +99,9 @@ describe("Export", () => {
 
             const config = makeConfig(game, {
                 milestones: {
-                    "tech:club": true,
-                    "event:womlings": false,
-                    "reset:mad": true
+                    "tech:club": { index: 0, enabled: true },
+                    "event:womlings": { index: 1, enabled: false },
+                    "reset:mad": { index: 2, enabled: true }
                 }
             });
 
@@ -123,8 +123,8 @@ describe("Export", () => {
 
             const config = makeConfig(game, {
                 milestones: {
-                    "tech:club": true,
-                    "reset:mad": true
+                    "tech:club": { index: 0, enabled: true },
+                    "reset:mad": { index: 1, enabled: true }
                 }
             });
 
@@ -146,9 +146,9 @@ describe("Export", () => {
 
             const config = makeConfig(game, {
                 milestones: {
-                    "event:elerium": true,
-                    "event:alien": true,
-                    "reset:mad": true
+                    "event:elerium": { index: 0, enabled: true },
+                    "event:alien": { index: 1, enabled: true },
+                    "reset:mad": { index: 2, enabled: true }
                 }
             });
 
@@ -177,9 +177,9 @@ describe("Export", () => {
 
             const config = makeConfig(game, {
                 milestones: {
-                    "event:elerium": true,
-                    "event:womlings": true,
-                    "reset:mad": true
+                    "event:elerium": { index: 0, enabled: true },
+                    "event:womlings": { index: 1, enabled: true },
+                    "reset:mad": { index: 2, enabled: true }
                 }
             });
 
@@ -206,9 +206,9 @@ describe("Export", () => {
 
             const config = makeConfig(game, {
                 milestones: {
-                    "tech:club": true,
-                    "tech:wheel": false,
-                    "reset:mad": true
+                    "tech:club": { index: 0, enabled: true },
+                    "tech:wheel": { index: 1, enabled: false },
+                    "reset:mad": { index: 2, enabled: true }
                 }
             });
 
@@ -230,8 +230,8 @@ describe("Export", () => {
 
             const config = makeConfig(game, {
                 milestones: {
-                    "tech:club": true,
-                    "reset:mad": true
+                    "tech:club": { index: 0, enabled: true },
+                    "reset:mad": { index: 1, enabled: true }
                 }
             });
 
@@ -253,9 +253,9 @@ describe("Export", () => {
 
             const config = makeConfig(game, {
                 milestones: {
-                    "tech:club": true,
-                    "event:womlings": true,
-                    "reset:mad": true
+                    "tech:club": { index: 0, enabled: true },
+                    "event:womlings": { index: 1, enabled: true },
+                    "reset:mad": { index: 2, enabled: true }
                 }
             });
 
@@ -278,8 +278,8 @@ describe("Export", () => {
 
             const config = makeConfig(game, {
                 milestones: {
-                    "tech:club": true,
-                    "reset:mad": true
+                    "tech:club": { index: 0, enabled: true },
+                    "reset:mad": { index: 1, enabled: true }
                 }
             });
 
@@ -304,8 +304,8 @@ describe("Export", () => {
 
             const config = makeConfig(game, {
                 milestones: {
-                    "effect:hot": true,
-                    "effect:cold": false
+                    "effect:hot": { index: 0, enabled: true },
+                    "effect:cold": { index: 1, enabled: false }
                 }
             });
 
@@ -331,7 +331,7 @@ describe("Export", () => {
             const config = makeConfig(game, {
                 universe: universe as keyof typeof universes,
                 milestones: {
-                    "reset:blackhole": true
+                    "reset:blackhole": { index: 0, enabled: true }
                 }
             });
 
@@ -354,7 +354,7 @@ describe("Export", () => {
 
                 const config = makeConfig(game, {
                     milestones: {
-                        "reset:mad": true
+                        "reset:mad": { index: 0, enabled: true }
                     }
                 });
 
@@ -370,7 +370,7 @@ describe("Export", () => {
 
                 const config = makeConfig(game, {
                     milestones: {
-                        "reset:mad": false
+                        "reset:mad": { index: 0, enabled: false }
                     }
                 });
 
@@ -384,9 +384,9 @@ describe("Export", () => {
 
                 const config = makeConfig(game, {
                     milestones: {
-                        "tech:club": true,
-                        "tech:wheel": false,
-                        "reset:mad": true
+                        "tech:club": { index: 0, enabled: true },
+                        "tech:wheel": { index: 1, enabled: false },
+                        "reset:mad": { index: 2, enabled: true }
                     }
                 });
 
@@ -406,9 +406,9 @@ describe("Export", () => {
 
                 const config = makeConfig(game, {
                     milestones: {
-                        "effect:hot": true,
-                        "effect:cold": false,
-                        "reset:mad": true
+                        "effect:hot": { index: 0, enabled: true },
+                        "effect:cold": { index: 1, enabled: false },
+                        "reset:mad": { index: 2, enabled: true }
                     }
                 });
 
@@ -429,9 +429,9 @@ describe("Export", () => {
 
                 const config = makeConfig(game, {
                     milestones: {
-                        "effect:hot": true,
-                        "effect:cold": false,
-                        "reset:mad": true
+                        "effect:hot": { index: 0, enabled: true },
+                        "effect:cold": { index: 1, enabled: false },
+                        "reset:mad": { index: 2, enabled: true }
                     }
                 });
 
@@ -452,9 +452,9 @@ describe("Export", () => {
 
                 const config = makeConfig(game, {
                     milestones: {
-                        "tech:club": true,
-                        "tech:wheel": true,
-                        "reset:mad": true
+                        "tech:club": { index: 0, enabled: true },
+                        "tech:wheel": { index: 1, enabled: true },
+                        "reset:mad": { index: 2, enabled: true }
                     }
                 });
 
@@ -476,9 +476,9 @@ describe("Export", () => {
 
                 const config = makeConfig(game, {
                     milestones: {
-                        "event:womlings": true,
-                        "tech:wheel": true,
-                        "reset:mad": true
+                        "event:womlings": { index: 0, enabled: true },
+                        "tech:wheel": { index: 1, enabled: true },
+                        "reset:mad": { index: 2, enabled: true }
                     }
                 });
 
@@ -500,9 +500,9 @@ describe("Export", () => {
 
                 const config = makeConfig(game, {
                     milestones: {
-                        "effect:hot": true,
-                        "tech:wheel": true,
-                        "reset:mad": true
+                        "effect:hot": { index: 0, enabled: true },
+                        "tech:wheel": { index: 1, enabled: true },
+                        "reset:mad": { index: 2, enabled: true }
                     }
                 });
 
@@ -524,11 +524,11 @@ describe("Export", () => {
 
                 const config = makeConfig(game, {
                     milestones: {
-                        "tech:club": true,
-                        "tech:wheel": true,
-                        "tech:housing": true,
-                        "tech:cottage": true,
-                        "reset:mad": true
+                        "tech:club": { index: 0, enabled: true },
+                        "tech:wheel": { index: 1, enabled: true },
+                        "tech:housing": { index: 2, enabled: true },
+                        "tech:cottage": { index: 3, enabled: true },
+                        "reset:mad": { index: 4, enabled: true }
                     }
                 });
 
@@ -557,8 +557,8 @@ describe("Export", () => {
 
                 const config = makeConfig(game, {
                     milestones: {
-                        "event:elerium": true,
-                        "reset:mad": true
+                        "event:elerium": { index: 0, enabled: true },
+                        "reset:mad": { index: 1, enabled: true }
                     }
                 });
 
@@ -582,9 +582,9 @@ describe("Export", () => {
 
                     const config = makeConfig(game, {
                         milestones: {
-                            "tech:club": true,
-                            "tech:wheel": true,
-                            "reset:mad": true
+                            "tech:club": { index: 0, enabled: true },
+                            "tech:wheel": { index: 1, enabled: true },
+                            "reset:mad": { index: 2, enabled: true }
                         }
                     });
 
@@ -609,11 +609,11 @@ describe("Export", () => {
 
                     const config = makeConfig(game, {
                         milestones: {
-                            "tech:club": true,
-                            "tech:wheel": true,
-                            "tech:housing": true,
-                            "tech:cottage": true,
-                            "reset:mad": true
+                            "tech:club": { index: 0, enabled: true },
+                            "tech:wheel": { index: 1, enabled: true },
+                            "tech:housing": { index: 2, enabled: true },
+                            "tech:cottage": { index: 3, enabled: true },
+                            "reset:mad": { index: 4, enabled: true }
                         }
                     });
 
@@ -644,10 +644,10 @@ describe("Export", () => {
 
                     const config = makeConfig(game, {
                         milestones: {
-                            "tech:club": true,
-                            "tech:housing": true,
-                            "tech:cottage": true,
-                            "reset:mad": true
+                            "tech:club": { index: 0, enabled: true },
+                            "tech:housing": { index: 1, enabled: true },
+                            "tech:cottage": { index: 2, enabled: true },
+                            "reset:mad": { index: 3, enabled: true }
                         }
                     });
 
@@ -679,10 +679,10 @@ describe("Export", () => {
 
                     const config = makeConfig(game, {
                         milestones: {
-                            "tech:club": true,
-                            "tech:housing": true,
-                            "tech:cottage": true,
-                            "reset:mad": true
+                            "tech:club": { index: 0, enabled: true },
+                            "tech:housing": { index: 1, enabled: true },
+                            "tech:cottage": { index: 2, enabled: true },
+                            "reset:mad": { index: 3, enabled: true }
                         }
                     });
 
@@ -714,10 +714,10 @@ describe("Export", () => {
 
                     const config = makeConfig(game, {
                         milestones: {
-                            "event:womlings": true,
-                            "tech:club": true,
-                            "tech:housing": true,
-                            "reset:mad": true
+                            "event:womlings": { index: 0, enabled: true },
+                            "tech:club": { index: 1, enabled: true },
+                            "tech:housing": { index: 2, enabled: true },
+                            "reset:mad": { index: 3, enabled: true }
                         }
                     });
 

@@ -14,7 +14,7 @@ function makeView(milestones: string[]): ViewConfig {
         smoothness: 0,
         resetType: "blackhole",
         universe: "standard",
-        milestones: Object.fromEntries(milestones.map(m => [m, true])),
+        milestones: Object.fromEntries(milestones.map((m, index) => [m, { index, enabled: true }])),
         additionalInfo: []
     };
 }
@@ -116,7 +116,7 @@ describe("Config", () => {
             universe: "standard",
             includeCurrentRun: false,
             milestones: {
-                "reset:ascend": true
+                "reset:ascend": { index: 0, enabled: true }
             },
             additionalInfo: []
         });
@@ -162,7 +162,7 @@ describe("Config", () => {
             resetType: "blackhole",
             universe: "magic",
             milestones: {
-                "reset:blackhole": true
+                "reset:blackhole": { index: 0, enabled: true }
             },
             additionalInfo: []
         });
@@ -190,8 +190,8 @@ describe("Config", () => {
             resetType: "blackhole",
             universe: "standard",
             milestones: {
-                "reset:blackhole": true,
-                "tech:club": true
+                "reset:blackhole": { index: 0, enabled: true },
+                "tech:club": { index: 1, enabled: true }
             },
             additionalInfo: []
         });
@@ -245,7 +245,7 @@ describe("Config", () => {
             resetType: "blackhole",
             universe: "standard",
             milestones: {
-                "reset:blackhole": false
+                "reset:blackhole": { index: 0, enabled: false }
             },
             additionalInfo: []
         });
@@ -263,13 +263,13 @@ describe("Config", () => {
         config.on("viewUpdated", v => { modifiedView = v; });
 
         expect(config.views[0].milestones).toEqual({
-            "reset:blackhole": true
+            "reset:blackhole": { index: 0, enabled: true }
         });
 
         config.views[0].resetType = "matrix";
 
         expect(config.views[0].milestones).toEqual({
-            "reset:matrix": true
+            "reset:matrix": { index: 0, enabled: true }
         });
 
         expect(modifiedView).toEqual({
@@ -281,7 +281,7 @@ describe("Config", () => {
             resetType: "matrix",
             universe: "standard",
             milestones: {
-                "reset:matrix": true
+                "reset:matrix": { index: 0, enabled: true }
             },
             additionalInfo: []
         });
