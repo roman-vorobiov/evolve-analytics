@@ -16,6 +16,10 @@ declare const Plot: typeof PlotType;
 const topTextOffset = -27;
 const marginTop = 30;
 
+// If the graph gets redrawn while the color picker is open, the pending value is lost
+// Store it here and use it as the milestone color in the next redraw
+const pendingColorPicks = new WeakMap<View, [string, string]>();
+
 function only({ type, status }: { type?: string[] | string, status?: string[] | string }) {
     let impl = (point: PlotPoint) => true;
 
@@ -478,6 +482,13 @@ export function makeGraph(history: HistoryManager, view: View, game: Game, curre
     const milestoneNames = generateMilestoneNames(milestones, view.universe);
     const milestoneColors = milestones.map(m => view.milestones[m].color);
 
+    const pendingPick = pendingColorPicks.get(view);
+    if (pendingPick !== undefined) {
+        const [milestone, value] = pendingPick;
+        const idx = milestones.indexOf(milestone);
+        milestoneColors[idx] = value;
+    }
+
     const plot = Plot.plot({
         marginTop,
         width: 800,
@@ -559,8 +570,18 @@ export function makeGraph(history: HistoryManager, view: View, game: Game, curre
         };
 
         makeColorPicker(svgNode, 3, defaultColor, {
-            onChange: setMarksColor,
-            onSave: (value) => view.setMilestoneColor(milestone, value),
+            onChange: (value) => {
+                pendingColorPicks.set(view, [milestone, value]);
+                setMarksColor(value);
+            },
+            onSave: (value) => {
+                pendingColorPicks.delete(view);
+                view.setMilestoneColor(milestone, value);
+            },
+            onCancel: () => {
+                pendingColorPicks.delete(view);
+                setMarksColor(defaultColor);
+            },
             currentColor: () => view.milestones[milestone].color
         });
     });

@@ -215,6 +215,7 @@ export function makeColorPicker(
     callbacks: {
         onChange: (value: string) => void,
         onSave: (value: string) => void,
+        onCancel: () => void,
         currentColor: () => string
     }
 ) {
@@ -248,7 +249,7 @@ export function makeColorPicker(
     pickr.on("hide", (instance: Pickr) => {
         if (instance.getColor().toHEXA().toString() !== callbacks.currentColor()) {
             instance.setColor(defaultColor);
-            callbacks.onChange(defaultColor);
+            callbacks.onCancel();
         }
     });
 
