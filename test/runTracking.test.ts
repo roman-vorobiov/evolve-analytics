@@ -1,12 +1,27 @@
-import { describe, expect, it, beforeEach, jest, afterEach } from "@jest/globals";
-import { LocalStorageMock } from "./fixture";
+import { describe, expect, it, jest } from "@jest/globals";
+import { makeGameStateFactory, makeConfig, makeMilestones, makeView } from "./fixture";
 
-import * as colorSchemes from "../src/enums/colorSchemes";
 import { loadLatestRun } from "../src/database";
 import { Game } from "../src/game";
 import { trackMilestones } from "../src/runTracking";
-import { ConfigManager } from "../src/config";
 import type { Evolve } from "../src/evolve";
+
+const makeGameState = makeGameStateFactory({
+    races: {
+        foo: { name: "Foo" }
+    },
+    global: {
+        stats: {
+            reset: 123,
+            ascend: 1,
+            days: 1
+        },
+        race: {
+            species: "foo",
+            universe: "standard"
+        }
+    }
+});
 
 function nextDay(evolve: Evolve) {
     ++evolve.global.stats.days;
@@ -14,64 +29,11 @@ function nextDay(evolve: Evolve) {
     evolve.craftCost = {};
 }
 
-function makeGameState(buildings: Partial<Evolve["global"]>): Evolve {
-    return {
-        races: {
-            foo: { name: "Foo" }
-        },
-        global: {
-            stats: {
-                reset: 123,
-                ascend: 1,
-                days: 1
-            },
-            race: {
-                species: "foo",
-                universe: "standard"
-            },
-            tech: {},
-            ...buildings
-        }
-    } as any as Evolve;
-}
-
-function makeConfig(game: Game, milestones: string[]): ConfigManager {
-    const colorScheme = colorSchemes.Observable10;
-
-    return new ConfigManager(game, {
-        version: 4,
-        recordRuns: true,
-        views: [
-            {
-                mode: "timestamp",
-                showBars: false,
-                showLines: true,
-                fillArea: true,
-                smoothness: 0,
-                resetType: "mad",
-                milestones: Object.fromEntries(milestones?.map((m, index) => [m, { index, enabled: true, color: colorScheme[index % colorScheme.length] }]) ?? []),
-                additionalInfo: []
-            }
-        ]
-    });
-}
-
 describe("Run tracking", () => {
-    beforeEach(() => {
-        Object.defineProperty(global, "localStorage", {
-            configurable: true,
-            value: new LocalStorageMock()
-        });
-    });
-
-    afterEach(() => {
-        delete (global as any).localStorage;
-    });
-
     it("should save each day", () => {
         const evolve = makeGameState({});
         const game = new Game(evolve);
-        const config = makeConfig(game, []);
+        const config = makeConfig({ game }, {});
 
         trackMilestones(game, config);
 
@@ -85,13 +47,19 @@ describe("Run tracking", () => {
     });
 
     it("should timestamp milestones as they are reached", () => {
-        const evolve = makeGameState({ space: { "foo": { count: 0 }, "bar": { count: 0 } } });
+        const evolve = makeGameState({ global: { space: { "foo": { count: 0 }, "bar": { count: 0 } } } });
         const game = new Game(evolve);
 
-        const config = makeConfig(game, [
-            "built:space-foo:1",
-            "built:space-bar:2"
-        ]);
+        const config = makeConfig({ game }, {
+            views: [
+                makeView({
+                    milestones: makeMilestones([
+                        "built:space-foo:1",
+                        "built:space-bar:2"
+                    ])
+                })
+            ]
+        });
 
         trackMilestones(game, config);
 
@@ -115,14 +83,20 @@ describe("Run tracking", () => {
     });
 
     it("should not check already reached milestones", () => {
-        const evolve = makeGameState({ space: { "foo": { count: 0 } } });
+        const evolve = makeGameState({ global: { space: { "foo": { count: 0 } } } });
         const game = new Game(evolve);
 
         const mock = jest.spyOn(game, "built");
 
-        const config = makeConfig(game, [
-            "built:space-foo:1"
-        ]);
+        const config = makeConfig({ game }, {
+            views: [
+                makeView({
+                    milestones: makeMilestones([
+                        "built:space-foo:1"
+                    ])
+                })
+            ]
+        });
 
         trackMilestones(game, config);
 
@@ -140,7 +114,7 @@ describe("Run tracking", () => {
     it("should not do anything when paused", () => {
         const evolve = makeGameState({});
         const game = new Game(evolve);
-        const config = makeConfig(game, []);
+        const config = makeConfig({ game }, {});
 
         trackMilestones(game, config);
 
@@ -158,7 +132,7 @@ describe("Run tracking", () => {
     it("should gather additional info", () => {
         const evolve = makeGameState({});
         const game = new Game(evolve);
-        const config = makeConfig(game, []);
+        const config = makeConfig({ game }, {});
 
         trackMilestones(game, config);
 
@@ -169,12 +143,18 @@ describe("Run tracking", () => {
     });
 
     it("should track event preconditions", () => {
-        const evolve = makeGameState({ galaxy: { "scout_ship": { count: 0 } } });
+        const evolve = makeGameState({ global: { galaxy: { "scout_ship": { count: 0 } } } });
         const game = new Game(evolve);
 
-        const config = makeConfig(game, [
-            "event:alien"
-        ]);
+        const config = makeConfig({ game }, {
+            views: [
+                makeView({
+                    milestones: makeMilestones([
+                        "event:alien"
+                    ])
+                })
+            ]
+        });
 
         trackMilestones(game, config);
 
@@ -196,12 +176,18 @@ describe("Run tracking", () => {
     });
 
     it("should register new effects", () => {
-        const evolve = makeGameState({ race: { species: "foo", universe: "standard" } });
+        const evolve = makeGameState({ global: { race: { species: "foo", universe: "standard" } } });
         const game = new Game(evolve);
 
-        const config = makeConfig(game, [
-            "effect:inspired"
-        ]);
+        const config = makeConfig({ game }, {
+            views: [
+                makeView({
+                    milestones: makeMilestones([
+                        "effect:inspired"
+                    ])
+                })
+            ]
+        });
 
         trackMilestones(game, config);
 

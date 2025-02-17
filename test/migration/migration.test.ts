@@ -1,21 +1,9 @@
-import { describe, expect, it, beforeEach, afterEach } from "@jest/globals";
-import { LocalStorageMock } from "../fixture";
+import { describe, expect, it } from "@jest/globals";
 
 import { loadConfig, loadHistory, loadLatestRun } from "../../src/database";
 import { migrate } from "../../src/migration";
 
 describe("Migration", () => {
-    beforeEach(() => {
-        Object.defineProperty(global, "localStorage", {
-            configurable: true,
-            value: new LocalStorageMock()
-        });
-    });
-
-    afterEach(() => {
-        delete (global as any).localStorage;
-    });
-
     it("should run all migrations", () => {
         localStorage.setItem("sneed.analytics.config", JSON.stringify({
             version: 3,

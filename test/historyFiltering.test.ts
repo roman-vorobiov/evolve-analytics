@@ -1,41 +1,14 @@
 import { describe, expect, it } from "@jest/globals";
-import { makeGameState } from "./fixture";
+import { makeViewFactory, makeHistory } from "./fixture";
 
-import { Game } from "../src/game";
-import { HistoryManager, type RunHistory } from "../src/history";
-import { ConfigManager } from "../src/config";
 import { applyFilters } from "../src/exports/historyFiltering";
-import type { ViewConfig } from "../src/config";
 
-function makeHistory(game: Game, history: RunHistory): HistoryManager {
-    const config = new ConfigManager(game, {
-        version: 5,
-        recordRuns: true,
-        views: []
-    });
-
-    return new HistoryManager(game, config, history);
-}
-
-function makeView(fields: Partial<ViewConfig>): ViewConfig {
-    return {
-        mode: "timestamp",
-        showBars: false,
-        showLines: true,
-        fillArea: false,
-        smoothness: 0,
-        resetType: "mad",
-        milestones: {},
-        additionalInfo: [],
-        ...fields
-    };
-}
+const makeView = makeViewFactory({ resetType: "mad", universe: undefined });
 
 describe("Export", () => {
     describe("Filtering", () => {
         it("should filter by reset type", () => {
-            const game = new Game(makeGameState({}));
-            const history = makeHistory(game, {
+            const history = makeHistory({
                 milestones: { "tech:club": 0, "reset:mad": 1, "reset:bioseed": 2 },
                 runs: [
                     { run: 1, universe: "standard", milestones: [[1, 10]] },
@@ -53,8 +26,7 @@ describe("Export", () => {
         });
 
         it("should filter by universe", () => {
-            const game = new Game(makeGameState({}));
-            const history = makeHistory(game, {
+            const history = makeHistory({
                 milestones: { "tech:club": 0, "reset:mad": 1 },
                 runs: [
                     { run: 1, universe: "standard", milestones: [[1, 10]] },
@@ -77,8 +49,7 @@ describe("Export", () => {
         });
 
         it("should not show vacuum collapse runs if universe is not specified", () => {
-            const game = new Game(makeGameState({}));
-            const history = makeHistory(game, {
+            const history = makeHistory({
                 milestones: { "reset:blackhole": 1 },
                 runs: [
                     { run: 1, universe: "standard", milestones: [[1, 10]] },
@@ -98,8 +69,7 @@ describe("Export", () => {
         });
 
         it("should filter by star level", () => {
-            const game = new Game(makeGameState({}));
-            const history = makeHistory(game, {
+            const history = makeHistory({
                 milestones: { "tech:club": 0, "reset:mad": 1 },
                 runs: [
                     { run: 1, universe: "standard", milestones: [[1, 10]] },
@@ -126,8 +96,7 @@ describe("Export", () => {
         });
 
         it("should filter last N runs", () => {
-            const game = new Game(makeGameState({}));
-            const history = makeHistory(game, {
+            const history = makeHistory({
                 milestones: { "tech:club": 0, "reset:mad": 1 },
                 runs: [
                     { run: 1, universe: "heavy", milestones: [[1, 10]] },
@@ -143,8 +112,7 @@ describe("Export", () => {
         });
 
         it("should apply the numRuns filter after the others", () => {
-            const game = new Game(makeGameState({}));
-            const history = makeHistory(game, {
+            const history = makeHistory({
                 milestones: { "tech:club": 0, "reset:mad": 1 },
                 runs: [
                     { run: 1, universe: "standard", milestones: [[1, 10]] },

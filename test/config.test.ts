@@ -1,59 +1,26 @@
-import { describe, expect, it, beforeEach, afterEach } from "@jest/globals";
-import { LocalStorageMock, makeGameState } from "./fixture";
+import { describe, expect, it } from "@jest/globals";
+import { makeConfig, makeView, makeMilestones } from "./fixture";
 
-import * as colorSchemes from "../src/enums/colorSchemes";
-import { Game } from "../src/game";
-import { ConfigManager, type Config } from "../src/config";
-import type { View, ViewConfig } from "../src/config";
-
-function makeView(milestones: string[]): ViewConfig {
-    const colorScheme = colorSchemes.Observable10;
-
-    return {
-        mode: "timestamp",
-        showBars: false,
-        showLines: true,
-        fillArea: true,
-        smoothness: 0,
-        resetType: "blackhole",
-        universe: "standard",
-        milestones: Object.fromEntries(milestones.map((m, index) => [m, { index, enabled: true, color: colorScheme[index % colorScheme.length] }])),
-        additionalInfo: []
-    };
-}
-
-function makeConfig(milestoneSets: string[][]): Config {
-    return {
-        version: 14,
-        recordRuns: true,
-        views: milestoneSets.map(makeView)
-    }
-}
+import type { View } from "../src/config";
 
 describe("Config", () => {
-    beforeEach(() => {
-        Object.defineProperty(global, "localStorage", {
-            configurable: true,
-            value: new LocalStorageMock()
-        });
-    });
-
-    afterEach(() => {
-        delete (global as any).localStorage;
-    });
-
     it("should collect milestones from each view", () => {
-        const game = new Game(makeGameState({}));
-        const config = new ConfigManager(game, makeConfig([
-            [
-                "built:city-apartment:1",
-                "built:space-spaceport:2"
-            ],
-            [
-                "built:interstellar-mining_droid:3",
-                "built:galaxy-dreadnought:4"
+        const config = makeConfig({
+            views: [
+                makeView({
+                    milestones: makeMilestones([
+                        "built:city-apartment:1",
+                        "built:space-spaceport:2"
+                    ])
+                }),
+                makeView({
+                    milestones: makeMilestones([
+                        "built:interstellar-mining_droid:3",
+                        "built:galaxy-dreadnought:4"
+                    ])
+                })
             ]
-        ]));
+        });
 
         expect(config.milestones).toEqual([
             "built:city-apartment:1",
@@ -64,17 +31,22 @@ describe("Config", () => {
     });
 
     it("should not duplicate the same milestone", () => {
-        const game = new Game(makeGameState({}));
-        const config = new ConfigManager(game, makeConfig([
-            [
-                "built:city-apartment:1",
-                "built:space-spaceport:2"
-            ],
-            [
-                "built:space-spaceport:2",
-                "built:galaxy-dreadnought:4"
+        const config = makeConfig({
+            views: [
+                makeView({
+                    milestones: makeMilestones([
+                        "built:city-apartment:1",
+                        "built:space-spaceport:2"
+                    ])
+                }),
+                makeView({
+                    milestones: makeMilestones([
+                        "built:space-spaceport:2",
+                        "built:galaxy-dreadnought:4"
+                    ])
+                })
             ]
-        ]));
+        });
 
         expect(config.milestones).toEqual([
             "built:city-apartment:1",
@@ -84,13 +56,16 @@ describe("Config", () => {
     });
 
     it("should collect disabled milestones", () => {
-        const game = new Game(makeGameState({}));
-        const config = new ConfigManager(game, makeConfig([
-            [
-                "built:city-apartment:1",
-                "built:space-spaceport:2"
+        const config = makeConfig({
+            views: [
+                makeView({
+                    milestones: makeMilestones([
+                        "built:city-apartment:1",
+                        "built:space-spaceport:2"
+                    ])
+                })
             ]
-        ]));
+        });
 
         config.views[0].toggleMilestone("built:city-apartment:1");
 
@@ -101,8 +76,7 @@ describe("Config", () => {
     });
 
     it("should emit events when a view is added", () => {
-        const game = new Game(makeGameState({}));
-        const config = new ConfigManager(game, makeConfig([]));
+        const config = makeConfig({});
 
         let addedView: View | undefined = undefined;
         config.on("viewAdded", v => { addedView = v; });
@@ -126,12 +100,13 @@ describe("Config", () => {
     });
 
     it("should emit events when a view is removed", () => {
-        const game = new Game(makeGameState({}));
-        const config = new ConfigManager(game, makeConfig([
-            [
-                "reset:blackhole"
+        const config = makeConfig({
+            views: [
+                makeView({
+                    milestones: makeMilestones(["reset:blackhole"])
+                })
             ]
-        ]));
+        });
 
         const originalView = config.views[0];
 
@@ -144,12 +119,13 @@ describe("Config", () => {
     });
 
     it("should emit events when a view is modified", () => {
-        const game = new Game(makeGameState({}));
-        const config = new ConfigManager(game, makeConfig([
-            [
-                "reset:blackhole"
+        const config = makeConfig({
+            views: [
+                makeView({
+                    milestones: makeMilestones(["reset:blackhole"])
+                })
             ]
-        ]));
+        });
 
         let modifiedView: View | undefined = undefined;
         config.on("viewUpdated", v => { modifiedView = v; });
@@ -172,12 +148,13 @@ describe("Config", () => {
     });
 
     it("should emit events when a milestone is added", () => {
-        const game = new Game(makeGameState({}));
-        const config = new ConfigManager(game, makeConfig([
-            [
-                "reset:blackhole"
+        const config = makeConfig({
+            views: [
+                makeView({
+                    milestones: makeMilestones(["reset:blackhole"])
+                })
             ]
-        ]));
+        });
 
         let modifiedView: View | undefined = undefined;
         config.on("viewUpdated", v => { modifiedView = v; });
@@ -201,12 +178,13 @@ describe("Config", () => {
     });
 
     it("should emit events when a milestone is removed", () => {
-        const game = new Game(makeGameState({}));
-        const config = new ConfigManager(game, makeConfig([
-            [
-                "reset:blackhole"
+        const config = makeConfig({
+            views: [
+                makeView({
+                    milestones: makeMilestones(["reset:blackhole"])
+                })
             ]
-        ]));
+        });
 
         let modifiedView: View | undefined = undefined;
         config.on("viewUpdated", v => { modifiedView = v; });
@@ -227,12 +205,13 @@ describe("Config", () => {
     });
 
     it("should emit events when a milestone is modified", () => {
-        const game = new Game(makeGameState({}));
-        const config = new ConfigManager(game, makeConfig([
-            [
-                "reset:blackhole"
+        const config = makeConfig({
+            views: [
+                makeView({
+                    milestones: makeMilestones(["reset:blackhole"])
+                })
             ]
-        ]));
+        });
 
         let modifiedView: View | undefined = undefined;
         config.on("viewUpdated", v => { modifiedView = v; });
@@ -255,12 +234,13 @@ describe("Config", () => {
     });
 
     it("should update milestones when switching reset types", () => {
-        const game = new Game(makeGameState({}));
-        const config = new ConfigManager(game, makeConfig([
-            [
-                "reset:blackhole"
+        const config = makeConfig({
+            views: [
+                makeView({
+                    milestones: makeMilestones(["reset:blackhole"])
+                })
             ]
-        ]));
+        });
 
         let modifiedView: View | undefined = undefined;
         config.on("viewUpdated", v => { modifiedView = v; });
@@ -291,12 +271,13 @@ describe("Config", () => {
     });
 
     it("should not emit events when the value doesn't change", () => {
-        const game = new Game(makeGameState({}));
-        const config = new ConfigManager(game, makeConfig([
-            [
-                "reset:blackhole"
+        const config = makeConfig({
+            views: [
+                makeView({
+                    milestones: makeMilestones(["reset:blackhole"])
+                })
             ]
-        ]));
+        });
 
         let modifiedView: View | undefined = undefined;
         config.on("viewUpdated", v => { modifiedView = v; });
@@ -307,8 +288,7 @@ describe("Config", () => {
     });
 
     it("should remember last opened view", () => {
-        const game = new Game(makeGameState({}));
-        const config = new ConfigManager(game, makeConfig([]));
+        const config = makeConfig({});
 
         const view1 = config.addView();
         const view2 = config.addView();

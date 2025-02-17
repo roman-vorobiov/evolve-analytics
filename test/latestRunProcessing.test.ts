@@ -1,39 +1,18 @@
-import { describe, expect, it, beforeEach, afterEach, jest } from "@jest/globals";
-import { LocalStorageMock, makeGameState } from "./fixture";
+import { describe, expect, it, beforeEach, jest } from "@jest/globals";
+import { makeGameState, makeConfig, makeHistory, makeCurrentRun } from "./fixture";
 
 import { saveCurrentRun, loadLatestRun, loadHistory } from "../src/database";
 import { Game } from "../src/game";
-import { ConfigManager, type Config } from "../src/config";
+import { ConfigManager } from "../src/config";
 import { HistoryManager, blankHistory } from "../src/history";
-import { LatestRun, processLatestRun } from "../src/runTracking";
-
-function makeConfig(game: Game, options?: Partial<Config>): ConfigManager {
-    return new ConfigManager(game, {
-        version: 5,
-        recordRuns: true,
-        views: [],
-        ...(options ?? {})
-    });
-}
+import { processLatestRun } from "../src/runTracking";
 
 describe("Latest run", () => {
-    beforeEach(() => {
-        Object.defineProperty(global, "localStorage", {
-            configurable: true,
-            value: new LocalStorageMock()
-        });
-    });
-
-    afterEach(() => {
-        delete (global as any).localStorage;
-        jest.clearAllMocks();
-    });
-
     describe("Processing on script initialization", () => {
         describe("Empty state", () => {
             const game = new Game(makeGameState({}));
-            const config = makeConfig(game);
-            const history = new HistoryManager(game, config, blankHistory());
+            const config = makeConfig({ game }, {});
+            const history = makeHistory({ game, config }, blankHistory());
 
             beforeEach(() => {
                 processLatestRun(game, config, history);
@@ -53,24 +32,20 @@ describe("Latest run", () => {
         });
 
         describe("Current run", () => {
-            const run: LatestRun = {
+            const run = makeCurrentRun({
                 run: 123,
-                universe: "standard",
-                resets: {},
                 totalDays: 456,
-                milestones: { foo: 123, bar: 234 },
-                activeEffects: {},
-                effectsHistory: [],
-            };
+                milestones: { foo: 123, bar: 234 }
+            });
 
             let game: Game;
             let config: ConfigManager;
             let history: HistoryManager;
 
             beforeEach(() => {
-                game = new Game(makeGameState({ reset: 122, days: 123 }));
-                config = makeConfig(game);
-                history = new HistoryManager(game, config, blankHistory());
+                game = new Game(makeGameState({ global: { stats: { reset: 122, days: 123 } } }));
+                config = makeConfig({ game }, {});
+                history = makeHistory({ game, config }, blankHistory());
 
                 jest.spyOn(history, "commitRun");
 
@@ -94,24 +69,16 @@ describe("Latest run", () => {
         });
 
         describe("Previous run", () => {
-            const run: LatestRun = {
-                run: 123,
-                universe: "standard",
-                resets: {},
-                totalDays: 456,
-                milestones: {},
-                activeEffects: {},
-                effectsHistory: [],
-            };
+            const run = makeCurrentRun({ run: 123, totalDays: 456 });
 
             let game: Game;
             let config: ConfigManager;
             let history: HistoryManager;
 
             beforeEach(() => {
-                game = new Game(makeGameState({ reset: 123, days: 456 }));
-                config = makeConfig(game);
-                history = new HistoryManager(game, config, blankHistory());
+                game = new Game(makeGameState({ global: { stats: { reset: 123, days: 456 } } }));
+                config = makeConfig({ game }, {});
+                history = makeHistory({ game, config }, blankHistory());
 
                 jest.spyOn(history, "commitRun");
 
@@ -131,24 +98,16 @@ describe("Latest run", () => {
         });
 
         describe("Paused", () => {
-            const run: LatestRun = {
-                run: 123,
-                universe: "standard",
-                resets: {},
-                totalDays: 456,
-                milestones: {},
-                activeEffects: {},
-                effectsHistory: [],
-            };
+            const run = makeCurrentRun({ run: 123, totalDays: 456 });
 
             let game: Game;
             let config: ConfigManager;
             let history: HistoryManager;
 
             beforeEach(() => {
-                game = new Game(makeGameState({ reset: 123, days: 456 }));
-                config = makeConfig(game, { recordRuns: false });
-                history = new HistoryManager(game, config, blankHistory());
+                game = new Game(makeGameState({ global: { stats: { reset: 123, days: 456 } } }));
+                config = makeConfig({ game }, { recordRuns: false });
+                history = makeHistory({ game, config }, blankHistory());
 
                 jest.spyOn(history, "commitRun");
 
@@ -168,24 +127,16 @@ describe("Latest run", () => {
         });
 
         describe("Other run", () => {
-            const run: LatestRun = {
-                run: 123,
-                universe: "standard",
-                resets: {},
-                totalDays: 456,
-                milestones: {},
-                activeEffects: {},
-                effectsHistory: [],
-            };
+            const run = makeCurrentRun({ run: 123, totalDays: 456 });
 
             let game: Game;
             let config: ConfigManager;
             let history: HistoryManager;
 
             beforeEach(() => {
-                game = new Game(makeGameState({ reset: 125, days: 456 }));
-                config = makeConfig(game);
-                history = new HistoryManager(game, config, blankHistory());
+                game = new Game(makeGameState({ global: { stats: { reset: 125, days: 456 } } }));
+                config = makeConfig({ game }, {});
+                history = makeHistory({ game, config }, blankHistory());
 
                 jest.spyOn(history, "commitRun");
 

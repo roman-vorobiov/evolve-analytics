@@ -1,57 +1,27 @@
 import { describe, expect, it } from "@jest/globals";
-import { makeGameState } from "./fixture";
+import { makeGameState, makeConfig, makeViewFactory, makeMilestones, makeCurrentRun } from "./fixture";
 
 import { asPlotPoints, runAsPlotPoints, type PlotPoint } from "../src/exports/plotPoints";
 import { Game } from "../src/game";
 import { HistoryManager } from "../src/history";
-import { ConfigManager, type ViewConfig } from "../src/config";
-import type { LatestRun } from "../src/runTracking";
 import type { universes } from "../src/enums";
 
-function makeView(fields: Partial<ViewConfig>): ViewConfig {
-    return {
-        mode: "timestamp",
-        showBars: false,
-        showLines: true,
-        fillArea: false,
-        smoothness: 0,
-        resetType: "mad",
-        milestones: {},
-        additionalInfo: [],
-        ...fields
-    };
-}
-
-function makeConfig(game: Game, view: Partial<ViewConfig>): ConfigManager {
-    return new ConfigManager(game, {
-        version: 5,
-        recordRuns: true,
-        views: [makeView(view)]
-    });
-}
-
-function makeCurrentRun(totalDays: number, milestones: LatestRun["milestones"]): LatestRun {
-    return {
-        run: 1,
-        universe: "standard",
-        resets: {},
-        totalDays,
-        milestones,
-        activeEffects: {},
-        effectsHistory: [],
-    };
-}
+const makeView = makeViewFactory({ resetType: "mad" });
 
 describe("Export", () => {
     describe("Plot points", () => {
         it("should calculate the difference between the milestones of a run", () => {
             const game = new Game(makeGameState({}));
 
-            const config = makeConfig(game, {
-                milestones: {
-                    "tech:club": { index: 0, enabled: true, color: "#4269d0" },
-                    "reset:mad": { index: 1, enabled: true, color: "#efb118" }
-                }
+            const config = makeConfig({ game }, {
+                views: [
+                    makeView({
+                        milestones: makeMilestones([
+                            "tech:club",
+                            "reset:mad"
+                        ])
+                    })
+                ]
             });
 
             const history = new HistoryManager(game, config, {
@@ -73,12 +43,16 @@ describe("Export", () => {
         it("should skip disabled milestones", () => {
             const game = new Game(makeGameState({}));
 
-            const config = makeConfig(game, {
-                milestones: {
-                    "tech:club": { index: 0, enabled: true, color: "#4269d0" },
-                    "tech:wheel": { index: 1, enabled: false, color: "#efb118" },
-                    "reset:mad": { index: 2, enabled: true, color: "#ff725c" }
-                }
+            const config = makeConfig({ game }, {
+                views: [
+                    makeView({
+                        milestones: makeMilestones({
+                            "tech:club": { enabled: true },
+                            "tech:wheel": { enabled: false },
+                            "reset:mad": { enabled: true }
+                        })
+                    })
+                ]
             });
 
             const history = new HistoryManager(game, config, {
@@ -97,12 +71,16 @@ describe("Export", () => {
         it("should skip disabled event milestones", () => {
             const game = new Game(makeGameState({}));
 
-            const config = makeConfig(game, {
-                milestones: {
-                    "tech:club": { index: 0, enabled: true, color: "#4269d0" },
-                    "event:womlings": { index: 1, enabled: false, color: "#efb118" },
-                    "reset:mad": { index: 2, enabled: true, color: "#ff725c" }
-                }
+            const config = makeConfig({ game }, {
+                views: [
+                    makeView({
+                        milestones: makeMilestones({
+                            "tech:club": { enabled: true },
+                            "event:womlings": { enabled: false },
+                            "reset:mad": { enabled: true }
+                        })
+                    })
+                ]
             });
 
             const history = new HistoryManager(game, config, {
@@ -121,11 +99,15 @@ describe("Export", () => {
         it("should skip filtered milestones", () => {
             const game = new Game(makeGameState({}));
 
-            const config = makeConfig(game, {
-                milestones: {
-                    "tech:club": { index: 0, enabled: true, color: "#4269d0" },
-                    "reset:mad": { index: 1, enabled: true, color: "#efb118" }
-                }
+            const config = makeConfig({ game }, {
+                views: [
+                    makeView({
+                        milestones: makeMilestones([
+                            "tech:club",
+                            "reset:mad"
+                        ])
+                    })
+                ]
             });
 
             const history = new HistoryManager(game, config, {
@@ -144,12 +126,16 @@ describe("Export", () => {
         it("should calculate event segments", () => {
             const game = new Game(makeGameState({}));
 
-            const config = makeConfig(game, {
-                milestones: {
-                    "event:elerium": { index: 0, enabled: true, color: "#4269d0" },
-                    "event:alien": { index: 1, enabled: true, color: "#efb118" },
-                    "reset:mad": { index: 2, enabled: true, color: "#ff725c" }
-                }
+            const config = makeConfig({ game }, {
+                views: [
+                    makeView({
+                        milestones: makeMilestones([
+                            "event:elerium",
+                            "event:alien",
+                            "reset:mad",
+                        ])
+                    })
+                ]
             });
 
             const history = new HistoryManager(game, config, {
@@ -175,12 +161,16 @@ describe("Export", () => {
         it("should calculate event segments (unknown)", () => {
             const game = new Game(makeGameState({}));
 
-            const config = makeConfig(game, {
-                milestones: {
-                    "event:elerium": { index: 0, enabled: true, color: "#4269d0" },
-                    "event:womlings": { index: 1, enabled: true, color: "#efb118" },
-                    "reset:mad": { index: 2, enabled: true, color: "#ff725c" }
-                }
+            const config = makeConfig({ game }, {
+                views: [
+                    makeView({
+                        milestones: makeMilestones([
+                            "event:elerium",
+                            "event:womlings",
+                            "reset:mad"
+                        ])
+                    })
+                ]
             });
 
             const history = new HistoryManager(game, config, {
@@ -204,12 +194,16 @@ describe("Export", () => {
         it("should skip disabled milestones when calculating dayDiff and segment", () => {
             const game = new Game(makeGameState({}));
 
-            const config = makeConfig(game, {
-                milestones: {
-                    "tech:club": { index: 0, enabled: true, color: "#4269d0" },
-                    "tech:wheel": { index: 1, enabled: false, color: "#efb118" },
-                    "reset:mad": { index: 2, enabled: true, color: "#ff725c" }
-                }
+            const config = makeConfig({ game }, {
+                views: [
+                    makeView({
+                        milestones: makeMilestones({
+                            "tech:club": { enabled: true },
+                            "tech:wheel": { enabled: false },
+                            "reset:mad": { enabled: true }
+                        })
+                    })
+                ]
             });
 
             const history = new HistoryManager(game, config, {
@@ -228,11 +222,15 @@ describe("Export", () => {
         it("should skip filtered milestones when calculating dayDiff and segment", () => {
             const game = new Game(makeGameState({}));
 
-            const config = makeConfig(game, {
-                milestones: {
-                    "tech:club": { index: 0, enabled: true, color: "#4269d0" },
-                    "reset:mad": { index: 1, enabled: true, color: "#efb118" }
-                }
+            const config = makeConfig({ game }, {
+                views: [
+                    makeView({
+                        milestones: makeMilestones([
+                            "tech:club",
+                            "reset:mad"
+                        ])
+                    })
+                ]
             });
 
             const history = new HistoryManager(game, config, {
@@ -251,12 +249,16 @@ describe("Export", () => {
         it("should skip event milestones when calculating dayDiff and segment", () => {
             const game = new Game(makeGameState({}));
 
-            const config = makeConfig(game, {
-                milestones: {
-                    "tech:club": { index: 0, enabled: true, color: "#4269d0" },
-                    "event:womlings": { index: 1, enabled: true, color: "#efb118" },
-                    "reset:mad": { index: 2, enabled: true, color: "#ff725c" }
-                }
+            const config = makeConfig({ game }, {
+                views: [
+                    makeView({
+                        milestones: makeMilestones([
+                            "tech:club",
+                            "event:womlings",
+                            "reset:mad"
+                        ])
+                    })
+                ]
             });
 
             const history = new HistoryManager(game, config, {
@@ -276,11 +278,15 @@ describe("Export", () => {
         it("should include additional info", () => {
             const game = new Game(makeGameState({}));
 
-            const config = makeConfig(game, {
-                milestones: {
-                    "tech:club": { index: 0, enabled: true, color: "#4269d0" },
-                    "reset:mad": { index: 1, enabled: true, color: "#efb118" }
-                }
+            const config = makeConfig({ game }, {
+                views: [
+                    makeView({
+                        milestones: makeMilestones([
+                            "tech:club",
+                            "reset:mad"
+                        ])
+                    })
+                ]
             });
 
             const history = new HistoryManager(game, config, {
@@ -302,11 +308,15 @@ describe("Export", () => {
         it("should include enabled effects", () => {
             const game = new Game(makeGameState({}));
 
-            const config = makeConfig(game, {
-                milestones: {
-                    "effect:hot": { index: 0, enabled: true, color: "#4269d0" },
-                    "effect:cold": { index: 1, enabled: false, color: "#efb118" }
-                }
+            const config = makeConfig({ game }, {
+                views: [
+                    makeView({
+                        milestones: makeMilestones({
+                            "effect:hot": { enabled: true },
+                            "effect:cold": { enabled: false }
+                        })
+                    })
+                ]
             });
 
             const history = new HistoryManager(game, config, {
@@ -328,11 +338,15 @@ describe("Export", () => {
         ])("should adjust reset names", ({ universe, resetName }) => {
             const game = new Game(makeGameState({}));
 
-            const config = makeConfig(game, {
-                universe: universe as keyof typeof universes,
-                milestones: {
-                    "reset:blackhole": { index: 0, enabled: true, color: "#4269d0" }
-                }
+            const config = makeConfig({ game }, {
+                views: [
+                    makeView({
+                        universe: universe as keyof typeof universes,
+                        milestones: makeMilestones([
+                            "reset:blackhole"
+                        ])
+                    })
+                ]
             });
 
             // Note that the name generation looks at the view's universe, not the runs themselves
@@ -352,13 +366,17 @@ describe("Export", () => {
             it("should use reset as the next milestone if the only run (enabled)", () => {
                 const game = new Game(makeGameState({}));
 
-                const config = makeConfig(game, {
-                    milestones: {
-                        "reset:mad": { index: 0, enabled: true, color: "#4269d0" }
-                    }
+                const config = makeConfig({ game }, {
+                    views: [
+                        makeView({
+                            milestones: makeMilestones([
+                                "reset:mad"
+                            ])
+                        })
+                    ]
                 });
 
-                const currentRun = makeCurrentRun(123, {});
+                const currentRun = makeCurrentRun({});
 
                 expect(runAsPlotPoints(currentRun, config.views[0], game, [], false, 456)).toEqual(<PlotPoint[]> [
                     { run: 456, milestone: "MAD", day: 123, dayDiff: 123, segment: 123, pending: true }
@@ -368,13 +386,17 @@ describe("Export", () => {
             it("should use reset as the next milestone if the only run (disabled)", () => {
                 const game = new Game(makeGameState({}));
 
-                const config = makeConfig(game, {
-                    milestones: {
-                        "reset:mad": { index: 0, enabled: false, color: "#4269d0" }
-                    }
+                const config = makeConfig({ game }, {
+                    views: [
+                        makeView({
+                            milestones: makeMilestones({
+                                "reset:mad": { enabled: false }
+                            })
+                        })
+                    ]
                 });
 
-                const currentRun = makeCurrentRun(123, {});
+                const currentRun = makeCurrentRun({});
 
                 expect(runAsPlotPoints(currentRun, config.views[0], game, [], false, 456)).toEqual([]);
             });
@@ -382,17 +404,23 @@ describe("Export", () => {
             it("should include all enabled milestones", () => {
                 const game = new Game(makeGameState({}));
 
-                const config = makeConfig(game, {
-                    milestones: {
-                        "tech:club": { index: 0, enabled: true, color: "#4269d0" },
-                        "tech:wheel": { index: 1, enabled: false, color: "#efb118" },
-                        "reset:mad": { index: 2, enabled: true, color: "#ff725c" }
-                    }
+                const config = makeConfig({ game }, {
+                    views: [
+                        makeView({
+                            milestones: makeMilestones({
+                                "tech:club": { enabled: true },
+                                "tech:wheel": { enabled: false },
+                                "reset:mad": { enabled: true }
+                            })
+                        })
+                    ]
                 });
 
-                const currentRun = makeCurrentRun(123, {
-                    "tech:club": 10,
-                    "tech:wheel": 20
+                const currentRun = makeCurrentRun({
+                    milestones: {
+                        "tech:club": 10,
+                        "tech:wheel": 20
+                    }
                 });
 
                 expect(runAsPlotPoints(currentRun, config.views[0], game, [], false, 456)).toEqual(<PlotPoint[]> [
@@ -404,19 +432,24 @@ describe("Export", () => {
             it("should include all enabled active effects", () => {
                 const game = new Game(makeGameState({}));
 
-                const config = makeConfig(game, {
-                    milestones: {
-                        "effect:hot": { index: 0, enabled: true, color: "#4269d0" },
-                        "effect:cold": { index: 1, enabled: false, color: "#efb118" },
-                        "reset:mad": { index: 2, enabled: true, color: "#ff725c" }
-                    }
+                const config = makeConfig({ game }, {
+                    views: [
+                        makeView({
+                            milestones: makeMilestones({
+                                "effect:hot": { enabled: true },
+                                "effect:cold": { enabled: false },
+                                "reset:mad": { enabled: true }
+                            })
+                        })
+                    ]
                 });
 
-                const currentRun = makeCurrentRun(123, {});
-                currentRun.activeEffects = {
-                    "effect:hot": 10,
-                    "effect:cold": 20
-                };
+                const currentRun = makeCurrentRun({
+                    activeEffects: {
+                        "effect:hot": 10,
+                        "effect:cold": 20
+                    }
+                });
 
                 expect(runAsPlotPoints(currentRun, config.views[0], game, [], false, 456)).toEqual(<PlotPoint[]> [
                     { run: 456, milestone: "MAD", day: 123, dayDiff: 123, segment: 123, pending: true },
@@ -427,19 +460,24 @@ describe("Export", () => {
             it("should include all enabled past effects", () => {
                 const game = new Game(makeGameState({}));
 
-                const config = makeConfig(game, {
-                    milestones: {
-                        "effect:hot": { index: 0, enabled: true, color: "#4269d0" },
-                        "effect:cold": { index: 1, enabled: false, color: "#efb118" },
-                        "reset:mad": { index: 2, enabled: true, color: "#ff725c" }
-                    }
+                const config = makeConfig({ game }, {
+                    views: [
+                        makeView({
+                            milestones: makeMilestones({
+                                "effect:hot": { enabled: true },
+                                "effect:cold": { enabled: false },
+                                "reset:mad": { enabled: true }
+                            })
+                        })
+                    ]
                 });
 
-                const currentRun = makeCurrentRun(123, {});
-                currentRun.effectsHistory = [
-                    ["effect:hot", 2, 4],
-                    ["effect:cold", 3, 5],
-                ];
+                const currentRun = makeCurrentRun({
+                    effectsHistory: [
+                        ["effect:hot", 2, 4],
+                        ["effect:cold", 3, 5],
+                    ]
+                });
 
                 expect(runAsPlotPoints(currentRun, config.views[0], game, [], false, 456)).toEqual(<PlotPoint[]> [
                     { run: 456, milestone: "MAD", day: 123, dayDiff: 123, segment: 123, pending: true },
@@ -450,15 +488,19 @@ describe("Export", () => {
             it.each([5, 10, 15])("should use the next milestone from PB as the current one", (day) => {
                 const game = new Game(makeGameState({}));
 
-                const config = makeConfig(game, {
-                    milestones: {
-                        "tech:club": { index: 0, enabled: true, color: "#4269d0" },
-                        "tech:wheel": { index: 1, enabled: true, color: "#efb118" },
-                        "reset:mad": { index: 2, enabled: true, color: "#ff725c" }
-                    }
+                const config = makeConfig({ game }, {
+                    views: [
+                        makeView({
+                            milestones: makeMilestones([
+                                "tech:club",
+                                "tech:wheel",
+                                "reset:mad"
+                            ])
+                        })
+                    ]
                 });
 
-                const currentRun = makeCurrentRun(day, {});
+                const currentRun = makeCurrentRun({ totalDays: day });
 
                 const bestRun: PlotPoint[] = [
                     { run: 1, milestone: "Club", day: 10, dayDiff: 10, segment: 10 },
@@ -474,15 +516,19 @@ describe("Export", () => {
             it("should skip event milestones", () => {
                 const game = new Game(makeGameState({}));
 
-                const config = makeConfig(game, {
-                    milestones: {
-                        "event:womlings": { index: 0, enabled: true, color: "#4269d0" },
-                        "tech:wheel": { index: 1, enabled: true, color: "#efb118" },
-                        "reset:mad": { index: 2, enabled: true, color: "#ff725c" }
-                    }
+                const config = makeConfig({ game }, {
+                    views: [
+                        makeView({
+                            milestones: makeMilestones([
+                                "event:womlings",
+                                "tech:wheel",
+                                "reset:mad"
+                            ])
+                        })
+                    ]
                 });
 
-                const currentRun = makeCurrentRun(15, {});
+                const currentRun = makeCurrentRun({ totalDays: 15 });
 
                 const bestRun: PlotPoint[] = [
                     { run: 1, milestone: "Womlings arrival", day: 10, segment: 10, event: true },
@@ -498,15 +544,19 @@ describe("Export", () => {
             it("should skip effect milestones", () => {
                 const game = new Game(makeGameState({}));
 
-                const config = makeConfig(game, {
-                    milestones: {
-                        "effect:hot": { index: 0, enabled: true, color: "#4269d0" },
-                        "tech:wheel": { index: 1, enabled: true, color: "#efb118" },
-                        "reset:mad": { index: 2, enabled: true, color: "#ff725c" }
-                    }
+                const config = makeConfig({ game }, {
+                    views: [
+                        makeView({
+                            milestones: makeMilestones([
+                                "effect:hot",
+                                "tech:wheel",
+                                "reset:mad"
+                            ])
+                        })
+                    ]
                 });
 
-                const currentRun = makeCurrentRun(15, {});
+                const currentRun = makeCurrentRun({ totalDays: 15 });
 
                 const bestRun: PlotPoint[] = [
                     { run: 1, milestone: "Hot days", day: 10, segment: 10, effect: true },
@@ -522,19 +572,26 @@ describe("Export", () => {
             it("should skip reached milestones", () => {
                 const game = new Game(makeGameState({}));
 
-                const config = makeConfig(game, {
-                    milestones: {
-                        "tech:club": { index: 0, enabled: true, color: "#4269d0" },
-                        "tech:wheel": { index: 1, enabled: true, color: "#efb118" },
-                        "tech:housing": { index: 2, enabled: true, color: "#ff725c" },
-                        "tech:cottage": { index: 3, enabled: true, color: "#6cc5b0" },
-                        "reset:mad": { index: 4, enabled: true, color: "#3ca951" }
-                    }
+                const config = makeConfig({ game }, {
+                    views: [
+                        makeView({
+                            milestones: makeMilestones([
+                                "tech:club",
+                                "tech:wheel",
+                                "tech:housing",
+                                "tech:cottage",
+                                "reset:mad"
+                            ])
+                        })
+                    ]
                 });
 
-                const currentRun = makeCurrentRun(35, {
-                    "tech:club": 10,
-                    "tech:housing": 30,
+                const currentRun = makeCurrentRun({
+                    totalDays: 35,
+                    milestones: {
+                        "tech:club": 10,
+                        "tech:housing": 30,
+                    }
                 });
 
                 const bestRun: PlotPoint[] = [
@@ -555,15 +612,22 @@ describe("Export", () => {
             it("should yield pending events", () => {
                 const game = new Game(makeGameState({}));
 
-                const config = makeConfig(game, {
-                    milestones: {
-                        "event:elerium": { index: 0, enabled: true, color: "#4269d0" },
-                        "reset:mad": { index: 1, enabled: true, color: "#efb118" }
-                    }
+                const config = makeConfig({ game }, {
+                    views: [
+                        makeView({
+                            milestones: makeMilestones([
+                                "event:elerium",
+                                "reset:mad"
+                            ])
+                        })
+                    ]
                 });
 
-                const currentRun = makeCurrentRun(15, {
-                    "event_condition:elerium": 10
+                const currentRun = makeCurrentRun({
+                    totalDays: 15,
+                    milestones: {
+                        "event_condition:elerium": 10
+                    }
                 });
 
                 const bestRun: PlotPoint[] = [
@@ -580,15 +644,19 @@ describe("Export", () => {
                 it("should use PB milestones as reference", () => {
                     const game = new Game(makeGameState({}));
 
-                    const config = makeConfig(game, {
-                        milestones: {
-                            "tech:club": { index: 0, enabled: true, color: "#4269d0" },
-                            "tech:wheel": { index: 1, enabled: true, color: "#efb118" },
-                            "reset:mad": { index: 2, enabled: true, color: "#ff725c" }
-                        }
+                    const config = makeConfig({ game }, {
+                        views: [
+                            makeView({
+                                milestones: makeMilestones([
+                                    "tech:club",
+                                    "tech:wheel",
+                                    "reset:mad"
+                                ])
+                            })
+                        ]
                     });
 
-                    const currentRun = makeCurrentRun(5, {});
+                    const currentRun = makeCurrentRun({ totalDays: 5 });
 
                     const bestRun: PlotPoint[] = [
                         { run: 1, milestone: "Club", day: 10, dayDiff: 10, segment: 10 },
@@ -607,19 +675,26 @@ describe("Export", () => {
                 it("should skip reached milestones", () => {
                     const game = new Game(makeGameState({}));
 
-                    const config = makeConfig(game, {
-                        milestones: {
-                            "tech:club": { index: 0, enabled: true, color: "#4269d0" },
-                            "tech:wheel": { index: 1, enabled: true, color: "#efb118" },
-                            "tech:housing": { index: 2, enabled: true, color: "#ff725c" },
-                            "tech:cottage": { index: 3, enabled: true, color: "#6cc5b0" },
-                            "reset:mad": { index: 4, enabled: true, color: "#3ca951" }
-                        }
+                    const config = makeConfig({ game }, {
+                        views: [
+                            makeView({
+                                milestones: makeMilestones([
+                                    "tech:club",
+                                    "tech:wheel",
+                                    "tech:housing",
+                                    "tech:cottage",
+                                    "reset:mad"
+                                ])
+                            })
+                        ]
                     });
 
-                    const currentRun = makeCurrentRun(35, {
-                        "tech:club": 10,
-                        "tech:housing": 30,
+                    const currentRun = makeCurrentRun({
+                        totalDays: 35,
+                        milestones: {
+                            "tech:club": 10,
+                            "tech:housing": 30,
+                        }
                     });
 
                     const bestRun: PlotPoint[] = [
@@ -642,18 +717,25 @@ describe("Export", () => {
                 it.each([30, 35])("should squish the pending future milestone", (day) => {
                     const game = new Game(makeGameState({}));
 
-                    const config = makeConfig(game, {
-                        milestones: {
-                            "tech:club": { index: 0, enabled: true, color: "#4269d0" },
-                            "tech:housing": { index: 1, enabled: true, color: "#efb118" },
-                            "tech:cottage": { index: 2, enabled: true, color: "#ff725c" },
-                            "reset:mad": { index: 3, enabled: true, color: "#6cc5b0" }
-                        }
+                    const config = makeConfig({ game }, {
+                        views: [
+                            makeView({
+                                milestones: makeMilestones([
+                                    "tech:club",
+                                    "tech:housing",
+                                    "tech:cottage",
+                                    "reset:mad"
+                                ])
+                            })
+                        ]
                     });
 
-                    const currentRun = makeCurrentRun(day, {
-                        "tech:club": 10,
-                        "tech:housing": 20,
+                    const currentRun = makeCurrentRun({
+                        totalDays: day,
+                        milestones: {
+                            "tech:club": 10,
+                            "tech:housing": 20,
+                        }
                     });
 
                     const bestRun: PlotPoint[] = [
@@ -677,18 +759,25 @@ describe("Export", () => {
                 it.each([15, 25])("should adjust future milestones based on the last segment difference", (day) => {
                     const game = new Game(makeGameState({}));
 
-                    const config = makeConfig(game, {
-                        milestones: {
-                            "tech:club": { index: 0, enabled: true, color: "#4269d0" },
-                            "tech:housing": { index: 1, enabled: true, color: "#efb118" },
-                            "tech:cottage": { index: 2, enabled: true, color: "#ff725c" },
-                            "reset:mad": { index: 3, enabled: true, color: "#6cc5b0" }
-                        }
+                    const config = makeConfig({ game }, {
+                        views: [
+                            makeView({
+                                milestones: makeMilestones([
+                                    "tech:club",
+                                    "tech:housing",
+                                    "tech:cottage",
+                                    "reset:mad"
+                                ])
+                            })
+                        ]
                     });
 
-                    const currentRun = makeCurrentRun(30, {
-                        "tech:club": 10,
-                        "tech:housing": day
+                    const currentRun = makeCurrentRun({
+                        totalDays: 30,
+                        milestones: {
+                            "tech:club": 10,
+                            "tech:housing": day
+                        }
                     });
 
                     const bestRun: PlotPoint[] = [
@@ -712,18 +801,25 @@ describe("Export", () => {
                 it.each([15, 25])("should ignore events when calculating the difference", (day) => {
                     const game = new Game(makeGameState({}));
 
-                    const config = makeConfig(game, {
-                        milestones: {
-                            "event:womlings": { index: 0, enabled: true, color: "#4269d0" },
-                            "tech:club": { index: 1, enabled: true, color: "#efb118" },
-                            "tech:housing": { index: 2, enabled: true, color: "#ff725c" },
-                            "reset:mad": { index: 3, enabled: true, color: "#6cc5b0" }
-                        }
+                    const config = makeConfig({ game }, {
+                        views: [
+                            makeView({
+                                milestones: makeMilestones([
+                                    "event:womlings",
+                                    "tech:club",
+                                    "tech:housing",
+                                    "reset:mad"
+                                ])
+                            })
+                        ]
                     });
 
-                    const currentRun = makeCurrentRun(30, {
-                        "tech:club": 15,
-                        "event:womlings": day,
+                    const currentRun = makeCurrentRun({
+                        totalDays: 30,
+                        milestones: {
+                            "tech:club": 15,
+                            "event:womlings": day,
+                        }
                     });
 
                     const bestRun: PlotPoint[] = [
