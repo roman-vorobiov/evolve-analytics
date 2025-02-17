@@ -1,7 +1,7 @@
 import { applyFilters } from "../exports/historyFiltering";
 import { findBestRun, runTime } from "../exports/utils";
 import { asPlotPoints, runAsPlotPoints, type PlotPoint } from "../exports/plotPoints";
-import { generateMilestoneNames, isEffectMilestone } from "../milestones";
+import { generateMilestoneNames, isEffectMilestone, isEventMilestone } from "../milestones";
 import { compose } from "../utils";
 import { makeColorPicker } from "./utils";
 import type { View } from "../config";
@@ -536,6 +536,10 @@ export function makeGraph(history: HistoryManager, view: View, game: Game, curre
                 .attr("fill", null)
                 .attr("fill-opacity", "0")
                 .attr("stroke", defaultColor);
+        }
+        else if (isEventMilestone(milestone)) {
+            svgNode.find("> rect").replaceWith(`<circle cx="50%" cy="50%" r="50%"></circle>`);
+            svgNode.html(svgNode.html());
         }
 
         // Toggle milestones on click
