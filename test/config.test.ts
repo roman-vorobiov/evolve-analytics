@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 import { makeConfig, makeView, makeMilestones } from "./fixture";
 
+import colorScheme from "../src/enums/colorSchemes";
 import type { View } from "../src/config";
 
 describe("Config", () => {
@@ -93,7 +94,7 @@ describe("Config", () => {
             universe: "standard",
             includeCurrentRun: false,
             milestones: {
-                "reset:ascend": { index: 0, enabled: true, color: "#4269d0" }
+                "reset:ascend": { index: 0, enabled: true, color: colorScheme.blue }
             },
             additionalInfo: []
         });
@@ -141,7 +142,7 @@ describe("Config", () => {
             resetType: "blackhole",
             universe: "magic",
             milestones: {
-                "reset:blackhole": { index: 0, enabled: true, color: "#4269d0" }
+                "reset:blackhole": { index: 0, enabled: true, color: colorScheme.blue }
             },
             additionalInfo: []
         });
@@ -170,8 +171,38 @@ describe("Config", () => {
             resetType: "blackhole",
             universe: "standard",
             milestones: {
-                "reset:blackhole": { index: 0, enabled: true, color: "#4269d0" },
-                "tech:club": { index: 1, enabled: true, color: "#efb118" }
+                "reset:blackhole": { index: 0, enabled: true, color: colorScheme.blue },
+                "tech:club": { index: 1, enabled: true, color: colorScheme.orange }
+            },
+            additionalInfo: []
+        });
+    });
+
+    it("should use predefined colors for effects", () => {
+        const config = makeConfig({
+            views: [
+                makeView({
+                    milestones: makeMilestones(["reset:blackhole"])
+                })
+            ]
+        });
+
+        let modifiedView: View | undefined = undefined;
+        config.on("viewUpdated", v => { modifiedView = v; });
+
+        config.views[0].addMilestone("effect:hot");
+
+        expect(modifiedView).toEqual({
+            mode: "timestamp",
+            showBars: false,
+            showLines: true,
+            fillArea: true,
+            smoothness: 0,
+            resetType: "blackhole",
+            universe: "standard",
+            milestones: {
+                "reset:blackhole": { index: 0, enabled: true, color: colorScheme.blue },
+                "effect:hot": { index: 1, enabled: true, color: colorScheme.red }
             },
             additionalInfo: []
         });
@@ -227,7 +258,7 @@ describe("Config", () => {
             resetType: "blackhole",
             universe: "standard",
             milestones: {
-                "reset:blackhole": { index: 0, enabled: false, color: "#4269d0" }
+                "reset:blackhole": { index: 0, enabled: false, color: colorScheme.blue }
             },
             additionalInfo: []
         });
@@ -246,13 +277,13 @@ describe("Config", () => {
         config.on("viewUpdated", v => { modifiedView = v; });
 
         expect(config.views[0].milestones).toEqual({
-            "reset:blackhole": { index: 0, enabled: true, color: "#4269d0" }
+            "reset:blackhole": { index: 0, enabled: true, color: colorScheme.blue }
         });
 
         config.views[0].resetType = "matrix";
 
         expect(config.views[0].milestones).toEqual({
-            "reset:matrix": { index: 0, enabled: true, color: "#4269d0" }
+            "reset:matrix": { index: 0, enabled: true, color: colorScheme.blue }
         });
 
         expect(modifiedView).toEqual({
@@ -264,7 +295,7 @@ describe("Config", () => {
             resetType: "matrix",
             universe: "standard",
             milestones: {
-                "reset:matrix": { index: 0, enabled: true, color: "#4269d0" }
+                "reset:matrix": { index: 0, enabled: true, color: colorScheme.blue }
             },
             additionalInfo: []
         });

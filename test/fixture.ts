@@ -1,4 +1,4 @@
-import * as colorSchemes from "../src/enums/colorSchemes";
+import colorScheme from "../src/enums/colorSchemes";
 import { Game } from "../src/game";
 import { ConfigManager, type Config } from "../src/config";
 import { HistoryManager, type RunHistory } from "../src/history";
@@ -101,8 +101,8 @@ export function makeGameStateFactory(prototypeOverrides: RecursivePartial<Evolve
 export const makeGameState = makeGameStateFactory({});
 
 export function makeMilestones(milestones: string[] | Record<string, Partial<ViewConfig["milestones"][""]>>): ViewConfig["milestones"] {
-    const colorScheme = colorSchemes.Observable10;
-    const getColor = (idx: number) => colorScheme[idx % colorScheme.length];
+    const colors = Object.values(colorScheme);
+    const getColor = (idx: number) => colors[idx % colors.length];
 
     if (Array.isArray(milestones)) {
         return Object.fromEntries(milestones.map((milestone, index) => {

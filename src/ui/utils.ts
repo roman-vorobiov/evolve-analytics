@@ -1,4 +1,4 @@
-import * as colorSchemes from "../enums/colorSchemes";
+import colorScheme from "../enums/colorSchemes";
 
 import { default as Pickr } from "@simonwep/pickr";
 import type { default as JQuery } from "jquery";
@@ -234,7 +234,7 @@ export function makeColorPicker(
         lockOpacity: true,
         default: defaultColor,
 
-        swatches: colorSchemes.Observable10,
+        swatches: Object.values(colorScheme),
 
         components: {
             palette: true,

@@ -1,6 +1,7 @@
 import { saveConfig, loadConfig } from "./database";
 import { Subscribable } from "./subscribable";
-import * as colorSchemes from "./enums/colorSchemes";
+import colorScheme from "./enums/colorSchemes";
+import { effectColors } from "./effects";
 import type { resets, universes, viewModes, additionalInformation } from "./enums";
 import type { Game } from "./game";
 
@@ -59,8 +60,8 @@ function makeViewProxy(config: ConfigManager, view: ViewConfig): View {
             else if (prop === "addMilestone") {
                 return (milestone: string) => {
                     const index = Object.entries(view.milestones).length;
-                    const colorScheme = colorSchemes.Observable10;
-                    const color = colorScheme[index % colorScheme.length];
+                    const colors = Object.values(colorScheme);
+                    const color = effectColors[milestone] ?? colors[index % colors.length];
 
                     view.milestones[milestone] = { index, enabled: true, color };
                     config.emit("viewUpdated", receiver);
@@ -163,7 +164,7 @@ export class ConfigManager extends Subscribable {
     }
 
     addView() {
-        const colorScheme = colorSchemes.Observable10;
+        const colors = Object.values(colorScheme);
 
         const view: ViewConfig = {
             resetType: "ascend",
@@ -175,7 +176,7 @@ export class ConfigManager extends Subscribable {
             fillArea: false,
             smoothness: 0,
             milestones: {
-                "reset:ascend": { index: 0, enabled: true, color: colorScheme[0] }
+                "reset:ascend": { index: 0, enabled: true, color: colors[0] }
             },
             additionalInfo: []
         };

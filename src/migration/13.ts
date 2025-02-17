@@ -1,4 +1,4 @@
-import * as colorSchemes from "../enums/colorSchemes";
+import colorScheme from "../enums/colorSchemes";
 import { transformMap } from "../utils";
 import type { additionalInformation, resets, universes, viewModes } from "../enums";
 import type { Config, ViewConfig as ViewConfig14 } from "../config";
@@ -27,19 +27,19 @@ export type Config13 = {
 }
 
 function migrateView(view: ViewConfig13): ViewConfig14 {
-    const colorScheme = colorSchemes.Observable10;
+    const colors = Object.values(colorScheme);
 
     const presets: Record<string, string> = {
-        "effect:hot": "#ff725c",
-        "effect:cold": "#4269d0",
-        "effect:inspired": "#3ca951",
-        "effect:motivated": "#efb118"
+        "effect:hot": colorScheme.red,
+        "effect:cold": colorScheme.blue,
+        "effect:inspired": colorScheme.green,
+        "effect:motivated": colorScheme.orange
     };
 
     return {
         ...view,
         milestones: transformMap(view.milestones, ([milestone, { index, enabled }]) => {
-            const color = presets[milestone] ?? colorScheme[index % colorScheme.length];
+            const color = presets[milestone] ?? colors[index % colors.length];
             return [milestone, { index, enabled, color }];
         })
     };
