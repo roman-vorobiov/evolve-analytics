@@ -13,6 +13,7 @@ describe("Migration", () => {
             expect(migrate4(oldConfig as any)).toEqual({
                 version: 6,
                 recordRuns: true,
+                lastOpenViewIndex: 0,
                 views: []
             });
         });
@@ -32,6 +33,7 @@ describe("Migration", () => {
             expect(migrate4(oldConfig as any)).toEqual({
                 version: 6,
                 recordRuns: true,
+                lastOpenViewIndex: 0,
                 views: [
                     {
                         resetType: "ascension",

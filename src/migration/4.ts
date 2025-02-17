@@ -20,6 +20,7 @@ export function migrate4(config: Config4): Config6 {
     return {
         version: 6,
         recordRuns: config.recordRuns ?? true,
+        lastOpenViewIndex: 0,
         views: config.views.map(view => {
             return {
                 additionalInfo: [],
