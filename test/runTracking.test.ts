@@ -1,11 +1,12 @@
 import { describe, expect, it, beforeEach, jest, afterEach } from "@jest/globals";
 import { LocalStorageMock } from "./fixture";
 
+import * as colorSchemes from "../src/enums/colorSchemes";
 import { loadLatestRun } from "../src/database";
 import { Game } from "../src/game";
 import { trackMilestones } from "../src/runTracking";
-import { ConfigManager, type ViewConfig } from "../src/config";
-import type { Evolve, BuildingInfoTabs } from "../src/evolve";
+import { ConfigManager } from "../src/config";
+import type { Evolve } from "../src/evolve";
 
 function nextDay(evolve: Evolve) {
     ++evolve.global.stats.days;
@@ -35,6 +36,8 @@ function makeGameState(buildings: Partial<Evolve["global"]>): Evolve {
 }
 
 function makeConfig(game: Game, milestones: string[]): ConfigManager {
+    const colorScheme = colorSchemes.Observable10;
+
     return new ConfigManager(game, {
         version: 4,
         recordRuns: true,
@@ -46,7 +49,7 @@ function makeConfig(game: Game, milestones: string[]): ConfigManager {
                 fillArea: true,
                 smoothness: 0,
                 resetType: "mad",
-                milestones: Object.fromEntries(milestones?.map((m, index) => [m, { index, enabled: true }]) ?? []),
+                milestones: Object.fromEntries(milestones?.map((m, index) => [m, { index, enabled: true, color: colorScheme[index % colorScheme.length] }]) ?? []),
                 additionalInfo: []
             }
         ]

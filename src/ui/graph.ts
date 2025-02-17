@@ -474,16 +474,16 @@ export function makeGraph(history: HistoryManager, view: View, game: Game, curre
         plotPoints.push(...processCurrentRun(currentRun, filteredRuns, bestRun, view, history, game));
     }
 
-    const milestones = Object.keys(view.milestones);
+    const milestones = Object.keys(view.milestones).sort((l, r) => view.milestones[l].index - view.milestones[r].index);
     const milestoneNames = generateMilestoneNames(milestones, view.universe);
-    // const milestoneColors = milestones.map(m => view.milestones[m].color);
+    const milestoneColors = milestones.map(m => view.milestones[m].color);
 
     const plot = Plot.plot({
         marginTop,
         width: 800,
         x: { axis: null },
         y: { grid: true, domain: calculateYScale(plotPoints, view) },
-        color: { legend: true, domain: milestoneNames },
+        color: { legend: true, domain: milestoneNames, range: milestoneColors },
         marks: generateMarks(plotPoints, filteredRuns, bestRun, view)
     });
 
@@ -543,26 +543,26 @@ export function makeGraph(history: HistoryManager, view: View, game: Game, curre
         });
 
         // Set up color picker
-        // const setMarksColor = (value: string) => {
-        //     function impl() {
-        //         if ($(this).attr("fill") !== undefined) {
-        //             $(this).attr("fill", value);
-        //         }
-        //         if ($(this).attr("stroke") !== undefined) {
-        //             $(this).attr("stroke", value);
-        //         }
-        //     }
+        const setMarksColor = (value: string) => {
+            function impl() {
+                if ($(this).attr("fill") !== undefined) {
+                    $(this).attr("fill", value);
+                }
+                if ($(this).attr("stroke") !== undefined) {
+                    $(this).attr("stroke", value);
+                }
+            }
 
-        //     svgNode.each(impl);
+            svgNode.each(impl);
 
-        //     $(`figure [data-milestone="${milestoneName}"]`).each(impl);
-        // };
+            $(`figure [data-milestone="${milestoneName}"]`).each(impl);
+        };
 
-        // makeColorPicker(svgNode, 3, defaultColor, {
-        //     onChange: setMarksColor,
-        //     onSave: (value) => view.setMilestoneColor(milestone, value),
-        //     currentColor: () => view.milestones[milestone].color
-        // });
+        makeColorPicker(svgNode, 3, defaultColor, {
+            onChange: setMarksColor,
+            onSave: (value) => view.setMilestoneColor(milestone, value),
+            currentColor: () => view.milestones[milestone].color
+        });
     });
 
     $(plot).find("> svg").attr("width", "100%");

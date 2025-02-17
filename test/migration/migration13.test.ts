@@ -1,37 +1,11 @@
 import { describe, expect, it } from "@jest/globals";
 
-import { migrate12 } from "../../src/migration/12";
+import { migrate13 } from "../../src/migration/13";
 
 describe("Migration", () => {
-    describe("12 -> 13", () => {
-        it("should change format", () => {
+    describe("13 -> 14", () => {
+        it("should add colors based on the index", () => {
             const config = {
-                version: 12,
-                views: [
-                    {
-                        resetType: "ascension",
-                        mode: "timestamp",
-                        smoothness: 0,
-                        showBars: true,
-                        showLines: false,
-                        fillArea: false,
-                        milestones: {
-                            "reset:ascension": true,
-                            "tech:club": false
-                        },
-                        additionalInfo: []
-                    }
-                ]
-            };
-
-            const history = {
-                milestones: {},
-                runs: []
-            };
-
-            migrate12(config as any, history as any);
-
-            expect(config).toEqual({
                 version: 13,
                 views: [
                     {
@@ -42,8 +16,29 @@ describe("Migration", () => {
                         showLines: false,
                         fillArea: false,
                         milestones: {
-                            "reset:ascension": { index: 0, enabled: true },
-                            "tech:club": { index: 1, enabled: false }
+                            "reset:ascension": { index: 1, enabled: true },
+                            "tech:club": { index: 0, enabled: false }
+                        },
+                        additionalInfo: []
+                    }
+                ]
+            };
+
+            migrate13(config as any);
+
+            expect(config).toEqual({
+                version: 14,
+                views: [
+                    {
+                        resetType: "ascension",
+                        mode: "timestamp",
+                        smoothness: 0,
+                        showBars: true,
+                        showLines: false,
+                        fillArea: false,
+                        milestones: {
+                            "reset:ascension": { index: 1, enabled: true, color: "#efb118" },
+                            "tech:club": { index: 0, enabled: false, color: "#4269d0" }
                         },
                         additionalInfo: []
                     }
@@ -51,50 +46,8 @@ describe("Migration", () => {
             });
         });
 
-        it("should sort milestones based on the order in the last run", () => {
+        it("should use predefined colors for effects", () => {
             const config = {
-                version: 12,
-                views: [
-                    {
-                        resetType: "ascension",
-                        mode: "timestamp",
-                        smoothness: 0,
-                        showBars: true,
-                        showLines: false,
-                        fillArea: false,
-                        milestones: {
-                            "reset:ascension": true,
-                            "tech:club": false,
-                            "tech:wheel": true
-                        },
-                        additionalInfo: []
-                    }
-                ]
-            };
-
-            const history = {
-                milestones: {
-                    "reset:ascension": 0,
-                    "tech:club": 1,
-                    "tech:wheel": 2
-                },
-                runs: [
-                    {
-                        run: 1,
-                        universe: "standard",
-                        milestones: [[1, 10], [2, 20], [0, 30]],
-                    },
-                    {
-                        run: 2,
-                        universe: "standard",
-                        milestones: [[2, 10], [1, 20], [0, 30]],
-                    }
-                ]
-            };
-
-            migrate12(config as any, history as any);
-
-            expect(config).toEqual({
                 version: 13,
                 views: [
                     {
@@ -105,9 +58,33 @@ describe("Migration", () => {
                         showLines: false,
                         fillArea: false,
                         milestones: {
-                            "reset:ascension": { index: 0, enabled: true },
-                            "tech:club": { index: 1, enabled: false },
-                            "tech:wheel": { index: 2, enabled: true }
+                            "effect:hot": { index: 0, enabled: true },
+                            "effect:cold": { index: 1, enabled: true },
+                            "effect:inspired": { index: 2, enabled: true },
+                            "effect:motivated": { index: 3, enabled: true }
+                        },
+                        additionalInfo: []
+                    }
+                ]
+            };
+
+            migrate13(config as any);
+
+            expect(config).toEqual({
+                version: 14,
+                views: [
+                    {
+                        resetType: "ascension",
+                        mode: "timestamp",
+                        smoothness: 0,
+                        showBars: true,
+                        showLines: false,
+                        fillArea: false,
+                        milestones: {
+                            "effect:hot": { index: 0, enabled: true, color: "#ff725c" },
+                            "effect:cold": { index: 1, enabled: true, color: "#4269d0" },
+                            "effect:inspired": { index: 2, enabled: true, color: "#3ca951" },
+                            "effect:motivated": { index: 3, enabled: true, color: "#efb118" }
                         },
                         additionalInfo: []
                     }

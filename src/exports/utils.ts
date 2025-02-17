@@ -1,8 +1,7 @@
 
-import { shouldIncludeRun } from "./historyFiltering";
-import { HistoryManager } from "../history";
+import { shouldIncludeRun, findLastRun } from "./historyFiltering";
 import { isEffectMilestone } from "../milestones";
-import type { RunHistory, HistoryEntry } from "../history";
+import type { HistoryManager, HistoryEntry } from "../history";
 import type { ViewConfig } from "../config";
 
 export function runTime(entry: HistoryEntry) {
@@ -42,17 +41,18 @@ export function findBestRun(history: HistoryManager, view: ViewConfig): HistoryE
     return best;
 }
 
-export function sortMilestones(view: ViewConfig, lastRun: HistoryEntry, history: RunHistory | HistoryManager) {
-    const milestones = Object.keys(view.milestones);
+export function sortMilestones(view: ViewConfig, history: HistoryManager) {
+    const lastRun = findLastRun(history, view);
+    if (lastRun === undefined) {
+        return;
+    }
 
-    const getMilestoneID = history instanceof HistoryManager ?
-        (id: string) => history.getMilestoneID(id) :
-        (id: string) => history.milestones[id];
+    const milestones = Object.keys(view.milestones);
 
     milestones.sort((l, r) => {
         if (!isEffectMilestone(l) && !isEffectMilestone(r)) {
-            const lIdx = lastRun.milestones.findIndex(([id]) => id === getMilestoneID(l));
-            const rIdx = lastRun.milestones.findIndex(([id]) => id === getMilestoneID(r));
+            const lIdx = lastRun.milestones.findIndex(([id]) => id === history.getMilestoneID(l));
+            const rIdx = lastRun.milestones.findIndex(([id]) => id === history.getMilestoneID(r));
             return rIdx - lIdx;
         }
         else if (isEffectMilestone(l)) {

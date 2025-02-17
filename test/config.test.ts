@@ -1,11 +1,14 @@
 import { describe, expect, it, beforeEach, afterEach } from "@jest/globals";
 import { LocalStorageMock, makeGameState } from "./fixture";
 
+import * as colorSchemes from "../src/enums/colorSchemes";
 import { Game } from "../src/game";
 import { ConfigManager, type Config } from "../src/config";
 import type { View, ViewConfig } from "../src/config";
 
 function makeView(milestones: string[]): ViewConfig {
+    const colorScheme = colorSchemes.Observable10;
+
     return {
         mode: "timestamp",
         showBars: false,
@@ -14,14 +17,14 @@ function makeView(milestones: string[]): ViewConfig {
         smoothness: 0,
         resetType: "blackhole",
         universe: "standard",
-        milestones: Object.fromEntries(milestones.map((m, index) => [m, { index, enabled: true }])),
+        milestones: Object.fromEntries(milestones.map((m, index) => [m, { index, enabled: true, color: colorScheme[index % colorScheme.length] }])),
         additionalInfo: []
     };
 }
 
 function makeConfig(milestoneSets: string[][]): Config {
     return {
-        version: 4,
+        version: 14,
         recordRuns: true,
         views: milestoneSets.map(makeView)
     }
@@ -116,7 +119,7 @@ describe("Config", () => {
             universe: "standard",
             includeCurrentRun: false,
             milestones: {
-                "reset:ascend": { index: 0, enabled: true }
+                "reset:ascend": { index: 0, enabled: true, color: "#4269d0" }
             },
             additionalInfo: []
         });
@@ -162,7 +165,7 @@ describe("Config", () => {
             resetType: "blackhole",
             universe: "magic",
             milestones: {
-                "reset:blackhole": { index: 0, enabled: true }
+                "reset:blackhole": { index: 0, enabled: true, color: "#4269d0" }
             },
             additionalInfo: []
         });
@@ -190,8 +193,8 @@ describe("Config", () => {
             resetType: "blackhole",
             universe: "standard",
             milestones: {
-                "reset:blackhole": { index: 0, enabled: true },
-                "tech:club": { index: 1, enabled: true }
+                "reset:blackhole": { index: 0, enabled: true, color: "#4269d0" },
+                "tech:club": { index: 1, enabled: true, color: "#efb118" }
             },
             additionalInfo: []
         });
@@ -245,7 +248,7 @@ describe("Config", () => {
             resetType: "blackhole",
             universe: "standard",
             milestones: {
-                "reset:blackhole": { index: 0, enabled: false }
+                "reset:blackhole": { index: 0, enabled: false, color: "#4269d0" }
             },
             additionalInfo: []
         });
@@ -263,13 +266,13 @@ describe("Config", () => {
         config.on("viewUpdated", v => { modifiedView = v; });
 
         expect(config.views[0].milestones).toEqual({
-            "reset:blackhole": { index: 0, enabled: true }
+            "reset:blackhole": { index: 0, enabled: true, color: "#4269d0" }
         });
 
         config.views[0].resetType = "matrix";
 
         expect(config.views[0].milestones).toEqual({
-            "reset:matrix": { index: 0, enabled: true }
+            "reset:matrix": { index: 0, enabled: true, color: "#4269d0" }
         });
 
         expect(modifiedView).toEqual({
@@ -281,7 +284,7 @@ describe("Config", () => {
             resetType: "matrix",
             universe: "standard",
             milestones: {
-                "reset:matrix": { index: 0, enabled: true }
+                "reset:matrix": { index: 0, enabled: true, color: "#4269d0" }
             },
             additionalInfo: []
         });

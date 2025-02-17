@@ -49,3 +49,13 @@ export function applyFilters(history: HistoryManager, view: ViewConfig): History
 
     return runs.reverse();
 }
+
+export function findLastRun(history: HistoryManager, view: ViewConfig): HistoryEntry | undefined {
+    for (let i = history.runs.length - 1; i >= 0; --i) {
+        const run = history.runs[i];
+
+        if (shouldIncludeRun(run, view, history)) {
+            return run;
+        }
+    }
+}

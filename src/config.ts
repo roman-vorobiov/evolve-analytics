@@ -1,5 +1,6 @@
 import { saveConfig, loadConfig } from "./database";
 import { Subscribable } from "./subscribable";
+import * as colorSchemes from "./enums/colorSchemes";
 import type { resets, universes, viewModes, additionalInformation } from "./enums";
 import type { Game } from "./game";
 
@@ -15,7 +16,7 @@ export type ViewConfig = {
     fillArea: boolean,
     numRuns?: number,
     daysScale?: number,
-    milestones: Record<string, { index: number, enabled: boolean }>,
+    milestones: Record<string, { index: number, enabled: boolean, color: string }>,
     additionalInfo: Array<keyof typeof additionalInformation>
 }
 
@@ -46,22 +47,22 @@ function makeViewProxy(config: ConfigManager, view: ViewConfig): View {
                     }
                 };
             }
-            // else if (prop === "setMilestoneColor") {
-            //     return (milestone: string, color: string) => {
-            //         const info = view.milestones[milestone];
-            //         if (info !== undefined) {
-            //             info.color = color;
-            //             config.emit("viewUpdated", receiver);
-            //         }
-            //     };
-            // }
+            else if (prop === "setMilestoneColor") {
+                return (milestone: string, color: string) => {
+                    const info = view.milestones[milestone];
+                    if (info !== undefined) {
+                        info.color = color;
+                        config.emit("viewUpdated", receiver);
+                    }
+                };
+            }
             else if (prop === "addMilestone") {
                 return (milestone: string) => {
                     const index = Object.entries(view.milestones).length;
-                    // const colorScheme = colorSchemes.Observable10;
-                    // const color = colorScheme[index % colorScheme.length];
+                    const colorScheme = colorSchemes.Observable10;
+                    const color = colorScheme[index % colorScheme.length];
 
-                    view.milestones[milestone] = { enabled: true, index };
+                    view.milestones[milestone] = { index, enabled: true, color };
                     config.emit("viewUpdated", receiver);
                 };
             }
@@ -95,11 +96,10 @@ function makeViewProxy(config: ConfigManager, view: ViewConfig): View {
             }
 
             if (prop === "resetType") {
-                const index = view.milestones[`reset:${view.resetType}`].index;
-                // const color = view.milestones[`reset:${view.resetType}`].color;
+                const info = view.milestones[`reset:${view.resetType}`];
 
                 delete view.milestones[`reset:${view.resetType}`];
-                view.milestones[`reset:${value}`] = { enabled: true, index };
+                view.milestones[`reset:${value}`] = { ...info, enabled: true };
             }
 
             const ret = Reflect.set(obj, prop, value, receiver);
@@ -163,7 +163,7 @@ export class ConfigManager extends Subscribable {
     }
 
     addView() {
-        // const colorScheme = colorSchemes.Observable10;
+        const colorScheme = colorSchemes.Observable10;
 
         const view: ViewConfig = {
             resetType: "ascend",
@@ -175,7 +175,7 @@ export class ConfigManager extends Subscribable {
             fillArea: false,
             smoothness: 0,
             milestones: {
-                "reset:ascend": { index: 0, enabled: true }
+                "reset:ascend": { index: 0, enabled: true, color: colorScheme[0] }
             },
             additionalInfo: []
         };
@@ -224,6 +224,6 @@ export class ConfigManager extends Subscribable {
 }
 
 export function getConfig(game: Game) {
-    const config = loadConfig() ?? { version: 13, recordRuns: true, views: [] };
+    const config = loadConfig() ?? { version: 14, recordRuns: true, views: [] };
     return new ConfigManager(game, config);
 }

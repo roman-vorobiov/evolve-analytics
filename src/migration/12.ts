@@ -1,8 +1,7 @@
-import { sortMilestones } from "../exports/utils";
 import { rotateMap, transformMap } from "../utils";
 import type { additionalInformation, resets, universes, viewModes } from "../enums";
-import type { Config, ViewConfig as ViewConfig13 } from "../config";
 import type { RunHistory, HistoryEntry } from "../history";
+import type { Config13, ViewConfig13 } from "./13";
 
 export type ViewConfig12 = {
     resetType: keyof typeof resets,
@@ -69,8 +68,35 @@ function getLastRun(history: RunHistory, view: ViewConfig13): HistoryEntry | und
     }
 }
 
+function sortMilestones(view: ViewConfig13, lastRun: HistoryEntry, history: RunHistory) {
+    const milestones = Object.keys(view.milestones);
+
+    function isEffectMilestone(milestone: string) {
+        return milestone.startsWith("effect:");
+    }
+
+    milestones.sort((l, r) => {
+        if (!isEffectMilestone(l) && !isEffectMilestone(r)) {
+            const lIdx = lastRun.milestones.findIndex(([id]) => id === history.milestones[l]);
+            const rIdx = lastRun.milestones.findIndex(([id]) => id === history.milestones[r]);
+            return rIdx - lIdx;
+        }
+        else if (isEffectMilestone(l)) {
+            return 1;
+        }
+        else {
+            return -1;
+        }
+    });
+
+    for (let i = 0; i != milestones.length; ++i) {
+        const milestone = milestones[i];
+        view.milestones[milestone].index = i;
+    }
+}
+
 function migrateView(view: ViewConfig12, history: RunHistory): ViewConfig13 {
-    const newView = {
+    const newView: ViewConfig13 = {
         ...view,
         milestones: transformMap(view.milestones, ([milestone, enabled], index) => [milestone, { index, enabled }])
     };
@@ -83,7 +109,7 @@ function migrateView(view: ViewConfig12, history: RunHistory): ViewConfig13 {
     return newView;
 }
 
-export function migrate12(config: Config, history: RunHistory) {
+export function migrate12(config: Config13, history: RunHistory) {
     config.views = config.views.map(v => migrateView(v as any, history));
 
     config.version = 13;

@@ -49,8 +49,8 @@ describe("Export", () => {
 
             const config = makeConfig(game, {
                 milestones: {
-                    "tech:club": { index: 0, enabled: true },
-                    "reset:mad": { index: 1, enabled: true }
+                    "tech:club": { index: 0, enabled: true, color: "#4269d0" },
+                    "reset:mad": { index: 1, enabled: true, color: "#efb118" }
                 }
             });
 
@@ -75,9 +75,9 @@ describe("Export", () => {
 
             const config = makeConfig(game, {
                 milestones: {
-                    "tech:club": { index: 0, enabled: true },
-                    "tech:wheel": { index: 1, enabled: false },
-                    "reset:mad": { index: 2, enabled: true }
+                    "tech:club": { index: 0, enabled: true, color: "#4269d0" },
+                    "tech:wheel": { index: 1, enabled: false, color: "#efb118" },
+                    "reset:mad": { index: 2, enabled: true, color: "#ff725c" }
                 }
             });
 
@@ -99,9 +99,9 @@ describe("Export", () => {
 
             const config = makeConfig(game, {
                 milestones: {
-                    "tech:club": { index: 0, enabled: true },
-                    "event:womlings": { index: 1, enabled: false },
-                    "reset:mad": { index: 2, enabled: true }
+                    "tech:club": { index: 0, enabled: true, color: "#4269d0" },
+                    "event:womlings": { index: 1, enabled: false, color: "#efb118" },
+                    "reset:mad": { index: 2, enabled: true, color: "#ff725c" }
                 }
             });
 
@@ -123,8 +123,8 @@ describe("Export", () => {
 
             const config = makeConfig(game, {
                 milestones: {
-                    "tech:club": { index: 0, enabled: true },
-                    "reset:mad": { index: 1, enabled: true }
+                    "tech:club": { index: 0, enabled: true, color: "#4269d0" },
+                    "reset:mad": { index: 1, enabled: true, color: "#efb118" }
                 }
             });
 
@@ -146,9 +146,9 @@ describe("Export", () => {
 
             const config = makeConfig(game, {
                 milestones: {
-                    "event:elerium": { index: 0, enabled: true },
-                    "event:alien": { index: 1, enabled: true },
-                    "reset:mad": { index: 2, enabled: true }
+                    "event:elerium": { index: 0, enabled: true, color: "#4269d0" },
+                    "event:alien": { index: 1, enabled: true, color: "#efb118" },
+                    "reset:mad": { index: 2, enabled: true, color: "#ff725c" }
                 }
             });
 
@@ -177,9 +177,9 @@ describe("Export", () => {
 
             const config = makeConfig(game, {
                 milestones: {
-                    "event:elerium": { index: 0, enabled: true },
-                    "event:womlings": { index: 1, enabled: true },
-                    "reset:mad": { index: 2, enabled: true }
+                    "event:elerium": { index: 0, enabled: true, color: "#4269d0" },
+                    "event:womlings": { index: 1, enabled: true, color: "#efb118" },
+                    "reset:mad": { index: 2, enabled: true, color: "#ff725c" }
                 }
             });
 
@@ -206,9 +206,9 @@ describe("Export", () => {
 
             const config = makeConfig(game, {
                 milestones: {
-                    "tech:club": { index: 0, enabled: true },
-                    "tech:wheel": { index: 1, enabled: false },
-                    "reset:mad": { index: 2, enabled: true }
+                    "tech:club": { index: 0, enabled: true, color: "#4269d0" },
+                    "tech:wheel": { index: 1, enabled: false, color: "#efb118" },
+                    "reset:mad": { index: 2, enabled: true, color: "#ff725c" }
                 }
             });
 
@@ -230,8 +230,8 @@ describe("Export", () => {
 
             const config = makeConfig(game, {
                 milestones: {
-                    "tech:club": { index: 0, enabled: true },
-                    "reset:mad": { index: 1, enabled: true }
+                    "tech:club": { index: 0, enabled: true, color: "#4269d0" },
+                    "reset:mad": { index: 1, enabled: true, color: "#efb118" }
                 }
             });
 
@@ -253,9 +253,9 @@ describe("Export", () => {
 
             const config = makeConfig(game, {
                 milestones: {
-                    "tech:club": { index: 0, enabled: true },
-                    "event:womlings": { index: 1, enabled: true },
-                    "reset:mad": { index: 2, enabled: true }
+                    "tech:club": { index: 0, enabled: true, color: "#4269d0" },
+                    "event:womlings": { index: 1, enabled: true, color: "#efb118" },
+                    "reset:mad": { index: 2, enabled: true, color: "#ff725c" }
                 }
             });
 
@@ -278,8 +278,8 @@ describe("Export", () => {
 
             const config = makeConfig(game, {
                 milestones: {
-                    "tech:club": { index: 0, enabled: true },
-                    "reset:mad": { index: 1, enabled: true }
+                    "tech:club": { index: 0, enabled: true, color: "#4269d0" },
+                    "reset:mad": { index: 1, enabled: true, color: "#efb118" }
                 }
             });
 
@@ -304,8 +304,8 @@ describe("Export", () => {
 
             const config = makeConfig(game, {
                 milestones: {
-                    "effect:hot": { index: 0, enabled: true },
-                    "effect:cold": { index: 1, enabled: false }
+                    "effect:hot": { index: 0, enabled: true, color: "#4269d0" },
+                    "effect:cold": { index: 1, enabled: false, color: "#efb118" }
                 }
             });
 
@@ -331,7 +331,7 @@ describe("Export", () => {
             const config = makeConfig(game, {
                 universe: universe as keyof typeof universes,
                 milestones: {
-                    "reset:blackhole": { index: 0, enabled: true }
+                    "reset:blackhole": { index: 0, enabled: true, color: "#4269d0" }
                 }
             });
 
@@ -354,7 +354,7 @@ describe("Export", () => {
 
                 const config = makeConfig(game, {
                     milestones: {
-                        "reset:mad": { index: 0, enabled: true }
+                        "reset:mad": { index: 0, enabled: true, color: "#4269d0" }
                     }
                 });
 
@@ -370,7 +370,7 @@ describe("Export", () => {
 
                 const config = makeConfig(game, {
                     milestones: {
-                        "reset:mad": { index: 0, enabled: false }
+                        "reset:mad": { index: 0, enabled: false, color: "#4269d0" }
                     }
                 });
 
@@ -384,9 +384,9 @@ describe("Export", () => {
 
                 const config = makeConfig(game, {
                     milestones: {
-                        "tech:club": { index: 0, enabled: true },
-                        "tech:wheel": { index: 1, enabled: false },
-                        "reset:mad": { index: 2, enabled: true }
+                        "tech:club": { index: 0, enabled: true, color: "#4269d0" },
+                        "tech:wheel": { index: 1, enabled: false, color: "#efb118" },
+                        "reset:mad": { index: 2, enabled: true, color: "#ff725c" }
                     }
                 });
 
@@ -406,9 +406,9 @@ describe("Export", () => {
 
                 const config = makeConfig(game, {
                     milestones: {
-                        "effect:hot": { index: 0, enabled: true },
-                        "effect:cold": { index: 1, enabled: false },
-                        "reset:mad": { index: 2, enabled: true }
+                        "effect:hot": { index: 0, enabled: true, color: "#4269d0" },
+                        "effect:cold": { index: 1, enabled: false, color: "#efb118" },
+                        "reset:mad": { index: 2, enabled: true, color: "#ff725c" }
                     }
                 });
 
@@ -429,9 +429,9 @@ describe("Export", () => {
 
                 const config = makeConfig(game, {
                     milestones: {
-                        "effect:hot": { index: 0, enabled: true },
-                        "effect:cold": { index: 1, enabled: false },
-                        "reset:mad": { index: 2, enabled: true }
+                        "effect:hot": { index: 0, enabled: true, color: "#4269d0" },
+                        "effect:cold": { index: 1, enabled: false, color: "#efb118" },
+                        "reset:mad": { index: 2, enabled: true, color: "#ff725c" }
                     }
                 });
 
@@ -452,9 +452,9 @@ describe("Export", () => {
 
                 const config = makeConfig(game, {
                     milestones: {
-                        "tech:club": { index: 0, enabled: true },
-                        "tech:wheel": { index: 1, enabled: true },
-                        "reset:mad": { index: 2, enabled: true }
+                        "tech:club": { index: 0, enabled: true, color: "#4269d0" },
+                        "tech:wheel": { index: 1, enabled: true, color: "#efb118" },
+                        "reset:mad": { index: 2, enabled: true, color: "#ff725c" }
                     }
                 });
 
@@ -476,9 +476,9 @@ describe("Export", () => {
 
                 const config = makeConfig(game, {
                     milestones: {
-                        "event:womlings": { index: 0, enabled: true },
-                        "tech:wheel": { index: 1, enabled: true },
-                        "reset:mad": { index: 2, enabled: true }
+                        "event:womlings": { index: 0, enabled: true, color: "#4269d0" },
+                        "tech:wheel": { index: 1, enabled: true, color: "#efb118" },
+                        "reset:mad": { index: 2, enabled: true, color: "#ff725c" }
                     }
                 });
 
@@ -500,9 +500,9 @@ describe("Export", () => {
 
                 const config = makeConfig(game, {
                     milestones: {
-                        "effect:hot": { index: 0, enabled: true },
-                        "tech:wheel": { index: 1, enabled: true },
-                        "reset:mad": { index: 2, enabled: true }
+                        "effect:hot": { index: 0, enabled: true, color: "#4269d0" },
+                        "tech:wheel": { index: 1, enabled: true, color: "#efb118" },
+                        "reset:mad": { index: 2, enabled: true, color: "#ff725c" }
                     }
                 });
 
@@ -524,11 +524,11 @@ describe("Export", () => {
 
                 const config = makeConfig(game, {
                     milestones: {
-                        "tech:club": { index: 0, enabled: true },
-                        "tech:wheel": { index: 1, enabled: true },
-                        "tech:housing": { index: 2, enabled: true },
-                        "tech:cottage": { index: 3, enabled: true },
-                        "reset:mad": { index: 4, enabled: true }
+                        "tech:club": { index: 0, enabled: true, color: "#4269d0" },
+                        "tech:wheel": { index: 1, enabled: true, color: "#efb118" },
+                        "tech:housing": { index: 2, enabled: true, color: "#ff725c" },
+                        "tech:cottage": { index: 3, enabled: true, color: "#6cc5b0" },
+                        "reset:mad": { index: 4, enabled: true, color: "#3ca951" }
                     }
                 });
 
@@ -557,8 +557,8 @@ describe("Export", () => {
 
                 const config = makeConfig(game, {
                     milestones: {
-                        "event:elerium": { index: 0, enabled: true },
-                        "reset:mad": { index: 1, enabled: true }
+                        "event:elerium": { index: 0, enabled: true, color: "#4269d0" },
+                        "reset:mad": { index: 1, enabled: true, color: "#efb118" }
                     }
                 });
 
@@ -582,9 +582,9 @@ describe("Export", () => {
 
                     const config = makeConfig(game, {
                         milestones: {
-                            "tech:club": { index: 0, enabled: true },
-                            "tech:wheel": { index: 1, enabled: true },
-                            "reset:mad": { index: 2, enabled: true }
+                            "tech:club": { index: 0, enabled: true, color: "#4269d0" },
+                            "tech:wheel": { index: 1, enabled: true, color: "#efb118" },
+                            "reset:mad": { index: 2, enabled: true, color: "#ff725c" }
                         }
                     });
 
@@ -609,11 +609,11 @@ describe("Export", () => {
 
                     const config = makeConfig(game, {
                         milestones: {
-                            "tech:club": { index: 0, enabled: true },
-                            "tech:wheel": { index: 1, enabled: true },
-                            "tech:housing": { index: 2, enabled: true },
-                            "tech:cottage": { index: 3, enabled: true },
-                            "reset:mad": { index: 4, enabled: true }
+                            "tech:club": { index: 0, enabled: true, color: "#4269d0" },
+                            "tech:wheel": { index: 1, enabled: true, color: "#efb118" },
+                            "tech:housing": { index: 2, enabled: true, color: "#ff725c" },
+                            "tech:cottage": { index: 3, enabled: true, color: "#6cc5b0" },
+                            "reset:mad": { index: 4, enabled: true, color: "#3ca951" }
                         }
                     });
 
@@ -644,10 +644,10 @@ describe("Export", () => {
 
                     const config = makeConfig(game, {
                         milestones: {
-                            "tech:club": { index: 0, enabled: true },
-                            "tech:housing": { index: 1, enabled: true },
-                            "tech:cottage": { index: 2, enabled: true },
-                            "reset:mad": { index: 3, enabled: true }
+                            "tech:club": { index: 0, enabled: true, color: "#4269d0" },
+                            "tech:housing": { index: 1, enabled: true, color: "#efb118" },
+                            "tech:cottage": { index: 2, enabled: true, color: "#ff725c" },
+                            "reset:mad": { index: 3, enabled: true, color: "#6cc5b0" }
                         }
                     });
 
@@ -679,10 +679,10 @@ describe("Export", () => {
 
                     const config = makeConfig(game, {
                         milestones: {
-                            "tech:club": { index: 0, enabled: true },
-                            "tech:housing": { index: 1, enabled: true },
-                            "tech:cottage": { index: 2, enabled: true },
-                            "reset:mad": { index: 3, enabled: true }
+                            "tech:club": { index: 0, enabled: true, color: "#4269d0" },
+                            "tech:housing": { index: 1, enabled: true, color: "#efb118" },
+                            "tech:cottage": { index: 2, enabled: true, color: "#ff725c" },
+                            "reset:mad": { index: 3, enabled: true, color: "#6cc5b0" }
                         }
                     });
 
@@ -714,10 +714,10 @@ describe("Export", () => {
 
                     const config = makeConfig(game, {
                         milestones: {
-                            "event:womlings": { index: 0, enabled: true },
-                            "tech:club": { index: 1, enabled: true },
-                            "tech:housing": { index: 2, enabled: true },
-                            "reset:mad": { index: 3, enabled: true }
+                            "event:womlings": { index: 0, enabled: true, color: "#4269d0" },
+                            "tech:club": { index: 1, enabled: true, color: "#efb118" },
+                            "tech:housing": { index: 2, enabled: true, color: "#ff725c" },
+                            "reset:mad": { index: 3, enabled: true, color: "#6cc5b0" }
                         }
                     });
 
