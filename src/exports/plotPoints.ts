@@ -250,13 +250,13 @@ export function runAsPlotPoints(
     }
 
     for (const [effect, start, end] of currentRun.effectsHistory) {
-        if (view.milestones[effect].enabled) {
+        if (view.milestones[effect]?.enabled) {
             addEntry(effect, { day: end, segment: end - start, effect: true });
         }
     }
 
     for (const [effect, start] of Object.entries(currentRun.activeEffects)) {
-        if (view.milestones[effect].enabled) {
+        if (view.milestones[effect]?.enabled) {
             addEntry(effect, { day: currentRun.totalDays, segment: currentRun.totalDays - start, effect: true, pending: true });
         }
     }
@@ -303,7 +303,7 @@ export function asPlotPoints(filteredRuns: HistoryEntry[], history: HistoryManag
         for (const [effect, start, end] of run.effects ?? []) {
             const milestone = history.getMilestone(effect);
 
-            if (view.milestones[milestone].enabled) {
+            if (view.milestones[milestone]?.enabled) {
                 entries.push({
                     run: i,
                     milestone: milestoneNames[milestone],
