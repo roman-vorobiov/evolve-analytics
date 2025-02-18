@@ -604,12 +604,15 @@ export function makeGraph(history: HistoryManager, view: View, game: Game, curre
 
         $(plot).find("> div").sortable({
             placeholder: "sortable-placeholder",
-            beforeStop: function(_, { item }) {
+            start: function() {
+                pendingDraggingLegend.set(view, $(plot).find("> div"));
+            },
+            stop: function(_, { item }) {
+                pendingDraggingLegend.delete(view);
+
                 const milestone = item.find("> svg").attr("data-milestone")!;
                 view.moveMilestone(milestone, item.index() - 1);
-            },
-            start: function() { pendingDraggingLegend.set(view, $(plot).find("> div")); },
-            stop: function() { pendingDraggingLegend.delete(view); }
+            }
         });
     }
 
