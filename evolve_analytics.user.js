@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.14.1
+// @version      0.14.2
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -1240,6 +1240,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         timestamp: "Timestamp",
         duration: "Duration",
         durationStacked: "Duration (stacked)",
+        records: "Records"
     };
     const additionalInformation = {
         raceName: "Race name",
@@ -3265,30 +3266,30 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
     // Store it here and use it in the next redraw
     const pendingColorPicks = new WeakMap();
     const pendingDraggingLegend = new WeakMap();
+    function getType(point) {
+        if (point.event) {
+            return "event";
+        }
+        else if (point.effect) {
+            return "effect";
+        }
+        else {
+            return "milestone";
+        }
+    }
+    function getStatus(point) {
+        if (point.pending) {
+            return "pending";
+        }
+        else if (point.future) {
+            return "future";
+        }
+        else {
+            return "past";
+        }
+    }
     function only({ type, status }) {
         let impl = (point) => true;
-        function getType(point) {
-            if (point.event) {
-                return "event";
-            }
-            else if (point.effect) {
-                return "effect";
-            }
-            else {
-                return "milestone";
-            }
-        }
-        function getStatus(point) {
-            if (point.pending) {
-                return "pending";
-            }
-            else if (point.future) {
-                return "future";
-            }
-            else {
-                return "past";
-            }
-        }
         if (Array.isArray(type)) {
             impl = compose(impl, (point) => type.includes(getType(point)));
         }
@@ -3328,30 +3329,58 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         }
         return timestamps.reverse();
     }
-    function smooth(smoothness, history, params) {
+    function smooth(smoothness, numRuns, params) {
         let avgWindowSize;
         switch (smoothness) {
             case 0:
                 avgWindowSize = 1;
                 break;
             case 100:
-                avgWindowSize = history.length;
+                avgWindowSize = numRuns;
                 break;
             default: {
                 // Make the transformation from the smoothness % into the number of runs exponential
                 // because the average window has decreasingly less impact on the lines as it grows
                 const curveSteepness = 5;
-                const value = Math.exp(smoothness / 100 * curveSteepness - curveSteepness) * history.length;
+                const value = Math.exp(smoothness / 100 * curveSteepness - curveSteepness) * numRuns;
                 avgWindowSize = Math.round(value) || 1;
                 break;
             }
         }
         return Plot.windowY({ k: avgWindowSize }, params);
     }
+    function monotonic(numRuns, params) {
+        return Plot.windowY({ k: numRuns, reduce: "min", anchor: "end" }, params);
+    }
     // Plot.stackY outputs the middle between y1 and y2 as y for whatever reason - use y2 to place ticks on top
     function adjustedStackY(options) {
         const convert = ({ y1, y2, ...options }) => ({ ...options, y: y2 });
         return convert(Plot.stackY(options));
+    }
+    function bestSegments(plotPoints) {
+        const result = {};
+        for (const point of plotPoints) {
+            if (getType(point) !== "milestone") {
+                continue;
+            }
+            else if (point.milestone in result) {
+                result[point.milestone] = Math.min(result[point.milestone], point.day);
+            }
+            else {
+                result[point.milestone] = point.day;
+            }
+        }
+        return result;
+    }
+    function* bestSegmentTimes(plotPoints) {
+        const lastRunMilestones = lastRunEntries(plotPoints)
+            .filter(point => !point.effect && !point.pending)
+            .map(entry => entry.milestone);
+        const times = filterMap(bestSegments(plotPoints), ([milestone]) => lastRunMilestones.includes(milestone));
+        yield Plot.axisY(Object.values(times), {
+            anchor: "right",
+            label: null
+        });
     }
     function* timestamps(plotPoints, key) {
         const lastRunTimestamps = lastRunEntries(plotPoints)
@@ -3383,8 +3412,8 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             text: () => `Fastest (all time): ${bestTime} day(s)\nAverage (${runs.length} runs): ${averageTime} day(s)`
         });
     }
-    function* areaMarks(plotPoints, history, smoothness) {
-        yield Plot.areaY(plotPoints, smooth(smoothness, history, {
+    function* areaMarks(plotPoints, numRuns, smoothness) {
+        yield Plot.areaY(plotPoints, smooth(smoothness, numRuns, {
             x: "run",
             y: "dayDiff",
             z: "milestone",
@@ -3393,7 +3422,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             filter: only({ type: "milestone", status: ["past", "pending"] }),
             title: "milestone"
         }));
-        yield Plot.areaY(plotPoints, smooth(smoothness, history, {
+        yield Plot.areaY(plotPoints, smooth(smoothness, numRuns, {
             x: "run",
             y1: "day",
             y2: (entry) => entry.day - entry.segment,
@@ -3404,13 +3433,24 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             title: "milestone"
         }));
     }
-    function* lineMarks(plotPoints, history, key, smoothness) {
-        yield Plot.lineY(plotPoints, smooth(smoothness, history, {
+    function* lineMarks(plotPoints, numRuns, key, smoothness) {
+        yield Plot.lineY(plotPoints, smooth(smoothness, numRuns, {
             x: "run",
             y: key,
             z: "milestone",
             stroke: "milestone",
             filter: only({ type: ["milestone", "event"] }),
+            title: "milestone"
+        }));
+    }
+    function* recordMarks(plotPoints, numRuns) {
+        yield Plot.lineY(plotPoints, monotonic(numRuns, {
+            x: "run",
+            y: "day",
+            z: "milestone",
+            curve: "step-after",
+            stroke: "milestone",
+            filter: only({ type: "milestone" }),
             title: "milestone"
         }));
     }
@@ -3544,27 +3584,38 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         }
         return `${prefix}: ${point.milestone} ${suffix}`;
     }
-    function* linePointerMarks(plotPoints, history, key) {
+    function* linePointerMarks(plotPoints, history, key, smoothness) {
+        let filter;
+        let convert;
+        if (smoothness === undefined) {
+            filter = only({ type: "milestone" });
+            convert = (options) => monotonic(history.length, options);
+        }
+        else {
+            filter = not({ type: "effect" });
+            convert = (options) => smooth(smoothness, history.length, options);
+        }
         yield Plot.text(plotPoints, Plot.pointerX({
             px: "run",
             py: key,
             dy: topTextOffset,
             frameAnchor: "top-left",
             text: (p) => tipText(p, key, history),
-            filter: not({ type: "effect" })
+            filter
         }));
         yield Plot.ruleX(plotPoints, Plot.pointerX({
             x: "run",
             py: key,
-            filter: not({ type: "effect" })
+            filter
         }));
-        yield Plot.dot(plotPoints, Plot.pointerX({
+        yield Plot.dot(plotPoints, Plot.pointerX(convert({
             x: "run",
             y: key,
+            z: "milestone",
             fill: "currentColor",
             r: 2,
-            filter: not({ type: "effect" })
-        }));
+            filter
+        })));
     }
     function* rectPointerMarks(plotPoints, history, segmentKey, tipKey) {
         // Transform pointer position from the point to the segment
@@ -3603,26 +3654,32 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
                 }
                 if (view.showLines) {
                     if (view.fillArea) {
-                        marks.push(...areaMarks(plotPoints, filteredRuns, view.smoothness));
+                        marks.push(...areaMarks(plotPoints, filteredRuns.length, view.smoothness));
                     }
-                    marks.push(...lineMarks(plotPoints, filteredRuns, "day", view.smoothness));
-                    // Don't show the lines' pointer if the bars' one is shown or if the lines are smoothed
-                    if (!view.showBars && view.smoothness === 0) {
-                        marks.push(...linePointerMarks(plotPoints, filteredRuns, "day"));
+                    marks.push(...lineMarks(plotPoints, filteredRuns.length, "day", view.smoothness));
+                    // Don't show the lines' pointer if the bars' one is shown
+                    if (!view.showBars) {
+                        marks.push(...linePointerMarks(plotPoints, filteredRuns, "day", view.smoothness));
                     }
                 }
                 marks.push(...timestamps(plotPoints, "day"));
                 marks.push(...statsMarks(filteredRuns, bestRun));
                 break;
             case "duration":
-                marks.push(...lineMarks(plotPoints, filteredRuns, "segment", view.smoothness));
+                marks.push(...lineMarks(plotPoints, filteredRuns.length, "segment", view.smoothness));
                 marks.push(...timestamps(plotPoints, "segment"));
-                marks.push(...linePointerMarks(plotPoints, filteredRuns, "segment"));
+                marks.push(...linePointerMarks(plotPoints, filteredRuns, "segment", view.smoothness));
                 break;
             case "durationStacked":
                 marks.push(...barMarks(plotPoints, "segment"));
                 marks.push(...lollipopMarks(plotPoints, true, filteredRuns.length));
                 marks.push(...rectPointerMarks(plotPoints, filteredRuns, "segment", "segment"));
+                break;
+            case "records":
+                marks.push(...recordMarks(plotPoints, filteredRuns.length));
+                marks.push(...linePointerMarks(plotPoints, filteredRuns, "day"));
+                marks.push(...bestSegmentTimes(plotPoints));
+                marks.push(...statsMarks(filteredRuns, bestRun));
                 break;
         }
         return marks;
@@ -3637,7 +3694,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         const filteredRuns = applyFilters(history, view);
         const bestRun = findBestRun(history, view);
         const plotPoints = asPlotPoints(filteredRuns, history, view, game);
-        if (view.includeCurrentRun) {
+        if (view.includeCurrentRun && view.mode !== "records") {
             plotPoints.push(...processCurrentRun(currentRun, filteredRuns, bestRun, view, history, game));
         }
         const milestones = getSortedMilestones(view);
