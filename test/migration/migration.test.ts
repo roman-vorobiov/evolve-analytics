@@ -175,7 +175,6 @@ describe("Migration", () => {
         expect(loadConfig()).toEqual({
             version: 14,
             recordRuns: true,
-            lastOpenViewIndex: 0,
             views: []
         });
 
