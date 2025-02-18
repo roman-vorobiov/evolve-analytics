@@ -70,6 +70,7 @@ export const viewModes = {
     timestamp: "Timestamp",
     duration: "Duration",
     durationStacked: "Duration (stacked)",
+    records: "Records"
 };
 
 export const additionalInformation = {

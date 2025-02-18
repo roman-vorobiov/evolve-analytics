@@ -2,7 +2,7 @@ import { applyFilters } from "../exports/historyFiltering";
 import { findBestRun, runTime, getSortedMilestones } from "../exports/utils";
 import { asPlotPoints, runAsPlotPoints, type PlotPoint } from "../exports/plotPoints";
 import { generateMilestoneNames, isEffectMilestone, isEventMilestone } from "../milestones";
-import { compose } from "../utils";
+import { compose, filterMap } from "../utils";
 import { makeColorPicker } from "./utils";
 import type { View } from "../config";
 import type { HistoryEntry, HistoryManager } from "../history";
@@ -21,32 +21,32 @@ const marginTop = 30;
 const pendingColorPicks = new WeakMap<View, [string, string]>();
 const pendingDraggingLegend = new WeakMap<View, JQuery<HTMLElement>>();
 
+function getType(point: PlotPoint) {
+    if (point.event) {
+        return "event";
+    }
+    else if (point.effect) {
+        return "effect";
+    }
+    else {
+        return "milestone";
+    }
+}
+
+function getStatus(point: PlotPoint) {
+    if (point.pending) {
+        return "pending";
+    }
+    else if (point.future) {
+        return "future";
+    }
+    else {
+        return "past";
+    }
+}
+
 function only({ type, status }: { type?: string[] | string, status?: string[] | string }) {
     let impl = (point: PlotPoint) => true;
-
-    function getType(point: PlotPoint) {
-        if (point.event) {
-            return "event";
-        }
-        else if (point.effect) {
-            return "effect";
-        }
-        else {
-            return "milestone";
-        }
-    }
-
-    function getStatus(point: PlotPoint) {
-        if (point.pending) {
-            return "pending";
-        }
-        else if (point.future) {
-            return "future";
-        }
-        else {
-            return "past";
-        }
-    }
 
     if (Array.isArray(type)) {
         impl = compose(impl, (point: PlotPoint) => type.includes(getType(point)));
@@ -97,7 +97,7 @@ function lastRunEntries(plotPoints: PlotPoint[]): PlotPoint[] {
     return timestamps.reverse();
 }
 
-function smooth<T>(smoothness: number, history: HistoryEntry[], params: T): T {
+function smooth<T>(smoothness: number, numRuns: number, params: T): T {
     let avgWindowSize;
     switch (smoothness) {
         case 0:
@@ -105,14 +105,14 @@ function smooth<T>(smoothness: number, history: HistoryEntry[], params: T): T {
             break;
 
         case 100:
-            avgWindowSize = history.length;
+            avgWindowSize = numRuns;
             break;
 
         default: {
             // Make the transformation from the smoothness % into the number of runs exponential
             // because the average window has decreasingly less impact on the lines as it grows
             const curveSteepness = 5;
-            const value = Math.exp(smoothness / 100 * curveSteepness - curveSteepness) * history.length;
+            const value = Math.exp(smoothness / 100 * curveSteepness - curveSteepness) * numRuns;
             avgWindowSize = Math.round(value) || 1;
             break;
         }
@@ -121,10 +121,45 @@ function smooth<T>(smoothness: number, history: HistoryEntry[], params: T): T {
     return Plot.windowY({ k: avgWindowSize }, params);
 }
 
+function monotonic<T>(numRuns: number, params: T): T {
+    return Plot.windowY({ k: numRuns, reduce: "min", anchor: "end" }, params);
+}
+
 // Plot.stackY outputs the middle between y1 and y2 as y for whatever reason - use y2 to place ticks on top
 function adjustedStackY<T>(options: T & PlotType.StackOptions) {
     const convert = ({ y1, y2, ...options }: any) => ({ ...options, y: y2 });
     return convert(Plot.stackY(options));
+}
+
+function bestSegments(plotPoints: PlotPoint[]): Record<string, number> {
+    const result: Record<string, number> = {};
+
+    for (const point of plotPoints) {
+        if (getType(point) !== "milestone") {
+            continue;
+        }
+        else if (point.milestone in result) {
+            result[point.milestone] = Math.min(result[point.milestone], point.day);
+        }
+        else {
+            result[point.milestone] = point.day;
+        }
+    }
+
+    return result;
+}
+
+function* bestSegmentTimes(plotPoints: PlotPoint[]) {
+    const lastRunMilestones = lastRunEntries(plotPoints)
+        .filter(point => !point.effect && !point.pending)
+        .map(entry => entry.milestone);
+
+    const times = filterMap(bestSegments(plotPoints), ([milestone]) => lastRunMilestones.includes(milestone));
+
+    yield Plot.axisY(Object.values(times), {
+        anchor: "right",
+        label: null
+    });
 }
 
 function* timestamps(plotPoints: PlotPoint[], key: "day" | "segment") {
@@ -163,8 +198,8 @@ function* statsMarks(runs: HistoryEntry[], bestRun: HistoryEntry | undefined) {
     });
 }
 
-function* areaMarks(plotPoints: PlotPoint[], history: HistoryEntry[], smoothness: number) {
-    yield Plot.areaY(plotPoints, smooth(smoothness, history, {
+function* areaMarks(plotPoints: PlotPoint[], numRuns: number, smoothness: number) {
+    yield Plot.areaY(plotPoints, smooth(smoothness, numRuns, {
         x: "run",
         y: "dayDiff",
         z: "milestone",
@@ -174,7 +209,7 @@ function* areaMarks(plotPoints: PlotPoint[], history: HistoryEntry[], smoothness
         title: "milestone"
     }));
 
-    yield Plot.areaY(plotPoints, smooth(smoothness, history, {
+    yield Plot.areaY(plotPoints, smooth(smoothness, numRuns, {
         x: "run",
         y1: "day",
         y2: (entry: PlotPoint) => entry.day - entry.segment,
@@ -186,13 +221,25 @@ function* areaMarks(plotPoints: PlotPoint[], history: HistoryEntry[], smoothness
     }));
 }
 
-function* lineMarks(plotPoints: PlotPoint[], history: HistoryEntry[], key: "day" | "segment", smoothness: number) {
-    yield Plot.lineY(plotPoints, smooth(smoothness, history, {
+function* lineMarks(plotPoints: PlotPoint[], numRuns: number, key: "day" | "segment", smoothness: number) {
+    yield Plot.lineY(plotPoints, smooth(smoothness, numRuns, {
         x: "run",
         y: key,
         z: "milestone",
         stroke: "milestone",
         filter: only({ type: ["milestone", "event"] }),
+        title: "milestone"
+    }));
+}
+
+function* recordMarks(plotPoints: PlotPoint[], numRuns: number) {
+    yield Plot.lineY(plotPoints, monotonic(numRuns, {
+        x: "run",
+        y: "day",
+        z: "milestone",
+        curve: "step-after",
+        stroke: "milestone",
+        filter: only({ type: "milestone" }),
         title: "milestone"
     }));
 }
@@ -353,29 +400,41 @@ function tipText(point: PlotPoint, key: "day" | "dayDiff" | "segment", history: 
     return `${prefix}: ${point.milestone} ${suffix}`;
 }
 
-function* linePointerMarks(plotPoints: PlotPoint[], history: HistoryEntry[], key: "day" | "segment") {
+function* linePointerMarks(plotPoints: PlotPoint[], history: HistoryEntry[], key: "day" | "segment", smoothness?: number) {
+    let filter: (p: PlotPoint) => boolean;
+    let convert: <T>(options: T) => T;
+    if (smoothness === undefined) {
+        filter = only({ type: "milestone" });
+        convert = <T>(options: T) => monotonic(history.length, options);
+    }
+    else {
+        filter = not({ type: "effect" });
+        convert = <T>(options: T) => smooth(smoothness, history.length, options);
+    }
+
     yield Plot.text(plotPoints, Plot.pointerX({
         px: "run",
         py: key,
         dy: topTextOffset,
         frameAnchor: "top-left",
         text: (p: PlotPoint) => tipText(p, key, history),
-        filter: not({ type: "effect" })
+        filter
     }));
 
     yield Plot.ruleX(plotPoints, Plot.pointerX({
         x: "run",
         py: key,
-        filter: not({ type: "effect" })
+        filter
     }));
 
-    yield Plot.dot(plotPoints, Plot.pointerX({
+    yield Plot.dot(plotPoints, Plot.pointerX(convert({
         x: "run",
         y: key,
+        z: "milestone",
         fill: "currentColor",
         r: 2,
-        filter: not({ type: "effect" })
-    }));
+        filter
+    })));
 }
 
 function* rectPointerMarks(plotPoints: PlotPoint[], history: HistoryEntry[], segmentKey: "dayDiff" | "segment", tipKey: "day" | "segment") {
@@ -420,14 +479,14 @@ function generateMarks(plotPoints: PlotPoint[], filteredRuns: HistoryEntry[], be
 
             if (view.showLines) {
                 if (view.fillArea) {
-                    marks.push(...areaMarks(plotPoints, filteredRuns, view.smoothness));
+                    marks.push(...areaMarks(plotPoints, filteredRuns.length, view.smoothness));
                 }
 
-                marks.push(...lineMarks(plotPoints, filteredRuns, "day", view.smoothness));
+                marks.push(...lineMarks(plotPoints, filteredRuns.length, "day", view.smoothness));
 
-                // Don't show the lines' pointer if the bars' one is shown or if the lines are smoothed
-                if (!view.showBars && view.smoothness === 0) {
-                    marks.push(...linePointerMarks(plotPoints, filteredRuns, "day"));
+                // Don't show the lines' pointer if the bars' one is shown
+                if (!view.showBars) {
+                    marks.push(...linePointerMarks(plotPoints, filteredRuns, "day", view.smoothness));
                 }
             }
 
@@ -436,15 +495,22 @@ function generateMarks(plotPoints: PlotPoint[], filteredRuns: HistoryEntry[], be
             break;
 
         case "duration":
-            marks.push(...lineMarks(plotPoints, filteredRuns, "segment", view.smoothness));
+            marks.push(...lineMarks(plotPoints, filteredRuns.length, "segment", view.smoothness));
             marks.push(...timestamps(plotPoints, "segment"));
-            marks.push(...linePointerMarks(plotPoints, filteredRuns, "segment"));
+            marks.push(...linePointerMarks(plotPoints, filteredRuns, "segment", view.smoothness));
             break;
 
         case "durationStacked":
             marks.push(...barMarks(plotPoints, "segment"));
             marks.push(...lollipopMarks(plotPoints, true, filteredRuns.length));
             marks.push(...rectPointerMarks(plotPoints, filteredRuns, "segment", "segment"));
+            break;
+
+        case "records":
+            marks.push(...recordMarks(plotPoints, filteredRuns.length));
+            marks.push(...linePointerMarks(plotPoints, filteredRuns, "day"));
+            marks.push(...bestSegmentTimes(plotPoints));
+            marks.push(...statsMarks(filteredRuns, bestRun));
             break;
 
         default:
@@ -476,7 +542,7 @@ export function makeGraph(history: HistoryManager, view: View, game: Game, curre
     const bestRun = findBestRun(history, view);
 
     const plotPoints = asPlotPoints(filteredRuns, history, view, game);
-    if (view.includeCurrentRun) {
+    if (view.includeCurrentRun && view.mode !== "records") {
         plotPoints.push(...processCurrentRun(currentRun, filteredRuns, bestRun, view, history, game));
     }
 
