@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.14.0
+// @version      0.14.1
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -3744,12 +3744,14 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             });
             $(plot).find("> div").sortable({
                 placeholder: "sortable-placeholder",
-                beforeStop: function (_, { item }) {
+                start: function () {
+                    pendingDraggingLegend.set(view, $(plot).find("> div"));
+                },
+                stop: function (_, { item }) {
+                    pendingDraggingLegend.delete(view);
                     const milestone = item.find("> svg").attr("data-milestone");
                     view.moveMilestone(milestone, item.index() - 1);
-                },
-                start: function () { pendingDraggingLegend.set(view, $(plot).find("> div")); },
-                stop: function () { pendingDraggingLegend.delete(view); }
+                }
             });
         }
         $(plot).find("> svg").attr("width", "100%");
