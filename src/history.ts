@@ -82,6 +82,7 @@ export class HistoryManager extends Subscribable {
         const entry: HistoryEntry = {
             run: runStats.run,
             universe: runStats.universe!,
+            starLevel: runStats.starLevel,
             milestones,
             effects: effects.length === 0 ? undefined : effects
         };

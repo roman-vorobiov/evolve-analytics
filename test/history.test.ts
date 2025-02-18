@@ -82,6 +82,32 @@ describe("History", () => {
             });
         });
 
+        it("should add the star level", () => {
+            const game = new Game(makeGameState({ global: { stats: { bioseed: 1 } } }));
+            const history = makeHistory({ game }, blankHistory());
+
+            history.commitRun({
+                run: 123,
+                universe: "standard",
+                starLevel: 3,
+                resets: {},
+                totalDays: 456,
+                milestones: {},
+                activeEffects: {},
+                effectsHistory: []
+            });
+
+            expect(history.runs.length).toBe(1);
+            expect(history.runs[0]).toEqual(<HistoryEntry> {
+                run: 123,
+                universe: "standard",
+                starLevel: 3,
+                milestones: [
+                    [0, 456]
+                ]
+            });
+        });
+
         it("should reuse existing milestone IDs", () => {
             const game = new Game(makeGameState({ global: { stats: { bioseed: 1 } } }));
             const history = makeHistory({ game }, {

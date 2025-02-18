@@ -26,7 +26,7 @@ export type Config12 = {
     views: ViewConfig12[]
 }
 
-function getResetType(entry: HistoryEntry, milestonesByID: Record<number, string>) {
+export function getResetType(entry: HistoryEntry, milestonesByID: Record<number, string>) {
     const [milestoneID] = entry.milestones[entry.milestones.length - 1];
     const milestone = milestonesByID[milestoneID];
 
