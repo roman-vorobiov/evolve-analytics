@@ -1,5 +1,5 @@
 import { applyFilters } from "../exports/historyFiltering";
-import { findBestRun, runTime } from "../exports/utils";
+import { findBestRun, runTime, getSortedMilestones } from "../exports/utils";
 import { asPlotPoints, runAsPlotPoints, type PlotPoint } from "../exports/plotPoints";
 import { generateMilestoneNames, isEffectMilestone, isEventMilestone } from "../milestones";
 import { compose } from "../utils";
@@ -16,9 +16,10 @@ declare const Plot: typeof PlotType;
 const topTextOffset = -27;
 const marginTop = 30;
 
-// If the graph gets redrawn while the color picker is open, the pending value is lost
-// Store it here and use it as the milestone color in the next redraw
+// If the graph gets redrawn while sorting is in progress or the color picker is open, the pending state is lost
+// Store it here and use it in the next redraw
 const pendingColorPicks = new WeakMap<View, [string, string]>();
+const pendingDraggingLegend = new WeakMap<View, JQuery<HTMLElement>>();
 
 function only({ type, status }: { type?: string[] | string, status?: string[] | string }) {
     let impl = (point: PlotPoint) => true;
@@ -478,7 +479,7 @@ export function makeGraph(history: HistoryManager, view: View, game: Game, curre
         plotPoints.push(...processCurrentRun(currentRun, filteredRuns, bestRun, view, history, game));
     }
 
-    const milestones = Object.keys(view.milestones).sort((l, r) => view.milestones[l].index - view.milestones[r].index);
+    const milestones = getSortedMilestones(view);
     const milestoneNames = generateMilestoneNames(milestones, view.universe);
     const milestoneColors = milestones.map(m => view.milestones[m].color);
 
@@ -520,75 +521,96 @@ export function makeGraph(history: HistoryManager, view: View, game: Game, curre
     });
 
     // Process legend
-    $(plot).find("> div > span").each(function() {
-        const svgNode = $(this).find("> svg");
-
-        const milestone = milestones[$(this).index() - 1];
-        const milestoneName = milestoneNames[$(this).index() - 1];
-
-        const defaultColor = svgNode.attr("fill")!;
-
-        // Styling
-        $(this).css("font-size", "1rem");
-
-        if (isEffectMilestone(milestone)) {
-            svgNode
-                .attr("fill", null)
-                .attr("fill-opacity", "0")
-                .attr("stroke", defaultColor);
-        }
-        else if (isEventMilestone(milestone)) {
-            svgNode.find("> rect").replaceWith(`<circle cx="50%" cy="50%" r="50%"></circle>`);
-            svgNode.html(svgNode.html());
-        }
-
-        // Toggle milestones on click
-        $(this).css("cursor", "pointer")
-
-        $(this).toggleClass("crossed", !view.milestones[milestone].enabled);
-
-        $(this).on("click", function(event) {
-            // Ignore clicks on the svg
-            if (event.target !== this) {
-                return;
-            }
+    if (pendingDraggingLegend.has(view)) {
+        $(plot).find("> div").replaceWith(pendingDraggingLegend.get(view)!);
+    }
+    else
+    {
+        $(plot).find("> div > span").each(function() {
+            const svgNode = $(this).find("> svg");
 
             const milestone = milestones[$(this).index() - 1];
-            view.toggleMilestone(milestone);
-        });
+            const milestoneName = milestoneNames[$(this).index() - 1];
 
-        // Set up color picker
-        const setMarksColor = (value: string) => {
-            function impl() {
-                if ($(this).attr("fill") !== undefined) {
-                    $(this).attr("fill", value);
-                }
-                if ($(this).attr("stroke") !== undefined) {
-                    $(this).attr("stroke", value);
-                }
+            const defaultColor = svgNode.attr("fill")!;
+
+            // Metadata
+            svgNode
+                .attr("data-view", view.index())
+                .attr("data-milestone", milestone);
+
+            // Styling
+            $(this).css("font-size", "1rem");
+
+            if (isEffectMilestone(milestone)) {
+                svgNode
+                    .attr("fill", null)
+                    .attr("fill-opacity", "0")
+                    .attr("stroke", defaultColor);
+            }
+            else if (isEventMilestone(milestone)) {
+                svgNode.find("> rect").replaceWith(`<circle cx="50%" cy="50%" r="50%"></circle>`);
+                svgNode.html(svgNode.html());
             }
 
-            svgNode.each(impl);
+            // Toggle milestones on click
+            $(this).css("cursor", "pointer")
 
-            $(`figure [data-milestone="${milestoneName}"]`).each(impl);
-        };
+            $(this).toggleClass("crossed", !view.milestones[milestone].enabled);
 
-        makeColorPicker(svgNode, 3, defaultColor, {
-            onChange: (value) => {
-                pendingColorPicks.set(view, [milestone, value]);
-                setMarksColor(value);
-            },
-            onSave: (value) => {
-                pendingColorPicks.delete(view);
-                view.setMilestoneColor(milestone, value);
-            },
-            onCancel: () => {
-                pendingColorPicks.delete(view);
-                setMarksColor(defaultColor);
-            },
-            currentColor: () => view.milestones[milestone].color
+            $(this).on("click", function(event) {
+                // Ignore clicks on the svg
+                if (event.target !== this) {
+                    return;
+                }
+
+                const milestone = milestones[$(this).index() - 1];
+                view.toggleMilestone(milestone);
+            });
+
+            // Set up color picker
+            const setMarksColor = (value: string) => {
+                function impl() {
+                    if ($(this).attr("fill") !== undefined) {
+                        $(this).attr("fill", value);
+                    }
+                    if ($(this).attr("stroke") !== undefined) {
+                        $(this).attr("stroke", value);
+                    }
+                }
+
+                svgNode.each(impl);
+
+                $(`figure [data-milestone="${milestoneName}"]`).each(impl);
+            };
+
+            makeColorPicker(svgNode, 3, defaultColor, {
+                onChange: (value) => {
+                    pendingColorPicks.set(view, [milestone, value]);
+                    setMarksColor(value);
+                },
+                onSave: (value) => {
+                    pendingColorPicks.delete(view);
+                    view.setMilestoneColor(milestone, value);
+                },
+                onCancel: () => {
+                    pendingColorPicks.delete(view);
+                    setMarksColor(defaultColor);
+                },
+                currentColor: () => view.milestones[milestone].color
+            });
         });
-    });
+
+        $(plot).find("> div").sortable({
+            placeholder: "sortable-placeholder",
+            beforeStop: function(_, { item }) {
+                const milestone = item.find("> svg").attr("data-milestone")!;
+                view.moveMilestone(milestone, item.index() - 1);
+            },
+            start: function() { pendingDraggingLegend.set(view, $(plot).find("> div")); },
+            stop: function() { pendingDraggingLegend.delete(view); }
+        });
+    }
 
     $(plot).find("> svg").attr("width", "100%");
 

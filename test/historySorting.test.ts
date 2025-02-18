@@ -1,14 +1,9 @@
 import { describe, expect, it } from "@jest/globals";
 import { makeGameState, makeConfig, makeView, makeMilestones, makeHistory } from "./fixture";
 
-import { sortMilestones } from "../src/exports/utils";
+import { sortMilestones, getSortedMilestones } from "../src/exports/utils";
 import { Game } from "../src/game";
 import { blankHistory } from "../src/history";
-import type { ViewConfig } from "../src/config";
-
-function getMilestones(view: ViewConfig) {
-    return Object.keys(view.milestones).sort((l, r) => view.milestones[l].index - view.milestones[r].index);
-}
 
 describe("Export", () => {
     describe("Sorting", () => {
@@ -26,7 +21,7 @@ describe("Export", () => {
 
             sortMilestones(view, history);
 
-            expect(getMilestones(view)).toEqual([
+            expect(getSortedMilestones(view)).toEqual([
                 "tech:club",
                 "tech:wheel"
             ]);
@@ -65,7 +60,7 @@ describe("Export", () => {
 
             sortMilestones(view, history);
 
-            expect(getMilestones(view)).toEqual([
+            expect(getSortedMilestones(view)).toEqual([
                 "reset:blackhole",
                 "tech:wheel",
                 "tech:club"
@@ -105,7 +100,7 @@ describe("Export", () => {
 
             sortMilestones(view, history);
 
-            expect(getMilestones(view)).toEqual([
+            expect(getSortedMilestones(view)).toEqual([
                 "reset:blackhole",
                 "tech:club",
                 "tech:wheel"
@@ -149,7 +144,7 @@ describe("Export", () => {
 
             sortMilestones(view, history);
 
-            expect(getMilestones(view)).toEqual([
+            expect(getSortedMilestones(view)).toEqual([
                 "reset:blackhole",
                 "tech:wheel",
                 "tech:club",
@@ -187,7 +182,7 @@ describe("Export", () => {
 
             sortMilestones(view, history);
 
-            expect(getMilestones(view)).toEqual([
+            expect(getSortedMilestones(view)).toEqual([
                 "reset:blackhole",
                 "effect:hot",
                 "effect:cold"

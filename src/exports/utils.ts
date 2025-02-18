@@ -68,3 +68,7 @@ export function sortMilestones(view: ViewConfig, history: HistoryManager) {
         view.milestones[milestone].index = i;
     }
 }
+
+export function getSortedMilestones(view: ViewConfig): string[] {
+    return Object.keys(view.milestones).sort((l, r) => view.milestones[l].index - view.milestones[r].index);
+}

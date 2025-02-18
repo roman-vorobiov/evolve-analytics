@@ -4,6 +4,7 @@ import colorScheme from "./enums/colorSchemes";
 import { effectColors } from "./effects";
 import type { resets, universes, viewModes, additionalInformation } from "./enums";
 import type { Game } from "./game";
+import { getSortedMilestones } from "./exports/utils";
 
 export type ViewConfig = {
     resetType: keyof typeof resets,
@@ -26,7 +27,9 @@ export type View = ViewConfig & {
     setMilestoneColor(milestone: string, color: string): void;
     addMilestone(milestone: string): void;
     removeMilestone(milestone: string): void;
+    moveMilestone(milestone: string, newIndex: number): void;
     toggleAdditionalInfo(key: keyof typeof additionalInformation): void;
+    index(): number;
 }
 
 export type Config = {
@@ -38,57 +41,81 @@ export type Config = {
 
 function makeViewProxy(config: ConfigManager, view: ViewConfig): View {
     return <View> new Proxy(view, {
-        get(obj, prop, receiver) {
-            if (prop === "toggleMilestone") {
-                return (milestone: string) => {
-                    const info = view.milestones[milestone];
-                    if (info !== undefined) {
-                        info.enabled = !info.enabled;
-                        config.emit("viewUpdated", receiver);
-                    }
-                };
+        get(obj, prop: keyof View, receiver) {
+            function updateMilestoneOrder(milestones: string[]) {
+                for (let i = 0; i !== milestones.length; ++i) {
+                    view.milestones[milestones[i]].index = i;
+                }
             }
-            else if (prop === "setMilestoneColor") {
-                return (milestone: string, color: string) => {
-                    const info = view.milestones[milestone];
-                    if (info !== undefined) {
-                        info.color = color;
-                        config.emit("viewUpdated", receiver);
-                    }
-                };
-            }
-            else if (prop === "addMilestone") {
-                return (milestone: string) => {
-                    const index = Object.entries(view.milestones).length;
-                    const colors = Object.values(colorScheme);
-                    const color = effectColors[milestone] ?? colors[index % colors.length];
 
-                    view.milestones[milestone] = { index, enabled: true, color };
-                    config.emit("viewUpdated", receiver);
-                };
-            }
-            else if (prop === "removeMilestone") {
-                return (milestone: string) => {
-                    if (milestone in view.milestones) {
-                        delete view.milestones[milestone];
+            switch (prop) {
+                case "index":
+                    return () => config.views.indexOf(receiver);
+
+                case "toggleMilestone":
+                    return (milestone: string) => {
+                        const info = view.milestones[milestone];
+                        if (info !== undefined) {
+                            info.enabled = !info.enabled;
+                            config.emit("viewUpdated", receiver);
+                        }
+                    };
+
+                case "setMilestoneColor":
+                    return (milestone: string, color: string) => {
+                        const info = view.milestones[milestone];
+                        if (info !== undefined) {
+                            info.color = color;
+                            config.emit("viewUpdated", receiver);
+                        }
+                    };
+
+                case "moveMilestone":
+                    return (milestone: string, newIndex: number) => {
+                        const oldIndex = view.milestones[milestone]?.index;
+                        if (oldIndex >= 0 && oldIndex !== newIndex) {
+                            const milestones = getSortedMilestones(view);
+                            milestones.splice(oldIndex, 1);
+                            milestones.splice(newIndex, 0, milestone);
+
+                            updateMilestoneOrder(milestones);
+                            config.emit("viewUpdated", receiver);
+                        }
+                    };
+
+                case "addMilestone":
+                    return (milestone: string) => {
+                        const index = Object.entries(view.milestones).length;
+                        const colors = Object.values(colorScheme);
+                        const color = effectColors[milestone] ?? colors[index % colors.length];
+
+                        view.milestones[milestone] = { index, enabled: true, color };
                         config.emit("viewUpdated", receiver);
-                    }
-                };
-            }
-            if (prop === "toggleAdditionalInfo") {
-                return (key: keyof typeof additionalInformation) => {
-                    const idx = view.additionalInfo.indexOf(key);
-                    if (idx !== -1) {
-                        view.additionalInfo.splice(idx, 1);
-                    }
-                    else {
-                        view.additionalInfo.push(key);
-                    }
-                    config.emit("viewUpdated", receiver);
-                };
-            }
-            else {
-                return Reflect.get(obj, prop, receiver);
+                    };
+
+                case "removeMilestone":
+                    return (milestone: string) => {
+                        if (milestone in view.milestones) {
+                            delete view.milestones[milestone];
+                            updateMilestoneOrder(getSortedMilestones(view));
+                            config.emit("viewUpdated", receiver);
+                        }
+                    };
+
+                case "toggleAdditionalInfo":
+                    return (key: keyof typeof additionalInformation) => {
+                        const idx = view.additionalInfo.indexOf(key);
+                        if (idx !== -1) {
+                            view.additionalInfo.splice(idx, 1);
+                        }
+                        else {
+                            view.additionalInfo.push(key);
+                        }
+                        config.emit("viewUpdated", receiver);
+                    };
+
+                default:
+                    return Reflect.get(obj, prop, receiver);
             }
         },
         set(obj, prop, value, receiver) {

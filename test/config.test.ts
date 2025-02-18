@@ -235,6 +235,40 @@ describe("Config", () => {
         });
     });
 
+    it("should update indices when a milestone is removed", () => {
+        const config = makeConfig({
+            views: [
+                makeView({
+                    milestones: {
+                        "tech:club": { index: 0, enabled: true, color: colorScheme.blue },
+                        "tech:wheel": { index: 1, enabled: true, color: colorScheme.orange },
+                        "reset:blackhole": { index: 2, enabled: true, color: colorScheme.red }
+                    }
+                })
+            ]
+        });
+
+        let modifiedView: View | undefined = undefined;
+        config.on("viewUpdated", v => { modifiedView = v; });
+
+        config.views[0].removeMilestone("tech:wheel");
+
+        expect(modifiedView).toEqual({
+            mode: "timestamp",
+            showBars: false,
+            showLines: true,
+            fillArea: true,
+            smoothness: 0,
+            resetType: "blackhole",
+            universe: "standard",
+            milestones: {
+                "tech:club": { index: 0, enabled: true, color: colorScheme.blue },
+                "reset:blackhole": { index: 1, enabled: true, color: colorScheme.red }
+            },
+            additionalInfo: []
+        });
+    });
+
     it("should emit events when a milestone is modified", () => {
         const config = makeConfig({
             views: [
@@ -259,6 +293,41 @@ describe("Config", () => {
             universe: "standard",
             milestones: {
                 "reset:blackhole": { index: 0, enabled: false, color: colorScheme.blue }
+            },
+            additionalInfo: []
+        });
+    });
+
+    it("should emit events when a milestone is moved", () => {
+        const config = makeConfig({
+            views: [
+                makeView({
+                    milestones: {
+                        "tech:club": { index: 0, enabled: true, color: colorScheme.blue },
+                        "tech:wheel": { index: 1, enabled: true, color: colorScheme.orange },
+                        "reset:blackhole": { index: 2, enabled: true, color: colorScheme.red }
+                    }
+                })
+            ]
+        });
+
+        let modifiedView: View | undefined = undefined;
+        config.on("viewUpdated", v => { modifiedView = v; });
+
+        config.views[0].moveMilestone("tech:wheel", 2);
+
+        expect(modifiedView).toEqual({
+            mode: "timestamp",
+            showBars: false,
+            showLines: true,
+            fillArea: true,
+            smoothness: 0,
+            resetType: "blackhole",
+            universe: "standard",
+            milestones: {
+                "tech:club": { index: 0, enabled: true, color: colorScheme.blue },
+                "tech:wheel": { index: 2, enabled: true, color: colorScheme.orange },
+                "reset:blackhole": { index: 1, enabled: true, color: colorScheme.red }
             },
             additionalInfo: []
         });

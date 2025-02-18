@@ -162,3 +162,11 @@ html.dracula {
         width: fit-content;
     }
 }
+
+.sortable-placeholder {
+    position: relative;
+    height: 1rem;
+    width: 100px;
+    margin-right: 1.5em;
+    background: #1d2021;
+}
