@@ -25,7 +25,11 @@ export default {
     output: {
         file: "build/evolve_analytics.user.js",
         format: "iife",
-        banner: () => fs.readFile("evolve_analytics.meta.js", "utf-8")
+        banner: async () => {
+            const banner = await fs.readFile("evolve_analytics.meta.js", "utf-8");
+            const prefix = await fs.readFile("evolve_analytics.prefix.js", "utf-8");
+            return banner + "\n" + prefix;
+        }
     },
     external: ["jqueryui"],
     plugins: [

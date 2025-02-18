@@ -7,7 +7,9 @@ export function makeAdditionalInfoSettings(view: View) {
 
     node.append(`<span>Additional info:</span>`);
 
-    const showCurrentRunToggle = makeCheckbox("Current run", view.includeCurrentRun ?? false, (value) => view.includeCurrentRun = value);
+    const showCurrentRunToggle = makeCheckbox("Current run", view.includeCurrentRun ?? false, (value) => {
+        view.includeCurrentRun = value;
+    });
     node.append(showCurrentRunToggle);
 
     for (const [key, value] of Object.entries(additionalInformation)) {

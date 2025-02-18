@@ -108,13 +108,14 @@ function smooth<T>(smoothness: number, history: HistoryEntry[], params: T): T {
             avgWindowSize = history.length;
             break;
 
-        default:
+        default: {
             // Make the transformation from the smoothness % into the number of runs exponential
             // because the average window has decreasingly less impact on the lines as it grows
             const curveSteepness = 5;
             const value = Math.exp(smoothness / 100 * curveSteepness - curveSteepness) * history.length;
             avgWindowSize = Math.round(value) || 1;
             break;
+        }
     }
 
     return Plot.windowY({ k: avgWindowSize }, params);

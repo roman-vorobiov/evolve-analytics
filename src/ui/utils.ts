@@ -235,9 +235,9 @@ export function makeColorPicker(
         pickr.setColor(defaultColor, true);
 
         // The instance has callbacks from previous instantiation, clear them
-        (pickr as any)._eventListener["hide"] = [];
-        (pickr as any)._eventListener["save"] = [];
-        (pickr as any)._eventListener["change"] = [];
+        (pickr as any)._eventListener.hide = [];
+        (pickr as any)._eventListener.save = [];
+        (pickr as any)._eventListener.change = [];
     }
     else {
         trigger = makeColorPickerTrigger(target, overflow);
