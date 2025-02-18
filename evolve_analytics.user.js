@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.14.2
+// @version      0.14.3
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -1557,7 +1557,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             })
         };
     }
-    function migrateHistory$3(history, config) {
+    function migrateHistory$4(history, config) {
         const oldNames = rotateMap(history.milestones);
         const newNames = Object.fromEntries(config.views.flatMap(v => Object.keys(v.milestones).map(m => [m, milestoneName(m)[0]])));
         function resetName(run) {
@@ -1689,7 +1689,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         const newConfig = migrateConfig$3(config);
         let newHistory = null;
         if (history !== null) {
-            newHistory = migrateHistory$3(history, newConfig);
+            newHistory = migrateHistory$4(history, newConfig);
         }
         let newLatestRun = null;
         if (latestRun !== null && newHistory !== null) {
@@ -1717,7 +1717,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             delete latestRun.universe;
         }
     }
-    function migrateHistory$2(history) {
+    function migrateHistory$3(history) {
         for (let i = 0; i !== history.runs.length; ++i) {
             const run = history.runs[i];
             const nextRun = history.runs[i + 1];
@@ -1743,7 +1743,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         if (latestRun !== null) {
             migrateLatestRun$3(latestRun);
         }
-        if (migrateHistory$2(history)) {
+        if (migrateHistory$3(history)) {
             config.version = 7;
         }
     }
@@ -1763,7 +1763,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         }
         config.version = 9;
     }
-    function migrateHistory$1(history) {
+    function migrateHistory$2(history) {
         history.milestones = migrateMilestones(history.milestones);
     }
     function migrateLatestRun$2(latestRun) {
@@ -1771,7 +1771,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
     }
     function migrate8(config, history, latestRun) {
         migrateConfig$2(config);
-        migrateHistory$1(history);
+        migrateHistory$2(history);
         if (latestRun !== null) {
             migrateLatestRun$2(latestRun);
         }
@@ -1798,7 +1798,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
     function migrateConfig(config) {
         config.version = 12;
     }
-    function migrateHistory(history) {
+    function migrateHistory$1(history) {
         for (const run of history.runs) {
             for (const ref of run.milestones) {
                 ref[1] = Math.max(0, ref[1]);
@@ -1812,7 +1812,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
     }
     function migrate11(config, history, latestRun) {
         migrateConfig(config);
-        migrateHistory(history);
+        migrateHistory$1(history);
         if (latestRun !== null) {
             migrateLatestRun(latestRun);
         }
@@ -1911,6 +1911,20 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         config.version = 14;
     }
 
+    function migrateHistory(history) {
+        const milestonesByID = rotateMap(history.milestones);
+        const forced4Star = ["aiappoc", "matrix", "retire", "eden"];
+        for (const run of history.runs) {
+            if (forced4Star.includes(getResetType$1(run, milestonesByID))) {
+                run.starLevel ??= 4;
+            }
+        }
+    }
+    function migrate14(config, history) {
+        migrateHistory(history);
+        config.version = 15;
+    }
+
     function migrate() {
         let config = loadConfig();
         let history = loadHistory();
@@ -1918,52 +1932,45 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         if (config === null) {
             return;
         }
-        let migrated = false;
+        if (config.version >= 15) {
+            return;
+        }
         if (config.version < 4) {
             [config, history, latestRun] = migrate3(config, history, latestRun);
-            migrated = true;
         }
         if (config.version < 6) {
             config = migrate4(config);
-            migrated = true;
         }
         if (config.version === 6) {
             migrate6(config, history, latestRun);
-            migrated = true;
         }
         if (config.version === 7) {
             config = migrate7(config);
-            migrated = true;
         }
         if (config.version === 8) {
             migrate8(config, history, latestRun);
-            migrated = true;
         }
         if (config.version === 9) {
             migrate9(config, latestRun);
-            migrated = true;
         }
         if (config.version === 10) {
             migrate10(config);
-            migrated = true;
         }
         if (config.version === 11) {
             migrate11(config, history, latestRun);
-            migrated = true;
         }
         if (config.version === 12) {
             migrate12(config, history);
-            migrated = true;
         }
         if (config.version === 13) {
             migrate13(config);
-            migrated = true;
         }
-        if (migrated) {
-            saveConfig(config);
-            history !== null && saveHistory(history);
-            latestRun !== null ? saveCurrentRun(latestRun) : discardLatestRun();
+        if (config.version === 14) {
+            migrate14(config, history);
         }
+        saveConfig(config);
+        history !== null && saveHistory(history);
+        latestRun !== null ? saveCurrentRun(latestRun) : discardLatestRun();
     }
 
     function synchronize() {
@@ -2416,7 +2423,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         }
     }
     function getConfig(game) {
-        const config = loadConfig() ?? { version: 14, recordRuns: true, views: [] };
+        const config = loadConfig() ?? { version: 15, recordRuns: true, views: [] };
         return new ConfigManager(game, config);
     }
 
@@ -2591,6 +2598,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             const entry = {
                 run: runStats.run,
                 universe: runStats.universe,
+                starLevel: runStats.starLevel,
                 milestones,
                 effects: effects.length === 0 ? undefined : effects
             };
