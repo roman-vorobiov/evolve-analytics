@@ -39,7 +39,7 @@ const config = {
             }
         }
     ],
-    "lastOpenViewIndex": 2
+    "lastOpenViewIndex": 0
 }
 
 function resetConfig() {
