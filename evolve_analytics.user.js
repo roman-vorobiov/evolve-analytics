@@ -1,17 +1,24 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.13.3
+// @version      0.14.0
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
+// @resource     PICKR_CSS https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/themes/classic.min.css
+// @require      https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/pickr.min.js
 // @require      https://cdn.jsdelivr.net/npm/d3@7
 // @require      https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6
 // @require      https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.min.js
 // @require      https://code.jquery.com/jquery-3.7.1.min.js
 // @require      https://code.jquery.com/ui/1.12.1/jquery-ui.min.js
-// @grant        none
+// @grant        GM_getResourceText
+// @grant        GM_addStyle
 // ==/UserScript==
+
+/*global $ Plot htmlToImage LZString Pickr*/
+
+GM_addStyle(GM_getResourceText("PICKR_CSS"));
 
 (async function () {
     'use strict';
@@ -1249,7 +1256,7 @@
     }
 
     function transformMap(obj, fn) {
-        return Object.fromEntries(Object.entries(obj).map(([k, v]) => fn([k, v])));
+        return Object.fromEntries(Object.entries(obj).map(([k, v], idx) => fn([k, v], idx)));
     }
     function filterMap(obj, fn) {
         return Object.fromEntries(Object.entries(obj).filter(fn));
@@ -1394,11 +1401,38 @@
         }
     });
 
-    var effectsInfo = {
-        "hot": (game) => game.temperature === "hot",
-        "cold": (game) => game.temperature === "cold",
-        "inspired": (game) => game.inspired,
-        "motivated": (game) => game.motivated
+    const Observable10 = {
+        "blue": "#4269d0",
+        "orange": "#efb118",
+        "red": "#ff725c",
+        "cyan": "#6cc5b0",
+        "green": "#3ca951",
+        "pink": "#ff8ab7",
+        "purple": "#a463f2",
+        "lightBlue": "#97bbf5",
+        "brown": "#9c6b4e",
+        "gray": "#9498a0"
+    };
+
+    function effectActive(effect, game) {
+        switch (effect) {
+            case "hot":
+                return game.temperature === "hot";
+            case "cold":
+                return game.temperature === "cold";
+            case "inspired":
+                return game.inspired;
+            case "motivated":
+                return game.motivated;
+            default:
+                return false;
+        }
+    }
+    const effectColors = {
+        "effect:hot": Observable10.red,
+        "effect:cold": Observable10.blue,
+        "effect:inspired": Observable10.green,
+        "effect:motivated": Observable10.orange
     };
 
     function makeMilestoneChecker(game, milestone) {
@@ -1407,7 +1441,7 @@
             [/tech:(.+)/, (id) => () => game.researched(id)],
             [/event:(.+)/, (id) => () => eventsInfo[id].triggered(game)],
             [/event_condition:(.+)/, (id) => () => eventsInfo[id].conditionMet?.(game) ?? true],
-            [/effect:(.+)/, (id) => () => effectsInfo[id](game) ?? false],
+            [/effect:(.+)/, (id) => () => effectActive(id, game)],
         ]);
         return {
             milestone,
@@ -1466,7 +1500,7 @@
         "segmented": "Segmented",
         "barsSegmented": "Segmented (bars)"
     };
-    function migrateView$1(view) {
+    function migrateView$3(view) {
         return {
             ...view,
             mode: ["segmented", "barsSegmented"].includes(view.mode) ? "duration" : "timestamp",
@@ -1480,7 +1514,7 @@
         return {
             ...config,
             version: 8,
-            views: config.views.map(migrateView$1)
+            views: config.views.map(migrateView$3)
         };
     }
 
@@ -1667,6 +1701,7 @@
         return {
             version: 6,
             recordRuns: config.recordRuns ?? true,
+            lastOpenViewIndex: config.views.length !== 0 ? 0 : undefined,
             views: config.views.map(view => {
                 return {
                     additionalInfo: [],
@@ -1718,12 +1753,12 @@
     function migrateMilestones(milestones) {
         return transformMap(milestones, ([milestone, day]) => [rename(milestone), day]);
     }
-    function migrateView(view) {
+    function migrateView$2(view) {
         view.milestones = migrateMilestones(view.milestones);
     }
     function migrateConfig$2(config) {
         for (const view of config.views) {
-            migrateView(view);
+            migrateView$2(view);
         }
         config.version = 9;
     }
@@ -1782,6 +1817,99 @@
         }
     }
 
+    function getResetType$1(entry, milestonesByID) {
+        const [milestoneID] = entry.milestones[entry.milestones.length - 1];
+        const milestone = milestonesByID[milestoneID];
+        const prefix = "reset:";
+        if (milestone.startsWith(prefix)) {
+            return milestone.slice(prefix.length);
+        }
+    }
+    function shouldIncludeRun$1(entry, view, milestonesByID) {
+        if (view.universe !== undefined && entry.universe !== view.universe) {
+            return false;
+        }
+        if (view.starLevel !== undefined && entry.starLevel !== view.starLevel) {
+            return false;
+        }
+        if (getResetType$1(entry, milestonesByID) !== view.resetType) {
+            return false;
+        }
+        // Don't show VC runs in generic Black Hole views
+        if (view.resetType === "blackhole" && view.universe === undefined) {
+            return entry.universe !== "magic";
+        }
+        return true;
+    }
+    function getLastRun(history, view) {
+        const milestonesByID = rotateMap(history.milestones);
+        for (let i = history.runs.length - 1; i >= 0; --i) {
+            const run = history.runs[i];
+            if (shouldIncludeRun$1(run, view, milestonesByID)) {
+                return run;
+            }
+        }
+    }
+    function sortMilestones$1(view, lastRun, history) {
+        const milestones = Object.keys(view.milestones);
+        function isEffectMilestone(milestone) {
+            return milestone.startsWith("effect:");
+        }
+        milestones.sort((l, r) => {
+            if (!isEffectMilestone(l) && !isEffectMilestone(r)) {
+                const lIdx = lastRun.milestones.findIndex(([id]) => id === history.milestones[l]);
+                const rIdx = lastRun.milestones.findIndex(([id]) => id === history.milestones[r]);
+                return rIdx - lIdx;
+            }
+            else if (isEffectMilestone(l)) {
+                return 1;
+            }
+            else {
+                return -1;
+            }
+        });
+        for (let i = 0; i != milestones.length; ++i) {
+            const milestone = milestones[i];
+            view.milestones[milestone].index = i;
+        }
+    }
+    function migrateView$1(view, history) {
+        const newView = {
+            ...view,
+            milestones: transformMap(view.milestones, ([milestone, enabled], index) => [milestone, { index, enabled }])
+        };
+        const lastRun = getLastRun(history, newView);
+        if (lastRun !== undefined) {
+            sortMilestones$1(newView, lastRun, history);
+        }
+        return newView;
+    }
+    function migrate12(config, history) {
+        config.views = config.views.map(v => migrateView$1(v, history));
+        config.version = 13;
+    }
+
+    function migrateView(view) {
+        const colors = Object.values(Observable10);
+        const presets = {
+            "effect:hot": Observable10.red,
+            "effect:cold": Observable10.blue,
+            "effect:inspired": Observable10.green,
+            "effect:motivated": Observable10.orange
+        };
+        return {
+            ...view,
+            milestones: transformMap(view.milestones, ([milestone, { index, enabled }]) => {
+                const color = presets[milestone] ?? colors[index % colors.length];
+                return [milestone, { index, enabled, color }];
+            })
+        };
+    }
+    function migrate13(config) {
+        config.views = config.views.map(v => migrateView(v));
+        config.version = 14;
+    }
+
     function migrate() {
         let config = loadConfig();
         let history = loadHistory();
@@ -1820,6 +1948,14 @@
         }
         if (config.version === 11) {
             migrate11(config, history, latestRun);
+            migrated = true;
+        }
+        if (config.version === 12) {
+            migrate12(config, history);
+            migrated = true;
+        }
+        if (config.version === 13) {
+            migrate13(config);
             migrated = true;
         }
         if (migrated) {
@@ -1911,7 +2047,7 @@
             return gene in this.evolve.global.race;
         }
         traitName(trait) {
-            return this.evolve.traits[trait].name;
+            return this.evolve.traits[trait]?.name ?? "Unknown";
         }
         traitValue(trait) {
             return this.evolve.traits[trait].val;
@@ -1987,46 +2123,188 @@
         }
     }
 
+    function getResetType(entry, history) {
+        const [milestoneID] = entry.milestones[entry.milestones.length - 1];
+        const milestone = history.getMilestone(milestoneID);
+        const prefix = "reset:";
+        if (milestone.startsWith(prefix)) {
+            return milestone.slice(prefix.length);
+        }
+    }
+    function shouldIncludeRun(entry, view, history) {
+        if (view.universe !== undefined && entry.universe !== view.universe) {
+            return false;
+        }
+        if (view.starLevel !== undefined && entry.starLevel !== view.starLevel) {
+            return false;
+        }
+        if (getResetType(entry, history) !== view.resetType) {
+            return false;
+        }
+        // Don't show VC runs in generic Black Hole views
+        if (view.resetType === "blackhole" && view.universe === undefined) {
+            return entry.universe !== "magic";
+        }
+        return true;
+    }
+    function applyFilters(history, view) {
+        const runs = [];
+        for (let i = history.runs.length - 1; i >= 0; --i) {
+            const run = history.runs[i];
+            if (shouldIncludeRun(run, view, history)) {
+                runs.push(run);
+            }
+            if (view.numRuns !== undefined && runs.length >= view.numRuns) {
+                break;
+            }
+        }
+        return runs.reverse();
+    }
+    function findLastRun(history, view) {
+        for (let i = history.runs.length - 1; i >= 0; --i) {
+            const run = history.runs[i];
+            if (shouldIncludeRun(run, view, history)) {
+                return run;
+            }
+        }
+    }
+
+    function runTime(entry) {
+        return entry.milestones[entry.milestones.length - 1]?.[1];
+    }
+    function findBestRunImpl(history, view) {
+        let best = undefined;
+        for (const run of history.runs) {
+            if (!shouldIncludeRun(run, view, history)) {
+                continue;
+            }
+            if (best === undefined || runTime(run) < runTime(best)) {
+                best = run;
+            }
+        }
+        return best;
+    }
+    const bestRunCache = {};
+    function findBestRun(history, view) {
+        const cacheKey = `${view.resetType}.${view.universe ?? "*"}.${view.starLevel ?? "*"}`;
+        const cacheEntry = bestRunCache[cacheKey];
+        if (cacheEntry !== undefined) {
+            return cacheEntry;
+        }
+        const best = findBestRunImpl(history, view);
+        if (best !== undefined) {
+            bestRunCache[cacheKey] = best;
+        }
+        return best;
+    }
+    function sortMilestones(view, history) {
+        const lastRun = findLastRun(history, view);
+        if (lastRun === undefined) {
+            return;
+        }
+        const milestones = Object.keys(view.milestones);
+        milestones.sort((l, r) => {
+            if (!isEffectMilestone(l) && !isEffectMilestone(r)) {
+                const lIdx = lastRun.milestones.findIndex(([id]) => id === history.getMilestoneID(l));
+                const rIdx = lastRun.milestones.findIndex(([id]) => id === history.getMilestoneID(r));
+                return rIdx - lIdx;
+            }
+            else if (isEffectMilestone(l)) {
+                return 1;
+            }
+            else {
+                return -1;
+            }
+        });
+        for (let i = 0; i != milestones.length; ++i) {
+            const milestone = milestones[i];
+            view.milestones[milestone].index = i;
+        }
+    }
+    function getSortedMilestones(view) {
+        return Object.keys(view.milestones).sort((l, r) => view.milestones[l].index - view.milestones[r].index);
+    }
+
     function makeViewProxy(config, view) {
         return new Proxy(view, {
             get(obj, prop, receiver) {
-                if (prop === "toggleMilestone") {
-                    return (milestone) => {
-                        const enabled = view.milestones[milestone];
-                        if (enabled !== undefined) {
-                            view.milestones[milestone] = !enabled;
+                function updateMilestoneOrder(milestones) {
+                    for (let i = 0; i !== milestones.length; ++i) {
+                        view.milestones[milestones[i]].index = i;
+                    }
+                }
+                switch (prop) {
+                    case "index":
+                        return () => config.views.indexOf(receiver);
+                    case "toggleMilestone":
+                        return (milestone) => {
+                            const info = view.milestones[milestone];
+                            if (info !== undefined) {
+                                info.enabled = !info.enabled;
+                                config.emit("viewUpdated", receiver);
+                            }
+                        };
+                    case "setMilestoneColor":
+                        return (milestone, color) => {
+                            const info = view.milestones[milestone];
+                            if (info !== undefined) {
+                                info.color = color;
+                                config.emit("viewUpdated", receiver);
+                            }
+                        };
+                    case "moveMilestone":
+                        return (milestone, newIndex) => {
+                            const oldIndex = view.milestones[milestone]?.index;
+                            if (oldIndex >= 0 && oldIndex !== newIndex) {
+                                const milestones = getSortedMilestones(view);
+                                milestones.splice(oldIndex, 1);
+                                milestones.splice(newIndex, 0, milestone);
+                                updateMilestoneOrder(milestones);
+                                config.emit("viewUpdated", receiver);
+                            }
+                        };
+                    case "addMilestone":
+                        return (milestone) => {
+                            const index = Object.entries(view.milestones).length;
+                            const colors = Object.values(Observable10);
+                            const color = effectColors[milestone] ?? colors[index % colors.length];
+                            view.milestones[milestone] = { index, enabled: true, color };
                             config.emit("viewUpdated", receiver);
-                        }
-                    };
-                }
-                else if (prop === "addMilestone") {
-                    return (milestone) => {
-                        view.milestones[milestone] = true;
-                        config.emit("viewUpdated", receiver);
-                    };
-                }
-                else if (prop === "removeMilestone") {
-                    return (milestone) => {
-                        if (milestone in view.milestones) {
-                            delete view.milestones[milestone];
+                        };
+                    case "removeMilestone":
+                        return (milestone) => {
+                            if (milestone in view.milestones) {
+                                delete view.milestones[milestone];
+                                updateMilestoneOrder(getSortedMilestones(view));
+                                config.emit("viewUpdated", receiver);
+                            }
+                        };
+                    case "sortMilestones":
+                        return (history) => {
+                            sortMilestones(receiver, history);
                             config.emit("viewUpdated", receiver);
-                        }
-                    };
-                }
-                if (prop === "toggleAdditionalInfo") {
-                    return (key) => {
-                        const idx = view.additionalInfo.indexOf(key);
-                        if (idx !== -1) {
-                            view.additionalInfo.splice(idx, 1);
-                        }
-                        else {
-                            view.additionalInfo.push(key);
-                        }
-                        config.emit("viewUpdated", receiver);
-                    };
-                }
-                else {
-                    return Reflect.get(obj, prop, receiver);
+                        };
+                    case "resetColors":
+                        return () => {
+                            const colors = Object.values(Observable10);
+                            for (const [milestone, info] of Object.entries(view.milestones)) {
+                                info.color = effectColors[milestone] ?? colors[info.index % colors.length];
+                            }
+                            config.emit("viewUpdated", receiver);
+                        };
+                    case "toggleAdditionalInfo":
+                        return (key) => {
+                            const idx = view.additionalInfo.indexOf(key);
+                            if (idx !== -1) {
+                                view.additionalInfo.splice(idx, 1);
+                            }
+                            else {
+                                view.additionalInfo.push(key);
+                            }
+                            config.emit("viewUpdated", receiver);
+                        };
+                    default:
+                        return Reflect.get(obj, prop, receiver);
                 }
             },
             set(obj, prop, value, receiver) {
@@ -2034,8 +2312,9 @@
                     return true;
                 }
                 if (prop === "resetType") {
+                    const info = view.milestones[`reset:${view.resetType}`];
                     delete view.milestones[`reset:${view.resetType}`];
-                    view.milestones[`reset:${value}`] = true;
+                    view.milestones[`reset:${value}`] = { ...info, enabled: true };
                 }
                 const ret = Reflect.set(obj, prop, value, receiver);
                 config.emit("viewUpdated", receiver);
@@ -2087,6 +2366,7 @@
             saveConfig(this.config);
         }
         addView() {
+            const colors = Object.values(Observable10);
             const view = {
                 resetType: "ascend",
                 universe: this.game.universe,
@@ -2096,7 +2376,9 @@
                 showLines: false,
                 fillArea: false,
                 smoothness: 0,
-                milestones: { "reset:ascend": true },
+                milestones: {
+                    "reset:ascend": { index: 0, enabled: true, color: colors[0] }
+                },
                 additionalInfo: []
             };
             const proxy = makeViewProxy(this, view);
@@ -2133,7 +2415,7 @@
         }
     }
     function getConfig(game) {
-        const config = loadConfig() ?? { version: 12, recordRuns: true, views: [] };
+        const config = loadConfig() ?? { version: 14, recordRuns: true, views: [] };
         return new ConfigManager(game, config);
     }
 
@@ -2264,72 +2546,6 @@
         return currentRunStats;
     }
 
-    function getResetType(entry, history) {
-        const [milestoneID] = entry.milestones[entry.milestones.length - 1];
-        const milestone = history.getMilestone(milestoneID);
-        const prefix = "reset:";
-        if (milestone.startsWith(prefix)) {
-            return milestone.slice(prefix.length);
-        }
-    }
-    function runTime(entry) {
-        return entry.milestones[entry.milestones.length - 1]?.[1];
-    }
-    function shouldIncludeRun(entry, view, history) {
-        if (view.universe !== undefined && entry.universe !== view.universe) {
-            return false;
-        }
-        if (view.starLevel !== undefined && entry.starLevel !== view.starLevel) {
-            return false;
-        }
-        if (getResetType(entry, history) !== view.resetType) {
-            return false;
-        }
-        // Don't show VC runs in generic Black Hole views
-        if (view.resetType === "blackhole" && view.universe === undefined) {
-            return entry.universe !== "magic";
-        }
-        return true;
-    }
-    function applyFilters(history, view) {
-        const runs = [];
-        for (let i = history.runs.length - 1; i >= 0; --i) {
-            const run = history.runs[i];
-            if (shouldIncludeRun(run, view, history)) {
-                runs.push(run);
-            }
-            if (view.numRuns !== undefined && runs.length >= view.numRuns) {
-                break;
-            }
-        }
-        return runs.reverse();
-    }
-    function findBestRunImpl(history, view) {
-        let best = undefined;
-        for (const run of history.runs) {
-            if (!shouldIncludeRun(run, view, history)) {
-                continue;
-            }
-            if (best === undefined || runTime(run) < runTime(best)) {
-                best = run;
-            }
-        }
-        return best;
-    }
-    const bestRunCache = {};
-    function findBestRun(history, view) {
-        const cacheKey = `${view.resetType}.${view.universe ?? "*"}.${view.starLevel ?? "*"}`;
-        const cacheEntry = bestRunCache[cacheKey];
-        if (cacheEntry !== undefined) {
-            return cacheEntry;
-        }
-        const best = findBestRunImpl(history, view);
-        if (best !== undefined) {
-            bestRunCache[cacheKey] = best;
-        }
-        return best;
-    }
-
     class HistoryManager extends Subscribable {
         game;
         config;
@@ -2414,50 +2630,177 @@
     }
 
     var styles = `
-        html.dark .bg-dark {
-            background: #181818
+        html.dark {
+            .bg-dark {
+                background: #181818;
+            }
+
+            .color-picker {
+                background-color: #f5f5f5;
+                border: .0625rem solid #000000;
+                color: #363636;
+
+                input[type="text"] {
+                    background: #ffffff !important;
+                }
+            }
         }
 
-        html.light .bg-dark {
-            background: #dddddd
+        html.light {
+            .bg-dark {
+                background: #dddddd;
+            }
+
+            .color-picker {
+                background-color: #f5f5f5;
+                border: .0625rem solid #000000;
+                color: #363636;
+
+                input[type="text"] {
+                    background: #ffffff !important;
+                }
+            }
         }
 
-        html.darkNight .bg-dark {
-            background: #181818
+        html.redgreen {
+            .bg-dark {
+                background: #181818;
+            }
+
+            .color-picker {
+                background-color: #0f0f0f;
+                border: .0625rem solid #999999;
+                color: #ffffff;
+
+                input[type="text"] {
+                    background: #ffffff !important;
+                }
+            }
         }
 
-        html.gruvboxLight .bg-dark {
-            background: #a89984
+        html.darkNight {
+            .bg-dark {
+                background: #181818;
+            }
+
+            .color-picker {
+                background-color: #0f0f0f;
+                border: .0625rem solid #999999;
+                color: #b8b8b8;
+
+                input[type="text"] {
+                    background: #b8b8b8 !important;
+                }
+            }
         }
 
-        html.gruvboxDark .bg-dark {
-            background: #1d2021
+        html.gruvboxLight {
+            .bg-dark {
+                background: #a89984;
+            }
+
+            .color-picker {
+                background-color: #fbf1c7;
+                border: .0625rem solid #3c3836;
+                color: #3c3836;
+
+                input[type="text"] {
+                    background: #3c3836 !important;
+                }
+            }
         }
 
-        html.orangeSoda .bg-dark {
-            background: #181818
+        html.gruvboxDark {
+            .bg-dark {
+                background: #1d2021;
+            }
+
+            .color-picker {
+                background-color: #282828;
+                border: .0625rem solid #665c54;
+                color: #ebdbb2;
+
+                input[type="text"] {
+                    background: #ebdbb2 !important;
+                }
+            }
         }
 
-        html.dracula .bg-dark {
-            background: #1a1c24
+        html.orangeSoda {
+            .bg-dark {
+                background: #181818;
+            }
+
+            .color-picker {
+                background-color: #292929;
+                border: .0625rem solid #313638;
+                color: #313638;
+
+                input[type="text"] {
+                    background: #ebdbb2 !important;
+                }
+            }
+        }
+
+        html.dracula {
+            .bg-dark {
+                background: #1a1c24;
+            }
+
+            .color-picker {
+                background-color: #1a1c24;
+                border: .0625rem solid #44475a;
+                color: #44475a;
+
+                input[type="text"] {
+                    background: #f8f8f2 !important;
+                }
+            }
         }
 
         .w-fit {
-            width: fit-content
+            width: fit-content;
         }
 
         .w-full {
-            width: 100%
+            width: 100%;
         }
 
         .crossed {
-            text-decoration: line-through
+            text-decoration: line-through;
         }
 
         .flex-container {
             display: flex;
             flex-wrap: wrap;
-            gap: 8px
+            gap: 8px;
+        }
+
+        .color-picker {
+            border-radius: .25rem;
+            width: fit-content !important;
+
+            ::before {
+                background: none !important;
+            }
+
+            .pcr-save {
+                background-color: #4269d0;
+                color: #ebdbb2;
+            }
+
+            .pcr-swatches {
+                display: flex;
+                width: fit-content;
+            }
+        }
+
+        .sortable-placeholder {
+            position: relative;
+            height: 1rem;
+            width: 100px;
+            margin-right: 1.5em;
+            background: #1d2021;
         }
     `;
 
@@ -2501,7 +2844,7 @@
             let previousEnabledDay = 0;
             // Past milestones
             for (const [milestone, day] of this.milestones.entries()) {
-                if (this.view.milestones[milestone]) {
+                if (this.view.milestones[milestone].enabled) {
                     yield {
                         milestone,
                         day,
@@ -2510,13 +2853,13 @@
                     };
                 }
                 previousDay = day;
-                if (this.view.milestones[milestone]) {
+                if (this.view.milestones[milestone].enabled) {
                     previousEnabledDay = day;
                 }
             }
             // Past events
             for (const [milestone, day] of this.events.entries()) {
-                if (this.view.milestones[milestone]) {
+                if (this.view.milestones[milestone].enabled) {
                     const event = milestone.slice('event:'.length);
                     const defaultTriggerDay = (eventsInfo[event]?.conditionMet === undefined) ? 0 : day;
                     const preconditionDay = this.eventConditions.get(event) ?? defaultTriggerDay;
@@ -2531,10 +2874,10 @@
         }
         *pendingSegments(currentDay) {
             const lastMilestoneDay = lastValue(this.milestones) ?? 0;
-            const lastEnabledMilestoneDay = lastValue(this.milestones, (milestone) => this.view.milestones[milestone]) ?? 0;
+            const lastEnabledMilestoneDay = lastValue(this.milestones, (milestone) => this.view.milestones[milestone].enabled) ?? 0;
             // Pending milestone
             const milestone = this.futureMilestones[0]?.[0] ?? `reset:${this.view.resetType}`;
-            if (this.view.milestones[milestone]) {
+            if (this.view.milestones[milestone].enabled) {
                 yield {
                     milestone,
                     day: currentDay,
@@ -2545,7 +2888,7 @@
             // Pending events
             for (const [event, preconditionDay] of this.eventConditions.entries()) {
                 const milestone = `event:${event}`;
-                if (this.view.milestones[milestone] && !this.events.has(milestone)) {
+                if (this.view.milestones[milestone].enabled && !this.events.has(milestone)) {
                     yield {
                         milestone,
                         day: currentDay,
@@ -2646,12 +2989,12 @@
             }
         }
         for (const [effect, start, end] of currentRun.effectsHistory) {
-            if (view.milestones[effect]) {
+            if (view.milestones[effect]?.enabled) {
                 addEntry(effect, { day: end, segment: end - start, effect: true });
             }
         }
         for (const [effect, start] of Object.entries(currentRun.activeEffects)) {
-            if (view.milestones[effect]) {
+            if (view.milestones[effect]?.enabled) {
                 addEntry(effect, { day: currentRun.totalDays, segment: currentRun.totalDays - start, effect: true, pending: true });
             }
         }
@@ -2687,7 +3030,7 @@
             }
             for (const [effect, start, end] of run.effects ?? []) {
                 const milestone = history.getMilestone(effect);
-                if (view.milestones[milestone]) {
+                if (view.milestones[milestone]?.enabled) {
                     entries.push({
                         run: i,
                         milestone: milestoneNames[milestone],
@@ -2699,434 +3042,6 @@
             }
         }
         return entries;
-    }
-
-    const topTextOffset = -27;
-    const marginTop = 30;
-    const effectColors = {
-        "Hot days": "#ff725c",
-        "Cold days": "#4269d0",
-        "Inspired": "#3ca951",
-        "Motivated": "#efb118"
-    };
-    function only({ type, status }) {
-        let impl = (point) => true;
-        function getType(point) {
-            if (point.event) {
-                return "event";
-            }
-            else if (point.effect) {
-                return "effect";
-            }
-            else {
-                return "milestone";
-            }
-        }
-        function getStatus(point) {
-            if (point.pending) {
-                return "pending";
-            }
-            else if (point.future) {
-                return "future";
-            }
-            else {
-                return "past";
-            }
-        }
-        if (Array.isArray(type)) {
-            impl = compose(impl, (point) => type.includes(getType(point)));
-        }
-        else if (type !== undefined) {
-            impl = compose(impl, (point) => getType(point) === type);
-        }
-        if (Array.isArray(status)) {
-            impl = compose(impl, (point) => status.includes(getStatus(point)));
-        }
-        else if (status !== undefined) {
-            impl = compose(impl, (point) => getStatus(point) === status);
-        }
-        return impl;
-    }
-    function not(filter) {
-        const impl = only(filter);
-        return (point) => !impl(point);
-    }
-    function calculateYScale(plotPoints, view) {
-        if (view.daysScale) {
-            return [0, view.daysScale];
-        }
-        else if (plotPoints.length === 0 || (!view.showBars && !view.showLines)) {
-            // Default scale with empty history
-            return [0, 1000];
-        }
-    }
-    function lastRunEntries(plotPoints) {
-        const timestamps = [];
-        const lastRun = plotPoints[plotPoints.length - 1]?.run;
-        for (let i = plotPoints.length - 1; i >= 0; --i) {
-            const entry = plotPoints[i];
-            if (entry.run !== lastRun) {
-                break;
-            }
-            timestamps.push(entry);
-        }
-        return timestamps.reverse();
-    }
-    function smooth(smoothness, history, params) {
-        let avgWindowSize;
-        switch (smoothness) {
-            case 0:
-                avgWindowSize = 1;
-                break;
-            case 100:
-                avgWindowSize = history.length;
-                break;
-            default:
-                // Make the transformation from the smoothness % into the number of runs exponential
-                // because the average window has decreasingly less impact on the lines as it grows
-                const curveSteepness = 5;
-                const value = Math.exp(smoothness / 100 * curveSteepness - curveSteepness) * history.length;
-                avgWindowSize = Math.round(value) || 1;
-                break;
-        }
-        return Plot.windowY({ k: avgWindowSize }, params);
-    }
-    // Plot.stackY outputs the middle between y1 and y2 as y for whatever reason - use y2 to place ticks on top
-    function adjustedStackY(options) {
-        const convert = ({ y1, y2, ...options }) => ({ ...options, y: y2 });
-        return convert(Plot.stackY(options));
-    }
-    function* timestamps(plotPoints, key) {
-        const lastRunTimestamps = lastRunEntries(plotPoints)
-            .filter(point => !point.effect && !point.pending)
-            .map(entry => entry[key]);
-        yield Plot.axisY(lastRunTimestamps, {
-            anchor: "right",
-            label: null
-        });
-    }
-    function* statsMarks(runs, bestRun) {
-        if (bestRun === undefined) {
-            return;
-        }
-        // Might not be in the selection
-        const bestIdx = runs.indexOf(bestRun);
-        if (bestIdx !== -1) {
-            yield Plot.axisX([bestIdx], {
-                tickFormat: () => "PB",
-                anchor: "bottom",
-                label: null
-            });
-        }
-        const bestTime = runTime(bestRun);
-        const averageTime = Math.round(runs.reduce((acc, entry) => acc + runTime(entry), 0) / runs.length);
-        yield Plot.text([0], {
-            dy: topTextOffset,
-            frameAnchor: "top-right",
-            text: () => `Fastest (all time): ${bestTime} day(s)\nAverage (${runs.length} runs): ${averageTime} day(s)`
-        });
-    }
-    function* areaMarks(plotPoints, history, smoothness) {
-        yield Plot.areaY(plotPoints, smooth(smoothness, history, {
-            x: "run",
-            y: "dayDiff",
-            z: "milestone",
-            fill: "milestone",
-            fillOpacity: 0.5,
-            filter: only({ type: "milestone", status: ["past", "pending"] })
-        }));
-        yield Plot.areaY(plotPoints, smooth(smoothness, history, {
-            x: "run",
-            y1: "day",
-            y2: (entry) => entry.day - entry.segment,
-            z: "milestone",
-            fill: "milestone",
-            fillOpacity: 0.5,
-            filter: only({ type: "event" })
-        }));
-    }
-    function* lineMarks(plotPoints, history, key, smoothness) {
-        yield Plot.lineY(plotPoints, smooth(smoothness, history, {
-            x: "run",
-            y: key,
-            z: "milestone",
-            stroke: "milestone",
-            filter: only({ type: ["milestone", "event"] })
-        }));
-    }
-    function* barMarks(plotPoints, key) {
-        yield Plot.barY(plotPoints, {
-            x: "run",
-            y: key,
-            z: "milestone",
-            fill: "milestone",
-            fillOpacity: (entry) => entry.future ? 0.25 : 0.5,
-            filter: only({ type: "milestone" })
-        });
-        yield Plot.tickY(plotPoints, adjustedStackY({
-            x: "run",
-            y: key,
-            z: "milestone",
-            stroke: "milestone",
-            filter: only({ type: "milestone" })
-        }));
-    }
-    function inferBarWidth(plotPoints) {
-        const plot = Plot.plot({
-            width: 800,
-            marks: [...barMarks(plotPoints, "dayDiff")]
-        });
-        return Number($(plot).find("g[aria-label='bar'] > rect").attr("width"));
-    }
-    function* segmentMarks(plotPoints, numRuns) {
-        const effectPoints = plotPoints.filter(only({ type: "effect" }));
-        const barWidth = inferBarWidth(plotPoints);
-        const isTemperature = (entry) => entry.milestone === "Hot days" || entry.milestone === "Cold days";
-        function* impl(dx, filter) {
-            yield Plot.ruleX(effectPoints, {
-                x: "run",
-                dx,
-                y1: "day",
-                y2: (entry) => entry.day - entry.segment,
-                stroke: (entry) => effectColors[entry.milestone] ?? "#ffffff",
-                strokeWidth: Math.max(0.75, Math.min(2, 40 / numRuns)),
-                strokeOpacity: 0.75,
-                filter
-            });
-            const dotBase = {
-                x: "run",
-                dx,
-                r: 0.75,
-                fill: (entry) => effectColors[entry.milestone] ?? "#ffffff",
-                stroke: (entry) => effectColors[entry.milestone] ?? "#ffffff",
-                strokeWidth: Math.max(0.5, Math.min(2, 40 / numRuns)),
-                strokeOpacity: 0.75,
-                filter
-            };
-            yield Plot.dot(effectPoints, { ...dotBase, y: "day", filter: compose(filter, not({ status: "pending" })) });
-            yield Plot.dot(effectPoints, { ...dotBase, y: (entry) => entry.day - entry.segment });
-        }
-        yield* impl(barWidth / 4, (point) => !isTemperature(point));
-        yield* impl(-barWidth / 4, (point) => isTemperature(point));
-    }
-    function* lollipopMarks(plotPoints, stack, numRuns) {
-        const dotBase = {
-            x: "run",
-            r: Math.min(2, 80 / numRuns),
-            fill: "milestone",
-            stroke: "milestone",
-            filter: only({ type: "event", status: "past" })
-        };
-        if (stack) {
-            yield Plot.ruleX(plotPoints, Plot.stackY({
-                x: "run",
-                y: "segment",
-                stroke: "milestone",
-                strokeOpacity: 0.5,
-                filter: only({ type: "event" })
-            }));
-            yield Plot.dot(plotPoints, adjustedStackY({ ...dotBase, y: "segment" }));
-        }
-        else {
-            yield Plot.ruleX(plotPoints, {
-                x: "run",
-                y1: "day",
-                y2: (entry) => entry.day - entry.segment,
-                stroke: "milestone",
-                strokeOpacity: 1,
-                filter: only({ type: "event" })
-            });
-            yield Plot.dot(plotPoints, { ...dotBase, y: "day" });
-        }
-    }
-    function tipText(point, key, history) {
-        let prefix;
-        if (point.run === history.length) {
-            prefix = "Current run";
-        }
-        else {
-            prefix = `Run #${history[point.run].run}`;
-        }
-        const hasExtraInfo = ["combatDeaths", "junkTraits"].some(k => point[k] !== undefined);
-        if (point.raceName !== undefined && !hasExtraInfo) {
-            prefix += ` (${point.raceName})`;
-        }
-        let suffix;
-        if (point.pending) {
-            suffix = `(in progress)`;
-        }
-        else {
-            suffix = `in ${point[key]} day(s)`;
-            if (point.future) {
-                suffix += ` (PB pace)`;
-            }
-        }
-        const extraInfo = [];
-        if (point.raceName !== undefined && hasExtraInfo) {
-            extraInfo.push(`Race: ${point.raceName}`);
-        }
-        if (point.combatDeaths !== undefined) {
-            extraInfo.push(`Died in combat: ${point.combatDeaths}`);
-        }
-        if (point.junkTraits !== undefined) {
-            const genes = Object.entries(point.junkTraits).map(([trait, rank]) => `${trait} (${rank})`);
-            extraInfo.push(`Junk traits: ${genes.join(", ")}`);
-        }
-        if (extraInfo.length > 0) {
-            suffix += `\n${extraInfo.join("; ")}`;
-        }
-        return `${prefix}: ${point.milestone} ${suffix}`;
-    }
-    function* linePointerMarks(plotPoints, history, key) {
-        yield Plot.text(plotPoints, Plot.pointerX({
-            px: "run",
-            py: key,
-            dy: topTextOffset,
-            frameAnchor: "top-left",
-            text: (p) => tipText(p, key, history),
-            filter: not({ type: "effect" })
-        }));
-        yield Plot.ruleX(plotPoints, Plot.pointerX({
-            x: "run",
-            py: key,
-            filter: not({ type: "effect" })
-        }));
-        yield Plot.dot(plotPoints, Plot.pointerX({
-            x: "run",
-            y: key,
-            fill: "currentColor",
-            r: 2,
-            filter: not({ type: "effect" })
-        }));
-    }
-    function* rectPointerMarks(plotPoints, history, segmentKey, tipKey) {
-        // Transform pointer position from the point to the segment
-        function toSegment(options) {
-            const convert = ({ x, y, ...options }) => ({ px: x, py: y, ...options });
-            return convert(Plot.stackY(options));
-        }
-        yield Plot.text(plotPoints, Plot.pointerX(toSegment({
-            x: "run",
-            y: segmentKey,
-            dy: topTextOffset,
-            frameAnchor: "top-left",
-            text: (entry) => tipText(entry, tipKey, history),
-            filter: only({ type: "milestone" })
-        })));
-        yield Plot.barY(plotPoints, Plot.pointerX(Plot.stackY({
-            x: "run",
-            y: segmentKey,
-            fill: "milestone",
-            fillOpacity: 0.5,
-            filter: only({ type: "milestone" })
-        })));
-    }
-    function makeGraph(history, view, game, currentRun, onSelect) {
-        const filteredRuns = applyFilters(history, view);
-        const bestRun = findBestRun(history, view);
-        const milestones = Object.keys(view.milestones);
-        // Try to order the milestones in the legend in the order in which they happened during the last run
-        if (filteredRuns.length !== 0) {
-            const lastRun = filteredRuns[filteredRuns.length - 1];
-            milestones.sort((l, r) => {
-                if (!isEffectMilestone(l) && !isEffectMilestone(r)) {
-                    const lIdx = lastRun.milestones.findIndex(([id]) => id === history.getMilestoneID(l));
-                    const rIdx = lastRun.milestones.findIndex(([id]) => id === history.getMilestoneID(r));
-                    return rIdx - lIdx;
-                }
-                else if (isEffectMilestone(l)) {
-                    return 1;
-                }
-                else {
-                    return -1;
-                }
-            });
-        }
-        const plotPoints = asPlotPoints(filteredRuns, history, view, game);
-        if (view.includeCurrentRun) {
-            const bestRunEntries = bestRun !== undefined ? asPlotPoints([bestRun], history, view, game) : [];
-            const estimate = view.mode === "timestamp";
-            const idx = filteredRuns.length;
-            const currentRunPoints = runAsPlotPoints(currentRun, view, game, bestRunEntries, estimate, idx);
-            plotPoints.push(...currentRunPoints);
-        }
-        const marks = [
-            Plot.axisY({ anchor: "left", label: "days" }),
-            Plot.ruleY([0])
-        ];
-        switch (view.mode) {
-            case "timestamp":
-                if (view.showBars) {
-                    marks.push(...barMarks(plotPoints, "dayDiff"));
-                    marks.push(...segmentMarks(plotPoints, filteredRuns.length));
-                    marks.push(...lollipopMarks(plotPoints, false, filteredRuns.length));
-                    marks.push(...rectPointerMarks(plotPoints, filteredRuns, "dayDiff", "day"));
-                }
-                if (view.showLines) {
-                    if (view.fillArea) {
-                        marks.push(...areaMarks(plotPoints, filteredRuns, view.smoothness));
-                    }
-                    marks.push(...lineMarks(plotPoints, filteredRuns, "day", view.smoothness));
-                    // Don't show the lines' pointer if the bars' one is shown or if the lines are smoothed
-                    if (!view.showBars && view.smoothness === 0) {
-                        marks.push(...linePointerMarks(plotPoints, filteredRuns, "day"));
-                    }
-                }
-                marks.push(...timestamps(plotPoints, "day"));
-                marks.push(...statsMarks(filteredRuns, bestRun));
-                break;
-            case "duration":
-                marks.push(...lineMarks(plotPoints, filteredRuns, "segment", view.smoothness));
-                marks.push(...timestamps(plotPoints, "segment"));
-                marks.push(...linePointerMarks(plotPoints, filteredRuns, "segment"));
-                break;
-            case "durationStacked":
-                marks.push(...barMarks(plotPoints, "segment"));
-                marks.push(...lollipopMarks(plotPoints, true, filteredRuns.length));
-                marks.push(...rectPointerMarks(plotPoints, filteredRuns, "segment", "segment"));
-                break;
-        }
-        const plot = Plot.plot({
-            marginTop,
-            width: 800,
-            x: { axis: null },
-            y: { grid: true, domain: calculateYScale(plotPoints, view) },
-            color: { legend: true, domain: generateMilestoneNames(milestones, view.universe) },
-            marks
-        });
-        plot.addEventListener("mousedown", () => {
-            if (plot.value && plot.value.run < filteredRuns.length) {
-                onSelect(filteredRuns[plot.value.run]);
-            }
-            else {
-                onSelect(null);
-            }
-        });
-        const legendMilestones = $(plot).find("> div > span");
-        legendMilestones
-            .css("cursor", "pointer")
-            .css("font-size", "1rem");
-        for (let i = 0; i !== legendMilestones.length; ++i) {
-            const node = legendMilestones[i];
-            const milestone = milestones[i];
-            $(node).toggleClass("crossed", !view.milestones[milestone]);
-        }
-        legendMilestones.each(function () {
-            const color = effectColors[$(this).text()];
-            if (color !== undefined) {
-                $(this).find("> svg")
-                    .css("fill", "")
-                    .css("fill-opacity", "0")
-                    .css("stroke", color);
-            }
-        });
-        legendMilestones.on("click", function () {
-            const milestone = milestones[$(this).index() - 1];
-            view.toggleMilestone(milestone);
-        });
-        $(plot).find("> svg").attr("width", "100%");
-        $(plot).css("margin", "0");
-        return plot;
     }
 
     function waitFor(query) {
@@ -3268,6 +3183,579 @@
             .append(toggleNode)
             .append(inputNode);
     }
+    function makeColorPickerTrigger(target, overflow = 0) {
+        const width = Number(target.attr("width"));
+        const height = Number(target.attr("height"));
+        const trigger = $(`<button></button>`)
+            .css("position", "absolute")
+            .css("padding", "0")
+            .css("top", "0px")
+            .css("left", `-${overflow}px`)
+            .css("width", `${width + overflow * 2}px`)
+            .css("height", `${height + overflow * 2}px`)
+            .css("background", "transparent")
+            .css("border", "none")
+            .css("cursor", "pointer");
+        return trigger;
+    }
+    function attachColorPickerTrigger(trigger, target) {
+        target.parent().css("position", "relative");
+        trigger.insertAfter(target);
+    }
+    const colorPickerCache = {};
+    function makeColorPicker(target, overflow, defaultColor, callbacks) {
+        let pickr;
+        let trigger;
+        // The Pickr instances are not destroyd on redraws, which leads to memory leaks
+        // Reuse existing ones instead
+        const cacheKey = `${target.attr("data-view")}/${target.attr("data-milestone")}`;
+        if (cacheKey in colorPickerCache) {
+            [pickr, trigger] = colorPickerCache[cacheKey];
+            pickr.setColor(defaultColor, true);
+            // The instance has callbacks from previous instantiation, clear them
+            pickr._eventListener.hide = [];
+            pickr._eventListener.save = [];
+            pickr._eventListener.change = [];
+        }
+        else {
+            trigger = makeColorPickerTrigger(target, overflow);
+            pickr = new Pickr({
+                container: "#analyticsPanel",
+                el: trigger[0],
+                useAsButton: true,
+                position: "top-middle",
+                theme: "classic",
+                appClass: "color-picker",
+                lockOpacity: true,
+                default: defaultColor,
+                swatches: Object.values(Observable10),
+                components: {
+                    palette: true,
+                    hue: true,
+                    interaction: {
+                        input: true,
+                        save: true
+                    }
+                }
+            });
+            colorPickerCache[cacheKey] = [pickr, trigger];
+        }
+        pickr.on("hide", (instance) => {
+            if (instance.getColor().toHEXA().toString() !== callbacks.currentColor()) {
+                instance.setColor(defaultColor);
+                callbacks.onCancel();
+            }
+        });
+        pickr.on("save", (value, instance) => {
+            const hex = value?.toHEXA().toString();
+            if (hex !== undefined) {
+                callbacks.onSave(hex);
+            }
+            instance.hide();
+        });
+        pickr.on("change", (value) => {
+            callbacks.onChange(value.toHEXA().toString());
+        });
+        attachColorPickerTrigger(trigger, target);
+    }
+
+    const topTextOffset = -27;
+    const marginTop = 30;
+    // If the graph gets redrawn while sorting is in progress or the color picker is open, the pending state is lost
+    // Store it here and use it in the next redraw
+    const pendingColorPicks = new WeakMap();
+    const pendingDraggingLegend = new WeakMap();
+    function only({ type, status }) {
+        let impl = (point) => true;
+        function getType(point) {
+            if (point.event) {
+                return "event";
+            }
+            else if (point.effect) {
+                return "effect";
+            }
+            else {
+                return "milestone";
+            }
+        }
+        function getStatus(point) {
+            if (point.pending) {
+                return "pending";
+            }
+            else if (point.future) {
+                return "future";
+            }
+            else {
+                return "past";
+            }
+        }
+        if (Array.isArray(type)) {
+            impl = compose(impl, (point) => type.includes(getType(point)));
+        }
+        else if (type !== undefined) {
+            impl = compose(impl, (point) => getType(point) === type);
+        }
+        if (Array.isArray(status)) {
+            impl = compose(impl, (point) => status.includes(getStatus(point)));
+        }
+        else if (status !== undefined) {
+            impl = compose(impl, (point) => getStatus(point) === status);
+        }
+        return impl;
+    }
+    function not(filter) {
+        const impl = only(filter);
+        return (point) => !impl(point);
+    }
+    function calculateYScale(plotPoints, view) {
+        if (view.daysScale) {
+            return [0, view.daysScale];
+        }
+        else if (plotPoints.length === 0 || (!view.showBars && !view.showLines)) {
+            // Default scale with empty history
+            return [0, 1000];
+        }
+    }
+    function lastRunEntries(plotPoints) {
+        const timestamps = [];
+        const lastRun = plotPoints[plotPoints.length - 1]?.run;
+        for (let i = plotPoints.length - 1; i >= 0; --i) {
+            const entry = plotPoints[i];
+            if (entry.run !== lastRun) {
+                break;
+            }
+            timestamps.push(entry);
+        }
+        return timestamps.reverse();
+    }
+    function smooth(smoothness, history, params) {
+        let avgWindowSize;
+        switch (smoothness) {
+            case 0:
+                avgWindowSize = 1;
+                break;
+            case 100:
+                avgWindowSize = history.length;
+                break;
+            default: {
+                // Make the transformation from the smoothness % into the number of runs exponential
+                // because the average window has decreasingly less impact on the lines as it grows
+                const curveSteepness = 5;
+                const value = Math.exp(smoothness / 100 * curveSteepness - curveSteepness) * history.length;
+                avgWindowSize = Math.round(value) || 1;
+                break;
+            }
+        }
+        return Plot.windowY({ k: avgWindowSize }, params);
+    }
+    // Plot.stackY outputs the middle between y1 and y2 as y for whatever reason - use y2 to place ticks on top
+    function adjustedStackY(options) {
+        const convert = ({ y1, y2, ...options }) => ({ ...options, y: y2 });
+        return convert(Plot.stackY(options));
+    }
+    function* timestamps(plotPoints, key) {
+        const lastRunTimestamps = lastRunEntries(plotPoints)
+            .filter(point => !point.effect && !point.pending)
+            .map(entry => entry[key]);
+        yield Plot.axisY(lastRunTimestamps, {
+            anchor: "right",
+            label: null
+        });
+    }
+    function* statsMarks(runs, bestRun) {
+        if (bestRun === undefined) {
+            return;
+        }
+        // Might not be in the selection
+        const bestIdx = runs.indexOf(bestRun);
+        if (bestIdx !== -1) {
+            yield Plot.axisX([bestIdx], {
+                tickFormat: () => "PB",
+                anchor: "bottom",
+                label: null
+            });
+        }
+        const bestTime = runTime(bestRun);
+        const averageTime = Math.round(runs.reduce((acc, entry) => acc + runTime(entry), 0) / runs.length);
+        yield Plot.text([0], {
+            dy: topTextOffset,
+            frameAnchor: "top-right",
+            text: () => `Fastest (all time): ${bestTime} day(s)\nAverage (${runs.length} runs): ${averageTime} day(s)`
+        });
+    }
+    function* areaMarks(plotPoints, history, smoothness) {
+        yield Plot.areaY(plotPoints, smooth(smoothness, history, {
+            x: "run",
+            y: "dayDiff",
+            z: "milestone",
+            fill: "milestone",
+            fillOpacity: 0.5,
+            filter: only({ type: "milestone", status: ["past", "pending"] }),
+            title: "milestone"
+        }));
+        yield Plot.areaY(plotPoints, smooth(smoothness, history, {
+            x: "run",
+            y1: "day",
+            y2: (entry) => entry.day - entry.segment,
+            z: "milestone",
+            fill: "milestone",
+            fillOpacity: 0.5,
+            filter: only({ type: "event" }),
+            title: "milestone"
+        }));
+    }
+    function* lineMarks(plotPoints, history, key, smoothness) {
+        yield Plot.lineY(plotPoints, smooth(smoothness, history, {
+            x: "run",
+            y: key,
+            z: "milestone",
+            stroke: "milestone",
+            filter: only({ type: ["milestone", "event"] }),
+            title: "milestone"
+        }));
+    }
+    function* barMarks(plotPoints, key) {
+        yield Plot.barY(plotPoints, {
+            x: "run",
+            y: key,
+            z: "milestone",
+            fill: "milestone",
+            fillOpacity: (entry) => entry.future ? 0.25 : 0.5,
+            filter: only({ type: "milestone" }),
+            title: "milestone"
+        });
+        yield Plot.tickY(plotPoints, adjustedStackY({
+            x: "run",
+            y: key,
+            z: "milestone",
+            stroke: "milestone",
+            filter: only({ type: "milestone" }),
+            title: "milestone"
+        }));
+    }
+    function inferBarWidth(plotPoints) {
+        const plot = Plot.plot({
+            width: 800,
+            marks: [...barMarks(plotPoints, "dayDiff")]
+        });
+        return Number($(plot).find("g[aria-label='bar'] > rect").attr("width"));
+    }
+    function* segmentMarks(plotPoints, numRuns) {
+        const effectPoints = plotPoints.filter(only({ type: "effect" }));
+        const barWidth = inferBarWidth(plotPoints);
+        const isTemperature = (entry) => entry.milestone === "Hot days" || entry.milestone === "Cold days";
+        function* impl(dx, filter) {
+            yield Plot.ruleX(effectPoints, {
+                x: "run",
+                dx,
+                y1: "day",
+                y2: (entry) => entry.day - entry.segment,
+                stroke: "milestone",
+                strokeWidth: Math.max(0.75, Math.min(2, 40 / numRuns)),
+                strokeOpacity: 0.75,
+                filter,
+                title: "milestone"
+            });
+            const dotBase = {
+                x: "run",
+                dx,
+                r: 0.75,
+                fill: "milestone",
+                stroke: "milestone",
+                strokeWidth: Math.max(0.5, Math.min(2, 40 / numRuns)),
+                strokeOpacity: 0.75,
+                filter,
+                title: "milestone"
+            };
+            yield Plot.dot(effectPoints, { ...dotBase, y: "day", filter: compose(filter, not({ status: "pending" })) });
+            yield Plot.dot(effectPoints, { ...dotBase, y: (entry) => entry.day - entry.segment });
+        }
+        yield* impl(barWidth / 4, (point) => !isTemperature(point));
+        yield* impl(-barWidth / 4, (point) => isTemperature(point));
+    }
+    function* lollipopMarks(plotPoints, stack, numRuns) {
+        const dotBase = {
+            x: "run",
+            r: Math.min(2, 80 / numRuns),
+            fill: "milestone",
+            stroke: "milestone",
+            filter: only({ type: "event", status: "past" }),
+            title: "milestone"
+        };
+        if (stack) {
+            yield Plot.ruleX(plotPoints, Plot.stackY({
+                x: "run",
+                y: "segment",
+                stroke: "milestone",
+                strokeOpacity: 0.5,
+                filter: only({ type: "event" }),
+                title: "milestone"
+            }));
+            yield Plot.dot(plotPoints, adjustedStackY({ ...dotBase, y: "segment" }));
+        }
+        else {
+            yield Plot.ruleX(plotPoints, {
+                x: "run",
+                y1: "day",
+                y2: (entry) => entry.day - entry.segment,
+                stroke: "milestone",
+                strokeOpacity: 1,
+                filter: only({ type: "event" }),
+                title: "milestone"
+            });
+            yield Plot.dot(plotPoints, { ...dotBase, y: "day" });
+        }
+    }
+    function tipText(point, key, history) {
+        let prefix;
+        if (point.run === history.length) {
+            prefix = "Current run";
+        }
+        else {
+            prefix = `Run #${history[point.run].run}`;
+        }
+        const hasExtraInfo = ["combatDeaths", "junkTraits"].some(k => point[k] !== undefined);
+        if (point.raceName !== undefined && !hasExtraInfo) {
+            prefix += ` (${point.raceName})`;
+        }
+        let suffix;
+        if (point.pending) {
+            suffix = `(in progress)`;
+        }
+        else {
+            suffix = `in ${point[key]} day(s)`;
+            if (point.future) {
+                suffix += ` (PB pace)`;
+            }
+        }
+        const extraInfo = [];
+        if (point.raceName !== undefined && hasExtraInfo) {
+            extraInfo.push(`Race: ${point.raceName}`);
+        }
+        if (point.combatDeaths !== undefined) {
+            extraInfo.push(`Died in combat: ${point.combatDeaths}`);
+        }
+        if (point.junkTraits !== undefined) {
+            const genes = Object.entries(point.junkTraits).map(([trait, rank]) => `${trait} (${rank})`);
+            extraInfo.push(`Junk traits: ${genes.join(", ")}`);
+        }
+        if (extraInfo.length > 0) {
+            suffix += `\n${extraInfo.join("; ")}`;
+        }
+        return `${prefix}: ${point.milestone} ${suffix}`;
+    }
+    function* linePointerMarks(plotPoints, history, key) {
+        yield Plot.text(plotPoints, Plot.pointerX({
+            px: "run",
+            py: key,
+            dy: topTextOffset,
+            frameAnchor: "top-left",
+            text: (p) => tipText(p, key, history),
+            filter: not({ type: "effect" })
+        }));
+        yield Plot.ruleX(plotPoints, Plot.pointerX({
+            x: "run",
+            py: key,
+            filter: not({ type: "effect" })
+        }));
+        yield Plot.dot(plotPoints, Plot.pointerX({
+            x: "run",
+            y: key,
+            fill: "currentColor",
+            r: 2,
+            filter: not({ type: "effect" })
+        }));
+    }
+    function* rectPointerMarks(plotPoints, history, segmentKey, tipKey) {
+        // Transform pointer position from the point to the segment
+        function toSegment(options) {
+            const convert = ({ x, y, ...options }) => ({ px: x, py: y, ...options });
+            return convert(Plot.stackY(options));
+        }
+        yield Plot.text(plotPoints, Plot.pointerX(toSegment({
+            x: "run",
+            y: segmentKey,
+            dy: topTextOffset,
+            frameAnchor: "top-left",
+            text: (entry) => tipText(entry, tipKey, history),
+            filter: only({ type: "milestone" })
+        })));
+        yield Plot.barY(plotPoints, Plot.pointerX(Plot.stackY({
+            x: "run",
+            y: segmentKey,
+            fill: "milestone",
+            fillOpacity: 0.5,
+            filter: only({ type: "milestone" })
+        })));
+    }
+    function generateMarks(plotPoints, filteredRuns, bestRun, view) {
+        const marks = [
+            Plot.axisY({ anchor: "left", label: "days" }),
+            Plot.ruleY([0])
+        ];
+        switch (view.mode) {
+            case "timestamp":
+                if (view.showBars) {
+                    marks.push(...barMarks(plotPoints, "dayDiff"));
+                    marks.push(...segmentMarks(plotPoints, filteredRuns.length));
+                    marks.push(...lollipopMarks(plotPoints, false, filteredRuns.length));
+                    marks.push(...rectPointerMarks(plotPoints, filteredRuns, "dayDiff", "day"));
+                }
+                if (view.showLines) {
+                    if (view.fillArea) {
+                        marks.push(...areaMarks(plotPoints, filteredRuns, view.smoothness));
+                    }
+                    marks.push(...lineMarks(plotPoints, filteredRuns, "day", view.smoothness));
+                    // Don't show the lines' pointer if the bars' one is shown or if the lines are smoothed
+                    if (!view.showBars && view.smoothness === 0) {
+                        marks.push(...linePointerMarks(plotPoints, filteredRuns, "day"));
+                    }
+                }
+                marks.push(...timestamps(plotPoints, "day"));
+                marks.push(...statsMarks(filteredRuns, bestRun));
+                break;
+            case "duration":
+                marks.push(...lineMarks(plotPoints, filteredRuns, "segment", view.smoothness));
+                marks.push(...timestamps(plotPoints, "segment"));
+                marks.push(...linePointerMarks(plotPoints, filteredRuns, "segment"));
+                break;
+            case "durationStacked":
+                marks.push(...barMarks(plotPoints, "segment"));
+                marks.push(...lollipopMarks(plotPoints, true, filteredRuns.length));
+                marks.push(...rectPointerMarks(plotPoints, filteredRuns, "segment", "segment"));
+                break;
+        }
+        return marks;
+    }
+    function processCurrentRun(currentRun, filteredRuns, bestRun, view, history, game) {
+        const bestRunEntries = bestRun !== undefined ? asPlotPoints([bestRun], history, view, game) : [];
+        const estimate = view.mode === "timestamp";
+        const idx = filteredRuns.length;
+        return runAsPlotPoints(currentRun, view, game, bestRunEntries, estimate, idx);
+    }
+    function makeGraph(history, view, game, currentRun, onSelect) {
+        const filteredRuns = applyFilters(history, view);
+        const bestRun = findBestRun(history, view);
+        const plotPoints = asPlotPoints(filteredRuns, history, view, game);
+        if (view.includeCurrentRun) {
+            plotPoints.push(...processCurrentRun(currentRun, filteredRuns, bestRun, view, history, game));
+        }
+        const milestones = getSortedMilestones(view);
+        const milestoneNames = generateMilestoneNames(milestones, view.universe);
+        const milestoneColors = milestones.map(m => view.milestones[m].color);
+        const pendingPick = pendingColorPicks.get(view);
+        if (pendingPick !== undefined) {
+            const [milestone, value] = pendingPick;
+            const idx = milestones.indexOf(milestone);
+            milestoneColors[idx] = value;
+        }
+        const plot = Plot.plot({
+            marginTop,
+            width: 800,
+            x: { axis: null },
+            y: { grid: true, domain: calculateYScale(plotPoints, view) },
+            color: { legend: true, domain: milestoneNames, range: milestoneColors },
+            marks: generateMarks(plotPoints, filteredRuns, bestRun, view)
+        });
+        // When creating marks, we add a title with the milestone name
+        // Remove the generateed title element and add an attribute
+        $(plot).find("g > *").each(function () {
+            const title = $(this).find("> title");
+            if (title[0] !== undefined) {
+                const milestone = title.text();
+                $(this).attr("data-milestone", milestone);
+                title.remove();
+            }
+        });
+        // Handle selection
+        plot.addEventListener("mousedown", () => {
+            if (plot.value && plot.value.run < filteredRuns.length) {
+                onSelect(filteredRuns[plot.value.run]);
+            }
+            else {
+                onSelect(null);
+            }
+        });
+        // Process legend
+        if (pendingDraggingLegend.has(view)) {
+            $(plot).find("> div").replaceWith(pendingDraggingLegend.get(view));
+        }
+        else {
+            $(plot).find("> div > span").each(function () {
+                const svgNode = $(this).find("> svg");
+                const milestone = milestones[$(this).index() - 1];
+                const milestoneName = milestoneNames[$(this).index() - 1];
+                const defaultColor = svgNode.attr("fill");
+                // Metadata
+                svgNode
+                    .attr("data-view", view.index())
+                    .attr("data-milestone", milestone);
+                // Styling
+                $(this).css("font-size", "1rem");
+                if (isEffectMilestone(milestone)) {
+                    svgNode
+                        .attr("fill", null)
+                        .attr("fill-opacity", "0")
+                        .attr("stroke", defaultColor);
+                }
+                else if (isEventMilestone(milestone)) {
+                    svgNode.find("> rect").replaceWith(`<circle cx="50%" cy="50%" r="50%"></circle>`);
+                    svgNode.html(svgNode.html());
+                }
+                // Toggle milestones on click
+                $(this).css("cursor", "pointer");
+                $(this).toggleClass("crossed", !view.milestones[milestone].enabled);
+                $(this).on("click", function (event) {
+                    // Ignore clicks on the svg
+                    if (event.target !== this) {
+                        return;
+                    }
+                    const milestone = milestones[$(this).index() - 1];
+                    view.toggleMilestone(milestone);
+                });
+                // Set up color picker
+                const setMarksColor = (value) => {
+                    function impl() {
+                        if ($(this).attr("fill") !== undefined) {
+                            $(this).attr("fill", value);
+                        }
+                        if ($(this).attr("stroke") !== undefined) {
+                            $(this).attr("stroke", value);
+                        }
+                    }
+                    svgNode.each(impl);
+                    $(`figure [data-milestone="${milestoneName}"]`).each(impl);
+                };
+                makeColorPicker(svgNode, 3, defaultColor, {
+                    onChange: (value) => {
+                        pendingColorPicks.set(view, [milestone, value]);
+                        setMarksColor(value);
+                    },
+                    onSave: (value) => {
+                        pendingColorPicks.delete(view);
+                        view.setMilestoneColor(milestone, value);
+                    },
+                    onCancel: () => {
+                        pendingColorPicks.delete(view);
+                        setMarksColor(defaultColor);
+                    },
+                    currentColor: () => view.milestones[milestone].color
+                });
+            });
+            $(plot).find("> div").sortable({
+                placeholder: "sortable-placeholder",
+                beforeStop: function (_, { item }) {
+                    const milestone = item.find("> svg").attr("data-milestone");
+                    view.moveMilestone(milestone, item.index() - 1);
+                },
+                start: function () { pendingDraggingLegend.set(view, $(plot).find("> div")); },
+                stop: function () { pendingDraggingLegend.delete(view); }
+            });
+        }
+        $(plot).find("> svg").attr("width", "100%");
+        $(plot).css("margin", "0");
+        return plot;
+    }
 
     function makeSetting(label, inputNode) {
         return $(`<div>`).append(`<span style="margin-right: 8px">${label}</span>`).append(inputNode);
@@ -3353,7 +3841,7 @@
             .append(displaySettings);
     }
 
-    function makeMilestoneSettings(view) {
+    function makeMilestoneSettings(view, history) {
         const builtTargetOptions = makeAutocompleteInput("Building/Project", Object.entries(buildings).map(([id, name]) => ({ value: id, label: name })));
         const buildCountOption = makeNumberInput("Count", 1);
         const researchedTargetOptions = makeAutocompleteInput("Tech", Object.entries(techs).map(([id, name]) => ({ value: id, label: name })));
@@ -3400,6 +3888,12 @@
                 view.removeMilestone(milestone);
             }
         });
+        const reorderMilestonesNode = makeSlimButton("Auto sort").on("click", () => {
+            view.sortMilestones(history);
+        });
+        const recolorMilestonesNode = makeSlimButton("Reset colors").on("click", () => {
+            view.resetColors();
+        });
         return $(`<div style="display: flex; flex-direction: row; gap: 8px"></div>`)
             .append(typeOptions)
             .append(builtTargetOptions)
@@ -3408,13 +3902,17 @@
             .append(eventTargetOptions)
             .append(effectTargetOptions)
             .append(addMilestoneNode)
-            .append(removeMilestoneNode);
+            .append(removeMilestoneNode)
+            .append(reorderMilestonesNode)
+            .append(recolorMilestonesNode);
     }
 
     function makeAdditionalInfoSettings(view) {
         const node = $(`<div style="display: flex; flex-direction: row; gap: 8px"></div>`);
         node.append(`<span>Additional info:</span>`);
-        const showCurrentRunToggle = makeCheckbox("Current run", view.includeCurrentRun ?? false, (value) => view.includeCurrentRun = value);
+        const showCurrentRunToggle = makeCheckbox("Current run", view.includeCurrentRun ?? false, (value) => {
+            view.includeCurrentRun = value;
+        });
         node.append(showCurrentRunToggle);
         for (const [key, value] of Object.entries(additionalInformation)) {
             const enabled = view.additionalInfo.includes(key);
@@ -3509,7 +4007,7 @@
         contentNode
             .append(makeViewSettings(view).css("margin-bottom", "1em"))
             .append(makeAdditionalInfoSettings(view).css("margin-bottom", "1em"))
-            .append(makeMilestoneSettings(view).css("margin-bottom", "1em"))
+            .append(makeMilestoneSettings(view, history).css("margin-bottom", "1em"))
             .append(createGraph(view))
             .append(buttonsContainerNode);
         function redrawGraph(updatedView) {
