@@ -123,7 +123,7 @@ export function makeViewTab(id: string, game: Game, view: View, config: ConfigMa
     contentNode
         .append(makeViewSettings(view).css("margin-bottom", "1em"))
         .append(makeAdditionalInfoSettings(view).css("margin-bottom", "1em"))
-        .append(makeMilestoneSettings(view).css("margin-bottom", "1em"))
+        .append(makeMilestoneSettings(view, history).css("margin-bottom", "1em"))
         .append(createGraph(view))
         .append(buttonsContainerNode);
 

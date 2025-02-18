@@ -1,8 +1,10 @@
 import { makeAutocompleteInput, makeNumberInput, makeSelect, makeSlimButton } from "./utils";
 import { buildings, techs, events, environmentEffects, milestoneTypes } from "../enums";
+import { sortMilestones } from "../exports/utils";
 import type { View } from "../config";
+import type { HistoryManager } from "../history";
 
-export function makeMilestoneSettings(view: View) {
+export function makeMilestoneSettings(view: View, history: HistoryManager) {
     const builtTargetOptions = makeAutocompleteInput("Building/Project", Object.entries(buildings).map(([id, name]) => ({ value: id, label: name })));
     const buildCountOption = makeNumberInput("Count", 1);
 
@@ -65,6 +67,14 @@ export function makeMilestoneSettings(view: View) {
         }
     });
 
+    const reorderMilestonesNode = makeSlimButton("Auto sort").on("click", () => {
+        view.sortMilestones(history);
+    });
+
+    const recolorMilestonesNode = makeSlimButton("Reset colors").on("click", () => {
+        view.resetColors();
+    });
+
     return $(`<div style="display: flex; flex-direction: row; gap: 8px"></div>`)
         .append(typeOptions)
         .append(builtTargetOptions)
@@ -73,5 +83,7 @@ export function makeMilestoneSettings(view: View) {
         .append(eventTargetOptions)
         .append(effectTargetOptions)
         .append(addMilestoneNode)
-        .append(removeMilestoneNode);
+        .append(removeMilestoneNode)
+        .append(reorderMilestonesNode)
+        .append(recolorMilestonesNode);
 }

@@ -2,9 +2,10 @@ import { saveConfig, loadConfig } from "./database";
 import { Subscribable } from "./subscribable";
 import colorScheme from "./enums/colorSchemes";
 import { effectColors } from "./effects";
+import { getSortedMilestones, sortMilestones } from "./exports/utils";
 import type { resets, universes, viewModes, additionalInformation } from "./enums";
 import type { Game } from "./game";
-import { getSortedMilestones } from "./exports/utils";
+import type { HistoryManager } from "./history";
 
 export type ViewConfig = {
     resetType: keyof typeof resets,
@@ -25,9 +26,11 @@ export type ViewConfig = {
 export type View = ViewConfig & {
     toggleMilestone(milestone: string): void;
     setMilestoneColor(milestone: string, color: string): void;
+    moveMilestone(milestone: string, newIndex: number): void;
     addMilestone(milestone: string): void;
     removeMilestone(milestone: string): void;
-    moveMilestone(milestone: string, newIndex: number): void;
+    sortMilestones(history: HistoryManager): void;
+    resetColors(): void;
     toggleAdditionalInfo(key: keyof typeof additionalInformation): void;
     index(): number;
 }
@@ -101,6 +104,21 @@ function makeViewProxy(config: ConfigManager, view: ViewConfig): View {
                             config.emit("viewUpdated", receiver);
                         }
                     };
+
+                case "sortMilestones":
+                    return (history: HistoryManager) => {
+                        sortMilestones(receiver, history);
+                        config.emit("viewUpdated", receiver);
+                    };
+
+                case "resetColors":
+                    return () => {
+                        const colors = Object.values(colorScheme);
+                        for (const [milestone, info] of Object.entries(view.milestones)) {
+                            info.color = effectColors[milestone] ?? colors[info.index % colors.length];
+                        }
+                        config.emit("viewUpdated", receiver);
+                    }
 
                 case "toggleAdditionalInfo":
                     return (key: keyof typeof additionalInformation) => {
