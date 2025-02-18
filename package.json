@@ -7,8 +7,8 @@
     "private": true,
     "scripts": {
         "build": "rollup -c",
-        "dev": "rollup -c --watch",
-        "test": "jest --watch -i"
+        "dev": "rollup -c --configDebug --watch",
+        "test": "jest --watch"
     },
     "license": "MIT",
     "devDependencies": {
