@@ -73,7 +73,7 @@ describe("Migration", () => {
 
         expect(localStorage.getItem("sneed.analytics.config")!.startsWith("{")).toBe(true);
         expect(loadConfig()).toEqual({
-            version: 15,
+            version: 16,
             recordRuns: true,
             lastOpenViewIndex: 0,
             views: [
@@ -85,7 +85,8 @@ describe("Migration", () => {
                     smoothness: 0,
                     resetType: "ascend",
                     universe: "heavy",
-                    numRuns: 50,
+                    numRuns: { enabled: true, value: 50 },
+                    skipRuns: { enabled: false },
                     milestones: {
                         "reset:ascend": { index: 0, enabled: true, color: "#4269d0" },
                         "tech:metaphysics": { index: 1, enabled: true, color: "#efb118" },
@@ -173,7 +174,7 @@ describe("Migration", () => {
         migrate();
 
         expect(loadConfig()).toEqual({
-            version: 15,
+            version: 16,
             recordRuns: true,
             views: []
         });

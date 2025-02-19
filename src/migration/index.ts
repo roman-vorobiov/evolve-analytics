@@ -10,6 +10,9 @@ import { migrate11 } from "./11";
 import { migrate12 } from "./12";
 import { migrate13 } from "./13";
 import { migrate14 } from "./14";
+import { migrate15 } from "./15";
+
+export const VERSION = 16;
 
 export function migrate() {
     let config: any = DB.loadConfig();
@@ -20,7 +23,7 @@ export function migrate() {
         return;
     }
 
-    if (config.version >= 15) {
+    if (config.version >= VERSION) {
         return;
     }
 
@@ -66,6 +69,10 @@ export function migrate() {
 
     if (config.version === 14) {
         migrate14(config, history);
+    }
+
+    if (config.version === 15) {
+        migrate15(config);
     }
 
     DB.saveConfig(config);

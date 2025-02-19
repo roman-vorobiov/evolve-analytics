@@ -1,7 +1,7 @@
 import colorScheme from "../enums/colorSchemes";
 import { transformMap } from "../utils";
 import type { additionalInformation, resets, universes, viewModes } from "../enums";
-import type { Config, ViewConfig as ViewConfig14 } from "../config";
+import type { Config15 as Config, ViewConfig15 as ViewConfig14 } from "./15";
 
 export type ViewConfig13 = {
     resetType: keyof typeof resets,

@@ -1,21 +1,22 @@
 import { additionalInformation } from "../enums";
-import { makeCheckbox } from "./utils";
+import { makeCheckbox, makeFlexContainer } from "./utils";
 import type { View } from "../config";
 
 export function makeAdditionalInfoSettings(view: View) {
-    const node = $(`<div style="display: flex; flex-direction: row; gap: 8px"></div>`);
+    const container = makeFlexContainer("row")
+        .css("margin-bottom", "1em");
 
-    node.append(`<span>Additional info:</span>`);
+    container.append(`<span>Additional info:</span>`);
 
     const showCurrentRunToggle = makeCheckbox("Current run", view.includeCurrentRun ?? false, (value) => {
         view.includeCurrentRun = value;
     });
-    node.append(showCurrentRunToggle);
+    container.append(showCurrentRunToggle);
 
     for (const [key, value] of Object.entries(additionalInformation)) {
         const enabled = view.additionalInfo.includes(key as any);
-        node.append(makeCheckbox(value, enabled, () => { view.toggleAdditionalInfo(key as any); }));
+        container.append(makeCheckbox(value, enabled, () => { view.toggleAdditionalInfo(key as any); }));
     }
 
-    return node;
+    return container;
 }

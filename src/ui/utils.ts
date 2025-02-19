@@ -42,6 +42,10 @@ export function lastChild(node: JQuery) {
     return children[length - 1];
 }
 
+export function makeFlexContainer(direction: "row" | "column") {
+    return $(`<div class="flex-container" style="flex-direction: ${direction};"></div>`);
+}
+
 export function makeSelect(options: [string, string][], defaultValue?: string) {
     const optionNodes = options.map(([value, label]) => {
         return `<option value="${value}" ${value === defaultValue ? "selected" : ""}>${label}</option>`;
@@ -54,18 +58,19 @@ export function makeSelect(options: [string, string][], defaultValue?: string) {
     `);
 }
 
-type AutocompleteOptions = {
-    label: string,
-    value: string
-}
-
 type AugmentedSelectElement = HTMLSelectElement & { _value: string | undefined }
 
-export function makeAutocompleteInput(placeholder: string, options: AutocompleteOptions[]): JQuery<AugmentedSelectElement> {
+function toAutocompleteOptions(map: Record<string, string>) {
+    return Object.entries(map).map(([id, name]) => ({ value: id, label: name }));
+}
+
+export function makeAutocompleteInput(placeholder: string, options: Record<string, string>): JQuery<AugmentedSelectElement> {
+    const entries = toAutocompleteOptions(options);
+
     function onChange(event: Event, ui: JQueryUI.AutocompleteUIParams) {
         // If it wasn't selected from list
         if (ui.item === null){
-            const item = options.find(({ label }) => label === this.value);
+            const item = entries.find(({ label }) => label === this.value);
             if (item !== undefined) {
                 ui.item = item;
             }
@@ -85,7 +90,7 @@ export function makeAutocompleteInput(placeholder: string, options: Autocomplete
     }
 
     return <JQuery<AugmentedSelectElement>> $(`<input style="width: 200px" placeholder="${placeholder}"></input>`).autocomplete({
-        source: options,
+        source: entries,
         minLength: 2,
         delay: 0,
         select: onChange, // Dropdown list click
@@ -164,23 +169,16 @@ export function makeSlider([min, max]: [number, number], initialState: number, o
     return node;
 }
 
-export function makeToggleableNumberInput(
-    label: string,
-    placeholder: string,
-    defaultValue: number | undefined,
-    onStateChange: (value: string) => void
-) {
-    const enabled = defaultValue !== undefined;
+export function makeToggleableNumberInput(label: string, placeholder: string, state: { enabled: boolean, value?: number }) {
+    const inputNode = makeNumberInput(placeholder, state.value)
+        .on("change", function(this: HTMLInputElement) { state.value = this.value === "" ? undefined : Number(this.value); });
 
-    const inputNode = makeNumberInput(placeholder, defaultValue)
-        .on("change", function(this: HTMLInputElement) { onStateChange(this.value); });
-
-    const toggleNode = makeCheckbox(label, enabled, value => {
+    const toggleNode = makeCheckbox(label, state.enabled, value => {
         inputNode.prop("disabled", !value);
-        onStateChange(value ? inputNode.val() as string : "");
+        state.enabled = value;
     });
 
-    inputNode.prop("disabled", !enabled);
+    inputNode.prop("disabled", !state.enabled);
 
     return $(`<div></div>`)
         .append(toggleNode)

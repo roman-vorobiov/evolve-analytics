@@ -118,14 +118,19 @@ export function makeMilestones(milestones: string[] | Record<string, Partial<Vie
 
 export function makeViewFactory(prototypeOverrides: Partial<ViewConfig>): (view: Partial<ViewConfig>) => ViewConfig {
     const prototype: ViewConfig = {
-        mode: "timestamp",
-        showBars: false,
-        showLines: true,
-        fillArea: true,
-        smoothness: 0,
-        resetType: "blackhole",
+        resetType: "ascend",
         universe: "standard",
-        milestones: {},
+        numRuns: { enabled: false },
+        skipRuns: { enabled: false },
+        includeCurrentRun: false,
+        mode: "timestamp",
+        showBars: true,
+        showLines: false,
+        fillArea: false,
+        smoothness: 0,
+        milestones: {
+            "reset:ascend": { index: 0, enabled: true, color: colorScheme.blue }
+        },
         additionalInfo: [],
         ...prototypeOverrides
     };

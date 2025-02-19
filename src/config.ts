@@ -1,3 +1,4 @@
+import { VERSION } from "./migration";
 import { saveConfig, loadConfig } from "./database";
 import { Subscribable } from "./subscribable";
 import colorScheme from "./enums/colorSchemes";
@@ -17,7 +18,8 @@ export type ViewConfig = {
     showBars: boolean,
     showLines: boolean,
     fillArea: boolean,
-    numRuns?: number,
+    numRuns: { enabled: boolean, value?: number },
+    skipRuns: { enabled: boolean, value?: number },
     daysScale?: number,
     milestones: Record<string, { index: number, enabled: boolean, color: string }>,
     additionalInfo: Array<keyof typeof additionalInformation>
@@ -52,6 +54,16 @@ function makeViewProxy(config: ConfigManager, view: ViewConfig): View {
             }
 
             switch (prop) {
+                case "numRuns":
+                case "skipRuns":
+                    return {
+                        get enabled() { return view[prop].enabled; },
+                        set enabled(value) { view[prop].enabled = value; config.emit("viewUpdated", receiver); },
+
+                        get value() { return view[prop].value; },
+                        set value(value) { view[prop].value = value; config.emit("viewUpdated", receiver); }
+                    };
+
                 case "index":
                     return () => config.views.indexOf(receiver);
 
@@ -145,7 +157,7 @@ function makeViewProxy(config: ConfigManager, view: ViewConfig): View {
                 const info = view.milestones[`reset:${view.resetType}`];
 
                 delete view.milestones[`reset:${view.resetType}`];
-                view.milestones[`reset:${value}`] = { ...info, enabled: true };
+                view.milestones[`reset:${value}`] = info;
             }
 
             const ret = Reflect.set(obj, prop, value, receiver);
@@ -214,6 +226,8 @@ export class ConfigManager extends Subscribable {
         const view: ViewConfig = {
             resetType: "ascend",
             universe: this.game.universe,
+            numRuns: { enabled: false },
+            skipRuns: { enabled: false },
             includeCurrentRun: false,
             mode: "timestamp",
             showBars: true,
@@ -270,6 +284,6 @@ export class ConfigManager extends Subscribable {
 }
 
 export function getConfig(game: Game) {
-    const config = loadConfig() ?? { version: 15, recordRuns: true, views: [] };
+    const config = loadConfig() ?? { version: VERSION, recordRuns: true, views: [] };
     return new ConfigManager(game, config);
 }

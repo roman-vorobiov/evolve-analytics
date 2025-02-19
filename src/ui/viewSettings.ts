@@ -1,4 +1,4 @@
-import { makeSelect, makeSlider, makeCheckbox, makeNumberInput, makeToggleableNumberInput } from "./utils";
+import { makeSelect, makeSlider, makeCheckbox, makeNumberInput, makeToggleableNumberInput, makeFlexContainer } from "./utils";
 import { resets, universes, viewModes } from "../enums";
 import type { View, ViewConfig } from "../config";
 
@@ -16,24 +16,12 @@ function makeUniverseFilter(value: string): keyof typeof universes | undefined {
 }
 
 export function makeViewSettings(view: View) {
-    const propertyListeners: Record<string, Array<() => void>> = {};
-
-    function onPropertyChange(props: (keyof ViewConfig)[], handler: () => void) {
-        for (const prop of props) {
-            const handlers = propertyListeners[prop] ??= [];
-            handlers.push(handler);
-        }
-
-        handler();
-    }
-
     function setValue(key: keyof ViewConfig, value: any) {
         switch (key) {
             case "universe":
                 view.universe = makeUniverseFilter(value);
                 break;
 
-            case "numRuns":
             case "daysScale":
             case "starLevel":
                 view[key] = value === "" ? undefined : Number(value);
@@ -43,8 +31,6 @@ export function makeViewSettings(view: View) {
                 (view as any)[key] = value;
                 break;
         }
-
-        propertyListeners[key]?.forEach(f => f());
     }
 
     const bindThis = (property: keyof ViewConfig) => {
@@ -64,7 +50,9 @@ export function makeViewSettings(view: View) {
     const starLevelInput = makeNumberInput("Any", view.starLevel, [0, 4])
         .on("change", bindThis("starLevel"));
 
-    const numRunsInput = makeToggleableNumberInput("Limit to last N runs", "All", view.numRuns, bind("numRuns"));
+    const skipRunsInput = makeToggleableNumberInput("Ignore first N runs", "None", view.skipRuns);
+
+    const numRunsInput = makeToggleableNumberInput("Show last N runs", "All", view.numRuns);
 
     const modeInput = makeSelect(Object.entries(viewModes), view.mode)
         .on("change", bindThis("mode"));
@@ -80,25 +68,24 @@ export function makeViewSettings(view: View) {
     const daysScaleInput = makeNumberInput("Auto", view.daysScale)
         .on("change", bindThis("daysScale"));
 
-    onPropertyChange(["universe"], () => {
-        const resetName = view.universe === "magic" ? "Vacuum Collapse" : "Black Hole";
-        resetTypeInput.find(`> option[value="blackhole"]`).text(resetName);
-    });
+    const resetName = view.universe === "magic" ? "Vacuum Collapse" : "Black Hole";
+    resetTypeInput.find(`> option[value="blackhole"]`).text(resetName);
 
-    onPropertyChange(["showLines", "mode"], () => {
-        showBarsToggle.toggle(view.mode === "timestamp");
-        showLinesToggle.toggle(view.mode === "timestamp");
-        fillAreaToggle.toggle(view.showLines && view.mode === "timestamp");
-        avgWindowSlider.toggle((view.showLines && view.mode === "timestamp") || view.mode === "duration");
-    });
+    showBarsToggle.toggle(view.mode === "timestamp");
+    showLinesToggle.toggle(view.mode === "timestamp");
+    fillAreaToggle.toggle(view.showLines && view.mode === "timestamp");
+    avgWindowSlider.toggle((view.showLines && view.mode === "timestamp") || view.mode === "duration");
 
-    const filterSettings = $(`<div class="flex-container" style="flex-direction: row;"></div>`)
+    const filterSettings = makeFlexContainer("row")
         .append(makeSetting("Reset type", resetTypeInput))
         .append(makeSetting("Universe", universeInput))
-        .append(makeSetting("Star level", starLevelInput))
+        .append(makeSetting("Star level", starLevelInput));
+
+    const rangeSettings = makeFlexContainer("row")
+        .append(skipRunsInput)
         .append(numRunsInput);
 
-    const displaySettings = $(`<div class="flex-container" style="flex-direction: row;"></div>`)
+    const displaySettings = makeFlexContainer("row")
         .append(makeSetting("Mode", modeInput))
         .append(makeSetting("Days scale", daysScaleInput))
         .append(showBarsToggle)
@@ -106,7 +93,14 @@ export function makeViewSettings(view: View) {
         .append(fillAreaToggle)
         .append(avgWindowSlider);
 
-    return $(`<div class="flex-container" style="flex-direction: column;"></div>`)
+    const container = makeFlexContainer("row")
+        .addClass("analytics-view-settings")
+        .css("margin-bottom", "1em");
+
+    container
         .append(filterSettings)
+        .append(rangeSettings)
         .append(displaySettings);
+
+    return container;
 }

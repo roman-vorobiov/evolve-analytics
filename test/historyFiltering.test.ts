@@ -95,6 +95,21 @@ describe("Export", () => {
             ]);
         });
 
+        it("should skip first N runs", () => {
+            const history = makeHistory({
+                milestones: { "tech:club": 0, "reset:mad": 1 },
+                runs: [
+                    { run: 1, universe: "standard", milestones: [[1, 10]] },
+                    { run: 2, universe: "heavy", milestones: [[1, 10]] },
+                    { run: 3, universe: "heavy", milestones: [[1, 10]] },
+                ]
+            });
+
+            expect(applyFilters(history, makeView({ universe: "heavy", skipRuns: { enabled: true, value: 1 } }))).toEqual([
+                history.runs[2]
+            ]);
+        });
+
         it("should filter last N runs", () => {
             const history = makeHistory({
                 milestones: { "tech:club": 0, "reset:mad": 1 },
@@ -105,7 +120,7 @@ describe("Export", () => {
                 ]
             });
 
-            expect(applyFilters(history, makeView({ numRuns: 2 }))).toEqual([
+            expect(applyFilters(history, makeView({ numRuns: { enabled: true, value: 2 } }))).toEqual([
                 history.runs[1],
                 history.runs[2]
             ]);
@@ -124,9 +139,30 @@ describe("Export", () => {
                 ]
             });
 
-            expect(applyFilters(history, makeView({ universe: "standard", numRuns: 2 }))).toEqual([
+            expect(applyFilters(history, makeView({ universe: "standard", numRuns: { enabled: true, value: 2 } }))).toEqual([
                 history.runs[2],
                 history.runs[4]
+            ]);
+        });
+
+        it("should apply skipRuns before numRuns", () => {
+            const history = makeHistory({
+                milestones: { "tech:club": 0, "reset:mad": 1 },
+                runs: [
+                    { run: 1, universe: "standard", milestones: [[1, 10]] },
+                    { run: 2, universe: "heavy", milestones: [[1, 10]] },
+                    { run: 3, universe: "heavy", milestones: [[1, 10]] },
+                ]
+            });
+
+            const view = makeView({
+                universe: "heavy",
+                skipRuns: { enabled: true, value: 1 },
+                numRuns: { enabled: true, value: 2 }
+            });
+
+            expect(applyFilters(history, view)).toEqual([
+                history.runs[2]
             ]);
         });
     });

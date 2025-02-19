@@ -1,4 +1,5 @@
 import { resets, universes } from "../enums";
+import { applyFilters } from "../exports/historyFiltering";
 import { makeGraph } from "./graph";
 import { makeViewSettings } from "./viewSettings";
 import { makeMilestoneSettings } from "./milestoneSettings";
@@ -84,14 +85,39 @@ export function makeViewTab(id: string, game: Game, view: View, config: ConfigMa
     const controlNode = $(`<li><a href="#${id}">${viewTitle(view)}</a></li>`);
     const contentNode = $(`<div id="${id}" class="vscroll" style="height: calc(100vh - 10rem)"></div>`);
 
-    const removeViewNode = $(`<button class="button">Delete View</button>`)
+    const removeViewNode = $(`<button class="button">Delete view</button>`)
         .on("click", () => { config.removeView(view); });
 
     let selectedRun: HistoryEntry | null = null;
 
-    const discardRunNode = $(`<button class="button">Discard Run</button>`)
+    const ignoreRunsNode = $(`<button class="button">Ignore previous runs</button>`)
+        .on("click", () => {
+            const filteredRuns = applyFilters(history, view, { useLimits: false });
+            const idx = filteredRuns.indexOf(selectedRun!);
+            view.skipRuns = { enabled: true, value: idx };
+        })
+        .attr("disabled", "");
+
+    const discardRunNode = $(`<button class="button">Discard run</button>`)
         .on("click", () => { history.discardRun(selectedRun!); })
         .attr("disabled", "");
+
+    function onRunSelection(run: HistoryEntry | null) {
+        selectedRun = run;
+
+        if (selectedRun === null) {
+            discardRunNode.attr("disabled", "");
+            ignoreRunsNode.attr("disabled", "");
+        }
+        else {
+            discardRunNode.attr("disabled", null);
+            ignoreRunsNode.attr("disabled", null);
+        }
+    }
+
+    function createGraph(view: View) {
+        return makeGraph(history, view, game, currentRun, onRunSelection);
+    }
 
     const asImageNode = $(`<button class="button">Copy as PNG</button>`)
         .on("click", async function() {
@@ -106,24 +132,16 @@ export function makeViewTab(id: string, game: Game, view: View, config: ConfigMa
             $(this).text("Copy as PNG");
         });
 
-    function onRunSelection(run: HistoryEntry | null) {
-        selectedRun = run;
-        discardRunNode.attr("disabled", selectedRun === null ? "" : null);
-    }
-
-    function createGraph(view: View) {
-        return makeGraph(history, view, game, currentRun, onRunSelection);
-    }
-
     const buttonsContainerNode = $(`<div style="display: flex; justify-content: space-between"></div>`)
         .append(asImageNode)
+        .append(ignoreRunsNode)
         .append(discardRunNode)
         .append(removeViewNode);
 
     contentNode
-        .append(makeViewSettings(view).css("margin-bottom", "1em"))
-        .append(makeAdditionalInfoSettings(view).css("margin-bottom", "1em"))
-        .append(makeMilestoneSettings(view, history).css("margin-bottom", "1em"))
+        .append(makeViewSettings(view))
+        .append(makeAdditionalInfoSettings(view))
+        .append(makeMilestoneSettings(view, history))
         .append(createGraph(view))
         .append(buttonsContainerNode);
 
@@ -137,6 +155,7 @@ export function makeViewTab(id: string, game: Game, view: View, config: ConfigMa
         }
 
         controlNode.find("> a").text(viewTitle(updatedView));
+        contentNode.find(".analytics-view-settings").replaceWith(makeViewSettings(view));
         redrawGraph(updatedView);
         onRunSelection(null);
     });

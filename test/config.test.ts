@@ -93,6 +93,8 @@ describe("Config", () => {
             resetType: "ascend",
             universe: "standard",
             includeCurrentRun: false,
+            numRuns: { enabled: false },
+            skipRuns: { enabled: false },
             milestones: {
                 "reset:ascend": { index: 0, enabled: true, color: colorScheme.blue }
             },
@@ -104,7 +106,7 @@ describe("Config", () => {
         const config = makeConfig({
             views: [
                 makeView({
-                    milestones: makeMilestones(["reset:blackhole"])
+                    milestones: makeMilestones(["reset:ascend"])
                 })
             ]
         });
@@ -123,7 +125,8 @@ describe("Config", () => {
         const config = makeConfig({
             views: [
                 makeView({
-                    milestones: makeMilestones(["reset:blackhole"])
+                    universe: "standard",
+                    milestones: makeMilestones(["reset:ascend"])
                 })
             ]
         });
@@ -133,26 +136,14 @@ describe("Config", () => {
 
         config.views[0].universe = "magic";
 
-        expect(modifiedView).toEqual({
-            mode: "timestamp",
-            showBars: false,
-            showLines: true,
-            fillArea: true,
-            smoothness: 0,
-            resetType: "blackhole",
-            universe: "magic",
-            milestones: {
-                "reset:blackhole": { index: 0, enabled: true, color: colorScheme.blue }
-            },
-            additionalInfo: []
-        });
+        expect(modifiedView).toEqual(makeView({ universe: "magic" }));
     });
 
     it("should emit events when a milestone is added", () => {
         const config = makeConfig({
             views: [
                 makeView({
-                    milestones: makeMilestones(["reset:blackhole"])
+                    milestones: makeMilestones(["reset:ascend"])
                 })
             ]
         });
@@ -162,27 +153,16 @@ describe("Config", () => {
 
         config.views[0].addMilestone("tech:club");
 
-        expect(modifiedView).toEqual({
-            mode: "timestamp",
-            showBars: false,
-            showLines: true,
-            fillArea: true,
-            smoothness: 0,
-            resetType: "blackhole",
-            universe: "standard",
-            milestones: {
-                "reset:blackhole": { index: 0, enabled: true, color: colorScheme.blue },
-                "tech:club": { index: 1, enabled: true, color: colorScheme.orange }
-            },
-            additionalInfo: []
-        });
+        expect(modifiedView).toEqual(makeView({
+            milestones: makeMilestones(["reset:ascend", "tech:club"])
+        }));
     });
 
     it("should use predefined colors for effects", () => {
         const config = makeConfig({
             views: [
                 makeView({
-                    milestones: makeMilestones(["reset:blackhole"])
+                    milestones: makeMilestones(["reset:ascend"])
                 })
             ]
         });
@@ -192,27 +172,19 @@ describe("Config", () => {
 
         config.views[0].addMilestone("effect:hot");
 
-        expect(modifiedView).toEqual({
-            mode: "timestamp",
-            showBars: false,
-            showLines: true,
-            fillArea: true,
-            smoothness: 0,
-            resetType: "blackhole",
-            universe: "standard",
+        expect(modifiedView).toEqual(makeView({
             milestones: {
-                "reset:blackhole": { index: 0, enabled: true, color: colorScheme.blue },
+                "reset:ascend": { index: 0, enabled: true, color: colorScheme.blue },
                 "effect:hot": { index: 1, enabled: true, color: colorScheme.red }
-            },
-            additionalInfo: []
-        });
+            }
+        }));
     });
 
     it("should emit events when a milestone is removed", () => {
         const config = makeConfig({
             views: [
                 makeView({
-                    milestones: makeMilestones(["reset:blackhole"])
+                    milestones: makeMilestones(["reset:ascend", "tech:club"])
                 })
             ]
         });
@@ -220,19 +192,11 @@ describe("Config", () => {
         let modifiedView: View | undefined = undefined;
         config.on("viewUpdated", v => { modifiedView = v; });
 
-        config.views[0].removeMilestone("reset:blackhole");
+        config.views[0].removeMilestone("tech:club");
 
-        expect(modifiedView).toEqual({
-            mode: "timestamp",
-            showBars: false,
-            showLines: true,
-            fillArea: true,
-            smoothness: 0,
-            resetType: "blackhole",
-            universe: "standard",
-            milestones: {},
-            additionalInfo: []
-        });
+        expect(modifiedView).toEqual(makeView({
+            milestones: makeMilestones(["reset:ascend"])
+        }));
     });
 
     it("should update indices when a milestone is removed", () => {
@@ -242,7 +206,7 @@ describe("Config", () => {
                     milestones: {
                         "tech:club": { index: 0, enabled: true, color: colorScheme.blue },
                         "tech:wheel": { index: 1, enabled: true, color: colorScheme.orange },
-                        "reset:blackhole": { index: 2, enabled: true, color: colorScheme.red }
+                        "reset:ascend": { index: 2, enabled: true, color: colorScheme.red }
                     }
                 })
             ]
@@ -253,27 +217,19 @@ describe("Config", () => {
 
         config.views[0].removeMilestone("tech:wheel");
 
-        expect(modifiedView).toEqual({
-            mode: "timestamp",
-            showBars: false,
-            showLines: true,
-            fillArea: true,
-            smoothness: 0,
-            resetType: "blackhole",
-            universe: "standard",
+        expect(modifiedView).toEqual(makeView({
             milestones: {
                 "tech:club": { index: 0, enabled: true, color: colorScheme.blue },
-                "reset:blackhole": { index: 1, enabled: true, color: colorScheme.red }
-            },
-            additionalInfo: []
-        });
+                "reset:ascend": { index: 1, enabled: true, color: colorScheme.red }
+            }
+        }));
     });
 
     it("should emit events when a milestone is modified", () => {
         const config = makeConfig({
             views: [
                 makeView({
-                    milestones: makeMilestones(["reset:blackhole"])
+                    milestones: makeMilestones(["reset:ascend"])
                 })
             ]
         });
@@ -281,21 +237,13 @@ describe("Config", () => {
         let modifiedView: View | undefined = undefined;
         config.on("viewUpdated", v => { modifiedView = v; });
 
-        config.views[0].toggleMilestone("reset:blackhole");
+        config.views[0].toggleMilestone("reset:ascend");
 
-        expect(modifiedView).toEqual({
-            mode: "timestamp",
-            showBars: false,
-            showLines: true,
-            fillArea: true,
-            smoothness: 0,
-            resetType: "blackhole",
-            universe: "standard",
+        expect(modifiedView).toEqual(makeView({
             milestones: {
-                "reset:blackhole": { index: 0, enabled: false, color: colorScheme.blue }
-            },
-            additionalInfo: []
-        });
+                "reset:ascend": { index: 0, enabled: false, color: colorScheme.blue }
+            }
+        }));
     });
 
     it("should emit events when a milestone is moved", () => {
@@ -305,7 +253,7 @@ describe("Config", () => {
                     milestones: {
                         "tech:club": { index: 0, enabled: true, color: colorScheme.blue },
                         "tech:wheel": { index: 1, enabled: true, color: colorScheme.orange },
-                        "reset:blackhole": { index: 2, enabled: true, color: colorScheme.red }
+                        "reset:ascend": { index: 2, enabled: true, color: colorScheme.red }
                     }
                 })
             ]
@@ -316,28 +264,20 @@ describe("Config", () => {
 
         config.views[0].moveMilestone("tech:wheel", 2);
 
-        expect(modifiedView).toEqual({
-            mode: "timestamp",
-            showBars: false,
-            showLines: true,
-            fillArea: true,
-            smoothness: 0,
-            resetType: "blackhole",
-            universe: "standard",
+        expect(modifiedView).toEqual(makeView({
             milestones: {
                 "tech:club": { index: 0, enabled: true, color: colorScheme.blue },
                 "tech:wheel": { index: 2, enabled: true, color: colorScheme.orange },
-                "reset:blackhole": { index: 1, enabled: true, color: colorScheme.red }
-            },
-            additionalInfo: []
-        });
+                "reset:ascend": { index: 1, enabled: true, color: colorScheme.red }
+            }
+        }));
     });
 
     it("should update milestones when switching reset types", () => {
         const config = makeConfig({
             views: [
                 makeView({
-                    milestones: makeMilestones(["reset:blackhole"])
+                    milestones: makeMilestones({ "reset:ascend": { index: 1, enabled: false, color: colorScheme.gray } })
                 })
             ]
         });
@@ -345,36 +285,21 @@ describe("Config", () => {
         let modifiedView: View | undefined = undefined;
         config.on("viewUpdated", v => { modifiedView = v; });
 
-        expect(config.views[0].milestones).toEqual({
-            "reset:blackhole": { index: 0, enabled: true, color: colorScheme.blue }
-        });
-
         config.views[0].resetType = "matrix";
 
-        expect(config.views[0].milestones).toEqual({
-            "reset:matrix": { index: 0, enabled: true, color: colorScheme.blue }
-        });
-
-        expect(modifiedView).toEqual({
-            mode: "timestamp",
-            showBars: false,
-            showLines: true,
-            fillArea: true,
-            smoothness: 0,
+        expect(modifiedView).toEqual(makeView({
             resetType: "matrix",
-            universe: "standard",
             milestones: {
-                "reset:matrix": { index: 0, enabled: true, color: colorScheme.blue }
-            },
-            additionalInfo: []
-        });
+                "reset:matrix": { index: 1, enabled: false, color: colorScheme.gray }
+            }
+        }));
     });
 
     it("should not emit events when the value doesn't change", () => {
         const config = makeConfig({
             views: [
                 makeView({
-                    milestones: makeMilestones(["reset:blackhole"])
+                    milestones: makeMilestones(["reset:ascend"])
                 })
             ]
         });

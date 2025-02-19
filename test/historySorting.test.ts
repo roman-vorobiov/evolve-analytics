@@ -1,9 +1,11 @@
 import { describe, expect, it } from "@jest/globals";
-import { makeGameState, makeConfig, makeView, makeMilestones, makeHistory } from "./fixture";
+import { makeGameState, makeConfig, makeViewFactory, makeMilestones, makeHistory } from "./fixture";
 
 import { sortMilestones, getSortedMilestones } from "../src/exports/utils";
 import { Game } from "../src/game";
 import { blankHistory } from "../src/history";
+
+const makeView = makeViewFactory({ resetType: "blackhole" });
 
 describe("Export", () => {
     describe("Sorting", () => {

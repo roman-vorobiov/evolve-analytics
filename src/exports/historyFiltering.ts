@@ -32,18 +32,33 @@ export function shouldIncludeRun(entry: HistoryEntry, view: ViewConfig, history:
     return true;
 }
 
-export function applyFilters(history: HistoryManager, view: ViewConfig): HistoryEntry[] {
+export function applyFilters(history: HistoryManager, view: ViewConfig, { useLimits } = { useLimits: true }): HistoryEntry[] {
     const runs: HistoryEntry[] = [];
 
-    for (let i = history.runs.length - 1; i >= 0; --i) {
+    let lowerBound = 0;
+    if (useLimits && view.skipRuns.enabled && view.skipRuns.value !== undefined) {
+        let skippedRuns = 0;
+        for (; lowerBound !== history.runs.length; ++lowerBound) {
+            const run = history.runs[lowerBound];
+
+            if (shouldIncludeRun(run, view, history)) {
+                if (++skippedRuns === view.skipRuns.value) {
+                    break;
+                }
+            }
+        }
+        ++lowerBound;
+    }
+
+    for (let i = history.runs.length - 1; i >= lowerBound; --i) {
         const run = history.runs[i];
 
         if (shouldIncludeRun(run, view, history)) {
             runs.push(run);
-        }
 
-        if (view.numRuns !== undefined && runs.length >= view.numRuns) {
-            break;
+            if (useLimits && view.numRuns.enabled && view.numRuns.value !== undefined && runs.length >= view.numRuns.value) {
+                break;
+            }
         }
     }
 

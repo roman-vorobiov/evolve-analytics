@@ -1,14 +1,13 @@
-import { makeAutocompleteInput, makeNumberInput, makeSelect, makeSlimButton } from "./utils";
+import { makeAutocompleteInput, makeFlexContainer, makeNumberInput, makeSelect, makeSlimButton } from "./utils";
 import { buildings, techs, events, environmentEffects, milestoneTypes } from "../enums";
-import { sortMilestones } from "../exports/utils";
 import type { View } from "../config";
 import type { HistoryManager } from "../history";
 
 export function makeMilestoneSettings(view: View, history: HistoryManager) {
-    const builtTargetOptions = makeAutocompleteInput("Building/Project", Object.entries(buildings).map(([id, name]) => ({ value: id, label: name })));
+    const builtTargetOptions = makeAutocompleteInput("Building/Project", buildings);
     const buildCountOption = makeNumberInput("Count", 1);
 
-    const researchedTargetOptions = makeAutocompleteInput("Tech", Object.entries(techs).map(([id, name]) => ({ value: id, label: name })));
+    const researchedTargetOptions = makeAutocompleteInput("Tech", techs);
 
     const eventTargetOptions = makeSelect(Object.entries(events));
 
@@ -75,7 +74,10 @@ export function makeMilestoneSettings(view: View, history: HistoryManager) {
         view.resetColors();
     });
 
-    return $(`<div style="display: flex; flex-direction: row; gap: 8px"></div>`)
+    const container = makeFlexContainer("row")
+        .css("margin-bottom", "1em")
+
+    container
         .append(typeOptions)
         .append(builtTargetOptions)
         .append(buildCountOption)
@@ -86,4 +88,6 @@ export function makeMilestoneSettings(view: View, history: HistoryManager) {
         .append(removeMilestoneNode)
         .append(reorderMilestonesNode)
         .append(recolorMilestonesNode);
+
+    return container;
 }
