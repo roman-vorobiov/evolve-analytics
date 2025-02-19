@@ -119,7 +119,7 @@ class SegmentCounter {
         // Pending events
         for (const [event, preconditionDay] of this.eventConditions.entries()) {
             const milestone = `event:${event}`;
-            if (this.view.milestones[milestone].enabled && !this.events.has(milestone)) {
+            if (this.view.milestones[milestone]?.enabled && !this.events.has(milestone)) {
                 yield {
                     milestone,
                     day: currentDay,
