@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.14.4
+// @version      0.14.5
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -2936,7 +2936,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             // Pending events
             for (const [event, preconditionDay] of this.eventConditions.entries()) {
                 const milestone = `event:${event}`;
-                if (this.view.milestones[milestone].enabled && !this.events.has(milestone)) {
+                if (this.view.milestones[milestone]?.enabled && !this.events.has(milestone)) {
                     yield {
                         milestone,
                         day: currentDay,
