@@ -1,14 +1,14 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.14.3
+// @version      0.14.4
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
 // @resource     PICKR_CSS https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/themes/classic.min.css
 // @require      https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/pickr.min.js
 // @require      https://cdn.jsdelivr.net/npm/d3@7
-// @require      https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6
+// @require      https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6.17
 // @require      https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.min.js
 // @require      https://code.jquery.com/jquery-3.7.1.min.js
 // @require      https://code.jquery.com/ui/1.12.1/jquery-ui.min.js
@@ -1501,7 +1501,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         "segmented": "Segmented",
         "barsSegmented": "Segmented (bars)"
     };
-    function migrateView$3(view) {
+    function migrateView$4(view) {
         return {
             ...view,
             mode: ["segmented", "barsSegmented"].includes(view.mode) ? "duration" : "timestamp",
@@ -1515,7 +1515,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         return {
             ...config,
             version: 8,
-            views: config.views.map(migrateView$3)
+            views: config.views.map(migrateView$4)
         };
     }
 
@@ -1754,12 +1754,12 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
     function migrateMilestones(milestones) {
         return transformMap(milestones, ([milestone, day]) => [rename(milestone), day]);
     }
-    function migrateView$2(view) {
+    function migrateView$3(view) {
         view.milestones = migrateMilestones(view.milestones);
     }
     function migrateConfig$2(config) {
         for (const view of config.views) {
-            migrateView$2(view);
+            migrateView$3(view);
         }
         config.version = 9;
     }
@@ -1874,7 +1874,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             view.milestones[milestone].index = i;
         }
     }
-    function migrateView$1(view, history) {
+    function migrateView$2(view, history) {
         const newView = {
             ...view,
             milestones: transformMap(view.milestones, ([milestone, enabled], index) => [milestone, { index, enabled }])
@@ -1886,11 +1886,11 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         return newView;
     }
     function migrate12(config, history) {
-        config.views = config.views.map(v => migrateView$1(v, history));
+        config.views = config.views.map(v => migrateView$2(v, history));
         config.version = 13;
     }
 
-    function migrateView(view) {
+    function migrateView$1(view) {
         const colors = Object.values(Observable10);
         const presets = {
             "effect:hot": Observable10.red,
@@ -1907,7 +1907,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         };
     }
     function migrate13(config) {
-        config.views = config.views.map(v => migrateView(v));
+        config.views = config.views.map(v => migrateView$1(v));
         config.version = 14;
     }
 
@@ -1925,6 +1925,19 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         config.version = 15;
     }
 
+    function migrateView(view) {
+        return {
+            ...view,
+            numRuns: { enabled: view.numRuns !== undefined, value: view.numRuns },
+            skipRuns: { enabled: false }
+        };
+    }
+    function migrate15(config) {
+        config.views = config.views.map(v => migrateView(v));
+        config.version = 16;
+    }
+
+    const VERSION = 16;
     function migrate() {
         let config = loadConfig();
         let history = loadHistory();
@@ -1932,7 +1945,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         if (config === null) {
             return;
         }
-        if (config.version >= 15) {
+        if (config.version >= VERSION) {
             return;
         }
         if (config.version < 4) {
@@ -1967,6 +1980,9 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         }
         if (config.version === 14) {
             migrate14(config, history);
+        }
+        if (config.version === 15) {
+            migrate15(config);
         }
         saveConfig(config);
         history !== null && saveHistory(history);
@@ -2155,15 +2171,28 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         }
         return true;
     }
-    function applyFilters(history, view) {
+    function applyFilters(history, view, { useLimits } = { useLimits: true }) {
         const runs = [];
-        for (let i = history.runs.length - 1; i >= 0; --i) {
+        let lowerBound = 0;
+        if (useLimits && view.skipRuns.enabled && view.skipRuns.value !== undefined) {
+            let skippedRuns = 0;
+            for (; lowerBound !== history.runs.length; ++lowerBound) {
+                const run = history.runs[lowerBound];
+                if (shouldIncludeRun(run, view, history)) {
+                    if (++skippedRuns === view.skipRuns.value) {
+                        break;
+                    }
+                }
+            }
+            ++lowerBound;
+        }
+        for (let i = history.runs.length - 1; i >= lowerBound; --i) {
             const run = history.runs[i];
             if (shouldIncludeRun(run, view, history)) {
                 runs.push(run);
-            }
-            if (view.numRuns !== undefined && runs.length >= view.numRuns) {
-                break;
+                if (useLimits && view.numRuns.enabled && view.numRuns.value !== undefined && runs.length >= view.numRuns.value) {
+                    break;
+                }
             }
         }
         return runs.reverse();
@@ -2242,6 +2271,14 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
                     }
                 }
                 switch (prop) {
+                    case "numRuns":
+                    case "skipRuns":
+                        return {
+                            get enabled() { return view[prop].enabled; },
+                            set enabled(value) { view[prop].enabled = value; config.emit("viewUpdated", receiver); },
+                            get value() { return view[prop].value; },
+                            set value(value) { view[prop].value = value; config.emit("viewUpdated", receiver); }
+                        };
                     case "index":
                         return () => config.views.indexOf(receiver);
                     case "toggleMilestone":
@@ -2322,7 +2359,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
                 if (prop === "resetType") {
                     const info = view.milestones[`reset:${view.resetType}`];
                     delete view.milestones[`reset:${view.resetType}`];
-                    view.milestones[`reset:${value}`] = { ...info, enabled: true };
+                    view.milestones[`reset:${value}`] = info;
                 }
                 const ret = Reflect.set(obj, prop, value, receiver);
                 config.emit("viewUpdated", receiver);
@@ -2378,6 +2415,8 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             const view = {
                 resetType: "ascend",
                 universe: this.game.universe,
+                numRuns: { enabled: false },
+                skipRuns: { enabled: false },
                 includeCurrentRun: false,
                 mode: "timestamp",
                 showBars: true,
@@ -2423,7 +2462,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         }
     }
     function getConfig(game) {
-        const config = loadConfig() ?? { version: 15, recordRuns: true, views: [] };
+        const config = loadConfig() ?? { version: VERSION, recordRuns: true, views: [] };
         return new ConfigManager(game, config);
     }
 
@@ -3084,6 +3123,9 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         const length = children.length;
         return children[length - 1];
     }
+    function makeFlexContainer(direction) {
+        return $(`<div class="flex-container" style="flex-direction: ${direction};"></div>`);
+    }
     function makeSelect(options, defaultValue) {
         const optionNodes = options.map(([value, label]) => {
             return `<option value="${value}" ${value === defaultValue ? "selected" : ""}>${label}</option>`;
@@ -3094,11 +3136,15 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         </select>
     `);
     }
+    function toAutocompleteOptions(map) {
+        return Object.entries(map).map(([id, name]) => ({ value: id, label: name }));
+    }
     function makeAutocompleteInput(placeholder, options) {
+        const entries = toAutocompleteOptions(options);
         function onChange(event, ui) {
             // If it wasn't selected from list
             if (ui.item === null) {
-                const item = options.find(({ label }) => label === this.value);
+                const item = entries.find(({ label }) => label === this.value);
                 if (item !== undefined) {
                     ui.item = item;
                 }
@@ -3115,7 +3161,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             return false;
         }
         return $(`<input style="width: 200px" placeholder="${placeholder}"></input>`).autocomplete({
-            source: options,
+            source: entries,
             minLength: 2,
             delay: 0,
             select: onChange, // Dropdown list click
@@ -3179,15 +3225,14 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         });
         return node;
     }
-    function makeToggleableNumberInput(label, placeholder, defaultValue, onStateChange) {
-        const enabled = defaultValue !== undefined;
-        const inputNode = makeNumberInput(placeholder, defaultValue)
-            .on("change", function () { onStateChange(this.value); });
-        const toggleNode = makeCheckbox(label, enabled, value => {
+    function makeToggleableNumberInput(label, placeholder, state) {
+        const inputNode = makeNumberInput(placeholder, state.value)
+            .on("change", function () { state.value = this.value === "" ? undefined : Number(this.value); });
+        const toggleNode = makeCheckbox(label, state.enabled, value => {
             inputNode.prop("disabled", !value);
-            onStateChange(value ? inputNode.val() : "");
+            state.enabled = value;
         });
-        inputNode.prop("disabled", !enabled);
+        inputNode.prop("disabled", !state.enabled);
         return $(`<div></div>`)
             .append(toggleNode)
             .append(inputNode);
@@ -3836,20 +3881,11 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         }
     }
     function makeViewSettings(view) {
-        const propertyListeners = {};
-        function onPropertyChange(props, handler) {
-            for (const prop of props) {
-                const handlers = propertyListeners[prop] ??= [];
-                handlers.push(handler);
-            }
-            handler();
-        }
         function setValue(key, value) {
             switch (key) {
                 case "universe":
                     view.universe = makeUniverseFilter(value);
                     break;
-                case "numRuns":
                 case "daysScale":
                 case "starLevel":
                     view[key] = value === "" ? undefined : Number(value);
@@ -3858,7 +3894,6 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
                     view[key] = value;
                     break;
             }
-            propertyListeners[key]?.forEach(f => f());
         }
         const bindThis = (property) => {
             return function () { setValue(property, this.value); };
@@ -3872,7 +3907,8 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             .on("change", bindThis("universe"));
         const starLevelInput = makeNumberInput("Any", view.starLevel, [0, 4])
             .on("change", bindThis("starLevel"));
-        const numRunsInput = makeToggleableNumberInput("Limit to last N runs", "All", view.numRuns, bind("numRuns"));
+        const skipRunsInput = makeToggleableNumberInput("Ignore first N runs", "None", view.skipRuns);
+        const numRunsInput = makeToggleableNumberInput("Show last N runs", "All", view.numRuns);
         const modeInput = makeSelect(Object.entries(viewModes), view.mode)
             .on("change", bindThis("mode"));
         const showBarsToggle = makeCheckbox("Bars", view.showBars, bind("showBars"));
@@ -3881,37 +3917,40 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         const avgWindowSlider = makeSetting("Smoothness", makeSlider([0, 100], view.smoothness, bind("smoothness")));
         const daysScaleInput = makeNumberInput("Auto", view.daysScale)
             .on("change", bindThis("daysScale"));
-        onPropertyChange(["universe"], () => {
-            const resetName = view.universe === "magic" ? "Vacuum Collapse" : "Black Hole";
-            resetTypeInput.find(`> option[value="blackhole"]`).text(resetName);
-        });
-        onPropertyChange(["showLines", "mode"], () => {
-            showBarsToggle.toggle(view.mode === "timestamp");
-            showLinesToggle.toggle(view.mode === "timestamp");
-            fillAreaToggle.toggle(view.showLines && view.mode === "timestamp");
-            avgWindowSlider.toggle((view.showLines && view.mode === "timestamp") || view.mode === "duration");
-        });
-        const filterSettings = $(`<div class="flex-container" style="flex-direction: row;"></div>`)
+        const resetName = view.universe === "magic" ? "Vacuum Collapse" : "Black Hole";
+        resetTypeInput.find(`> option[value="blackhole"]`).text(resetName);
+        showBarsToggle.toggle(view.mode === "timestamp");
+        showLinesToggle.toggle(view.mode === "timestamp");
+        fillAreaToggle.toggle(view.showLines && view.mode === "timestamp");
+        avgWindowSlider.toggle((view.showLines && view.mode === "timestamp") || view.mode === "duration");
+        const filterSettings = makeFlexContainer("row")
             .append(makeSetting("Reset type", resetTypeInput))
             .append(makeSetting("Universe", universeInput))
-            .append(makeSetting("Star level", starLevelInput))
+            .append(makeSetting("Star level", starLevelInput));
+        const rangeSettings = makeFlexContainer("row")
+            .append(skipRunsInput)
             .append(numRunsInput);
-        const displaySettings = $(`<div class="flex-container" style="flex-direction: row;"></div>`)
+        const displaySettings = makeFlexContainer("row")
             .append(makeSetting("Mode", modeInput))
             .append(makeSetting("Days scale", daysScaleInput))
             .append(showBarsToggle)
             .append(showLinesToggle)
             .append(fillAreaToggle)
             .append(avgWindowSlider);
-        return $(`<div class="flex-container" style="flex-direction: column;"></div>`)
+        const container = makeFlexContainer("row")
+            .addClass("analytics-view-settings")
+            .css("margin-bottom", "1em");
+        container
             .append(filterSettings)
+            .append(rangeSettings)
             .append(displaySettings);
+        return container;
     }
 
     function makeMilestoneSettings(view, history) {
-        const builtTargetOptions = makeAutocompleteInput("Building/Project", Object.entries(buildings).map(([id, name]) => ({ value: id, label: name })));
+        const builtTargetOptions = makeAutocompleteInput("Building/Project", buildings);
         const buildCountOption = makeNumberInput("Count", 1);
-        const researchedTargetOptions = makeAutocompleteInput("Tech", Object.entries(techs).map(([id, name]) => ({ value: id, label: name })));
+        const researchedTargetOptions = makeAutocompleteInput("Tech", techs);
         const eventTargetOptions = makeSelect(Object.entries(events));
         const effectTargetOptions = makeSelect(Object.entries(environmentEffects));
         function selectOptions(type) {
@@ -3961,7 +4000,9 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         const recolorMilestonesNode = makeSlimButton("Reset colors").on("click", () => {
             view.resetColors();
         });
-        return $(`<div style="display: flex; flex-direction: row; gap: 8px"></div>`)
+        const container = makeFlexContainer("row")
+            .css("margin-bottom", "1em");
+        container
             .append(typeOptions)
             .append(builtTargetOptions)
             .append(buildCountOption)
@@ -3972,20 +4013,22 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             .append(removeMilestoneNode)
             .append(reorderMilestonesNode)
             .append(recolorMilestonesNode);
+        return container;
     }
 
     function makeAdditionalInfoSettings(view) {
-        const node = $(`<div style="display: flex; flex-direction: row; gap: 8px"></div>`);
-        node.append(`<span>Additional info:</span>`);
+        const container = makeFlexContainer("row")
+            .css("margin-bottom", "1em");
+        container.append(`<span>Additional info:</span>`);
         const showCurrentRunToggle = makeCheckbox("Current run", view.includeCurrentRun ?? false, (value) => {
             view.includeCurrentRun = value;
         });
-        node.append(showCurrentRunToggle);
+        container.append(showCurrentRunToggle);
         for (const [key, value] of Object.entries(additionalInformation)) {
             const enabled = view.additionalInfo.includes(key);
-            node.append(makeCheckbox(value, enabled, () => { view.toggleAdditionalInfo(key); }));
+            container.append(makeCheckbox(value, enabled, () => { view.toggleAdditionalInfo(key); }));
         }
-        return node;
+        return container;
     }
 
     async function withCSSOverrides(overrides, callback) {
@@ -4045,12 +4088,33 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
     function makeViewTab(id, game, view, config, history, currentRun) {
         const controlNode = $(`<li><a href="#${id}">${viewTitle(view)}</a></li>`);
         const contentNode = $(`<div id="${id}" class="vscroll" style="height: calc(100vh - 10rem)"></div>`);
-        const removeViewNode = $(`<button class="button">Delete View</button>`)
+        const removeViewNode = $(`<button class="button">Delete view</button>`)
             .on("click", () => { config.removeView(view); });
         let selectedRun = null;
-        const discardRunNode = $(`<button class="button">Discard Run</button>`)
+        const ignoreRunsNode = $(`<button class="button">Ignore previous runs</button>`)
+            .on("click", () => {
+            const filteredRuns = applyFilters(history, view, { useLimits: false });
+            const idx = filteredRuns.indexOf(selectedRun);
+            view.skipRuns = { enabled: true, value: idx };
+        })
+            .attr("disabled", "");
+        const discardRunNode = $(`<button class="button">Discard run</button>`)
             .on("click", () => { history.discardRun(selectedRun); })
             .attr("disabled", "");
+        function onRunSelection(run) {
+            selectedRun = run;
+            if (selectedRun === null) {
+                discardRunNode.attr("disabled", "");
+                ignoreRunsNode.attr("disabled", "");
+            }
+            else {
+                discardRunNode.attr("disabled", null);
+                ignoreRunsNode.attr("disabled", null);
+            }
+        }
+        function createGraph(view) {
+            return makeGraph(history, view, game, currentRun, onRunSelection);
+        }
         const asImageNode = $(`<button class="button">Copy as PNG</button>`)
             .on("click", async function () {
             $(this).text("Rendering...");
@@ -4060,21 +4124,15 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             await copyToClipboard(figure);
             $(this).text("Copy as PNG");
         });
-        function onRunSelection(run) {
-            selectedRun = run;
-            discardRunNode.attr("disabled", selectedRun === null ? "" : null);
-        }
-        function createGraph(view) {
-            return makeGraph(history, view, game, currentRun, onRunSelection);
-        }
         const buttonsContainerNode = $(`<div style="display: flex; justify-content: space-between"></div>`)
             .append(asImageNode)
+            .append(ignoreRunsNode)
             .append(discardRunNode)
             .append(removeViewNode);
         contentNode
-            .append(makeViewSettings(view).css("margin-bottom", "1em"))
-            .append(makeAdditionalInfoSettings(view).css("margin-bottom", "1em"))
-            .append(makeMilestoneSettings(view, history).css("margin-bottom", "1em"))
+            .append(makeViewSettings(view))
+            .append(makeAdditionalInfoSettings(view))
+            .append(makeMilestoneSettings(view, history))
             .append(createGraph(view))
             .append(buttonsContainerNode);
         function redrawGraph(updatedView) {
@@ -4085,6 +4143,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
                 return;
             }
             controlNode.find("> a").text(viewTitle(updatedView));
+            contentNode.find(".analytics-view-settings").replaceWith(makeViewSettings(view));
             redrawGraph(updatedView);
             onRunSelection(null);
         });
