@@ -419,7 +419,8 @@ describe("Export", () => {
                 const currentRun = makeCurrentRun({
                     milestones: {
                         "tech:club": 10,
-                        "tech:wheel": 20
+                        "tech:wheel": 20,
+                        "tech:housing": 30
                     }
                 });
 
@@ -447,7 +448,8 @@ describe("Export", () => {
                 const currentRun = makeCurrentRun({
                     activeEffects: {
                         "effect:hot": 10,
-                        "effect:cold": 20
+                        "effect:cold": 20,
+                        "effect:inspired": 30
                     }
                 });
 
@@ -476,6 +478,7 @@ describe("Export", () => {
                     effectsHistory: [
                         ["effect:hot", 2, 4],
                         ["effect:cold", 3, 5],
+                        ["effect:inspired", 6, 7],
                     ]
                 });
 
@@ -626,7 +629,8 @@ describe("Export", () => {
                 const currentRun = makeCurrentRun({
                     totalDays: 15,
                     milestones: {
-                        "event_condition:elerium": 10
+                        "event_condition:elerium": 10,
+                        "event_condition:alien": 20,
                     }
                 });
 
