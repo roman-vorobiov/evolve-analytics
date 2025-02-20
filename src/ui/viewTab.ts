@@ -81,7 +81,8 @@ function viewTitle(view: View) {
     }
 }
 
-export function makeViewTab(id: string, game: Game, view: View, config: ConfigManager, history: HistoryManager, currentRun: LatestRun) {
+export function makeViewTab(game: Game, view: View, config: ConfigManager, history: HistoryManager, currentRun: LatestRun) {
+    const id = `analytics-view-${view.id()}`;
     const controlNode = $(`<li><a href="#${id}">${viewTitle(view)}</a></li>`);
     const contentNode = $(`<div id="${id}" class="vscroll" style="height: calc(100vh - 10rem)"></div>`);
 
@@ -155,7 +156,6 @@ export function makeViewTab(id: string, game: Game, view: View, config: ConfigMa
         }
 
         controlNode.find("> a").text(viewTitle(updatedView));
-        contentNode.find(".analytics-view-settings").replaceWith(makeViewSettings(view));
         redrawGraph(updatedView);
         onRunSelection(null);
     });
@@ -170,6 +170,10 @@ export function makeViewTab(id: string, game: Game, view: View, config: ConfigMa
         }
 
         if (view !== config.openView) {
+            return;
+        }
+
+        if (view.mode === "records") {
             return;
         }
 

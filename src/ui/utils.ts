@@ -6,7 +6,7 @@ import "jqueryui";
 
 declare const $: typeof JQuery;
 
-export function waitFor(query: string) {
+export function waitFor(query: any) {
     return new Promise(resolve => {
         const node = $(query);
         if (node.length !== 0) {

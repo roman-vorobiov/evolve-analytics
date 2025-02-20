@@ -16,6 +16,17 @@ function makeUniverseFilter(value: string): keyof typeof universes | undefined {
 }
 
 export function makeViewSettings(view: View) {
+    const propertyListeners: Record<string, Array<() => void>> = {};
+
+    function onPropertyChange(props: (keyof ViewConfig)[], handler: () => void) {
+        for (const prop of props) {
+            const handlers = propertyListeners[prop] ??= [];
+            handlers.push(handler);
+        }
+
+        handler();
+    }
+
     function setValue(key: keyof ViewConfig, value: any) {
         switch (key) {
             case "universe":
@@ -31,6 +42,8 @@ export function makeViewSettings(view: View) {
                 (view as any)[key] = value;
                 break;
         }
+
+        propertyListeners[key]?.forEach(f => f());
     }
 
     const bindThis = (property: keyof ViewConfig) => {
@@ -50,9 +63,8 @@ export function makeViewSettings(view: View) {
     const starLevelInput = makeNumberInput("Any", view.starLevel, [0, 4])
         .on("change", bindThis("starLevel"));
 
-    const skipRunsInput = makeToggleableNumberInput("Ignore first N runs", "None", view.skipRuns);
-
-    const numRunsInput = makeToggleableNumberInput("Show last N runs", "All", view.numRuns);
+    let skipRunsInput = $();
+    let numRunsInput = $();
 
     const modeInput = makeSelect(Object.entries(viewModes), view.mode)
         .on("change", bindThis("mode"));
@@ -68,13 +80,17 @@ export function makeViewSettings(view: View) {
     const daysScaleInput = makeNumberInput("Auto", view.daysScale)
         .on("change", bindThis("daysScale"));
 
-    const resetName = view.universe === "magic" ? "Vacuum Collapse" : "Black Hole";
-    resetTypeInput.find(`> option[value="blackhole"]`).text(resetName);
+    onPropertyChange(["universe"], () => {
+        const resetName = view.universe === "magic" ? "Vacuum Collapse" : "Black Hole";
+        resetTypeInput.find(`> option[value="blackhole"]`).text(resetName);
+    });
 
-    showBarsToggle.toggle(view.mode === "timestamp");
-    showLinesToggle.toggle(view.mode === "timestamp");
-    fillAreaToggle.toggle(view.showLines && view.mode === "timestamp");
-    avgWindowSlider.toggle((view.showLines && view.mode === "timestamp") || view.mode === "duration");
+    onPropertyChange(["showLines", "mode"], () => {
+        showBarsToggle.toggle(view.mode === "timestamp");
+        showLinesToggle.toggle(view.mode === "timestamp");
+        fillAreaToggle.toggle(view.showLines && view.mode === "timestamp");
+        avgWindowSlider.toggle((view.showLines && view.mode === "timestamp") || view.mode === "duration");
+    });
 
     const filterSettings = makeFlexContainer("row")
         .append(makeSetting("Reset type", resetTypeInput))
@@ -85,6 +101,10 @@ export function makeViewSettings(view: View) {
         .append(skipRunsInput)
         .append(numRunsInput);
 
+    const selectionSettings = makeFlexContainer("row")
+        .append(filterSettings)
+        .append(rangeSettings)
+
     const displaySettings = makeFlexContainer("row")
         .append(makeSetting("Mode", modeInput))
         .append(makeSetting("Days scale", daysScaleInput))
@@ -93,14 +113,23 @@ export function makeViewSettings(view: View) {
         .append(fillAreaToggle)
         .append(avgWindowSlider);
 
-    const container = makeFlexContainer("row")
+    const container = makeFlexContainer("column")
         .addClass("analytics-view-settings")
         .css("margin-bottom", "1em");
 
     container
-        .append(filterSettings)
-        .append(rangeSettings)
+        .append(selectionSettings)
         .append(displaySettings);
+
+    function replaceLimitInputs(view: View) {
+        skipRunsInput.remove();
+        numRunsInput.remove();
+        rangeSettings.append(skipRunsInput = makeToggleableNumberInput("Ignore first N runs", "None", view.skipRuns));
+        rangeSettings.append(numRunsInput = makeToggleableNumberInput("Show last N runs", "All", view.numRuns));
+    }
+
+    replaceLimitInputs(view);
+    view.onChange(replaceLimitInputs);
 
     return container;
 }

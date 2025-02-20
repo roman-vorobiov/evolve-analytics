@@ -3,7 +3,7 @@ import { findBestRun, runTime, getSortedMilestones } from "../exports/utils";
 import { asPlotPoints, runAsPlotPoints, type PlotPoint } from "../exports/plotPoints";
 import { generateMilestoneNames, isEffectMilestone, isEventMilestone } from "../milestones";
 import { compose, filterMap } from "../utils";
-import { makeColorPicker } from "./utils";
+import { makeColorPicker, waitFor } from "./utils";
 import type { View } from "../config";
 import type { HistoryEntry, HistoryManager } from "../history";
 import type { LatestRun } from "../runTracking";
@@ -20,6 +20,7 @@ const marginTop = 30;
 // Store it here and use it in the next redraw
 const pendingColorPicks = new WeakMap<View, [string, string]>();
 const pendingDraggingLegend = new WeakMap<View, JQuery<HTMLElement>>();
+const pendingSelection = new WeakMap<View, [{ top: number, left: number }, string]>();
 
 function getType(point: PlotPoint) {
     if (point.event) {
@@ -560,6 +561,7 @@ export function makeGraph(history: HistoryManager, view: View, game: Game, curre
     const plot = Plot.plot({
         marginTop,
         width: 800,
+        className: "analytics-plot",
         x: { axis: null },
         y: { grid: true, domain: calculateYScale(plotPoints, view) },
         color: { legend: true, domain: milestoneNames, range: milestoneColors },
@@ -577,14 +579,53 @@ export function makeGraph(history: HistoryManager, view: View, game: Game, curre
         }
     });
 
+    $(plot).on("load", () => {
+        console.log("hello");
+    });
+
     // Handle selection
-    plot.addEventListener("mousedown", () => {
+    if (pendingSelection.has(view)) {
+        const [{ top, left }, milestone] = pendingSelection.get(view)!;
+
+        waitFor(plot).then(() => {
+            const target = $(plot).find(`[data-milestone="${milestone}"]`);
+            const container = $(`#analytics-view-${view.id()}`);
+
+            function makePointerEvent(name: string) {
+                return new PointerEvent(name, {
+                    pointerType: "mouse",
+                    bubbles: true,
+                    composed: true,
+                    clientX: left - container.scrollLeft()!,
+                    clientY: top - container.scrollTop()!,
+                });
+            }
+
+            target[0].dispatchEvent(makePointerEvent("pointerenter"));
+            target[0].dispatchEvent(makePointerEvent("pointerdown"));
+        });
+    }
+
+    plot.addEventListener("mousedown", (event: MouseEvent) => {
         if (plot.value && plot.value.run < filteredRuns.length) {
+            const container = $(`#analytics-view-${view.id()}`);
+            const coordinates = {
+                top: event.clientY + container.scrollTop()!,
+                left: event.clientX + container.scrollLeft()!
+            };
+            pendingSelection.set(view, [coordinates, plot.value.milestone]);
+
             onSelect(filteredRuns[plot.value.run]);
         }
         else {
+            pendingSelection.delete(view);
+
             onSelect(null);
         }
+    });
+
+    view.onChange(() => {
+        pendingSelection.delete(view);
     });
 
     // Process legend

@@ -35,11 +35,7 @@ export function buildAnalyticsTab(game: Game, config: ConfigManager, history: Hi
     });
 
     function addViewTab(view: View) {
-        const controlParentNode = analyticsPanel.find("> nav > ul");
-        const count = controlParentNode.children().length;
-        const id = `analytics-view-${count}`;
-
-        const [controlNode, contentNode] = makeViewTab(id, game, view, config, history, currentRun);
+        const [controlNode, contentNode] = makeViewTab(game, view, config, history, currentRun);
 
         controlNode.on("click", () => {
             config.viewOpened(view);
