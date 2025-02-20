@@ -101,15 +101,19 @@ export function buildAnalyticsTab(game: Game, config: ConfigManager, history: Hi
         }
     });
 
+    let initialized = false;
     tabControlNode.on("click", () => {
+        if (!initialized) {
+            for (const view of config.views) {
+                addViewTab(view);
+            }
+            analyticsPanel.tabs({ active: config.openViewIndex ?? 0 });
+            initialized = true;
+        }
+
         hideTab(tabControlNode.siblings(), tabContentNode.siblings(), "left");
         showTab(tabControlNode, tabContentNode, "right");
     });
 
-    for (const view of config.views) {
-        addViewTab(view);
-    }
     config.on("viewAdded", addViewTab);
-
-    analyticsPanel.tabs({ active: config.openViewIndex ?? 0 });
 }

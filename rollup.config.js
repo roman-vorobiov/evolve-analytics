@@ -20,35 +20,28 @@ function css() {
     };
 }
 
-export default (args) => {
-    return {
-        input: "src/index.ts",
-        output: {
-            file: "build/evolve_analytics.user.js",
-            format: "iife",
-            banner: async () => {
-                const banner = await fs.readFile("evolve_analytics.meta.js", "utf-8");
-                if (!args.configDebug) {
-                    const prefix = await fs.readFile("evolve_analytics.prefix.js", "utf-8");
-                    return banner + "\n" + prefix;
-                }
-                else {
-                    return banner;
-                }
-            }
-        },
-        external: ["jqueryui"],
-        plugins: [
-            typescript(),
-            css(),
-            tla(),
-            externalGlobals({
-                "lz-string": "LZString",
-                "@simonwep/pickr": "Pickr"
-            })
-        ],
-        watch: {
-            include: "src/**"
+export default {
+    input: "src/index.ts",
+    output: {
+        file: "build/evolve_analytics.user.js",
+        format: "iife",
+        banner: async () => {
+            const banner = await fs.readFile("evolve_analytics.meta.js", "utf-8");
+            const prefix = await fs.readFile("evolve_analytics.prefix.js", "utf-8");
+            return banner + "\n" + prefix;
         }
-    };
+    },
+    external: ["jqueryui"],
+    plugins: [
+        typescript(),
+        css(),
+        tla(),
+        externalGlobals({
+            "lz-string": "LZString",
+            "@simonwep/pickr": "Pickr"
+        })
+    ],
+    watch: {
+        include: "src/**"
+    }
 };

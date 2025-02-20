@@ -7,7 +7,7 @@
     "private": true,
     "scripts": {
         "build": "rollup -c",
-        "dev": "rollup -c --configDebug --watch",
+        "dev": "rollup -c --watch",
         "test": "jest --watch"
     },
     "license": "MIT",
