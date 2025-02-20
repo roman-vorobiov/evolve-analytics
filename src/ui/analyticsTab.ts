@@ -111,12 +111,5 @@ export function buildAnalyticsTab(game: Game, config: ConfigManager, history: Hi
     }
     config.on("viewAdded", addViewTab);
 
-    // Redraw each view whenever history is updated
-    history.on("updated", () => {
-        for (const view of config.views) {
-            config.emit("viewUpdated", view);
-        }
-    });
-
     analyticsPanel.tabs({ active: config.openViewIndex ?? 0 });
 }

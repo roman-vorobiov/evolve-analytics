@@ -25,11 +25,13 @@ export type ViewConfig = {
     additionalInfo: Array<keyof typeof additionalInformation>
 }
 
-class ViewUtils {
+class ViewUtils extends Subscribable {
     static idGenerator = 0;
     private _id = ++ViewUtils.idGenerator;
 
     constructor(private view: ViewConfig, private config: ConfigManager) {
+        super();
+
         const self = this;
 
         return <any> new Proxy(view, {
@@ -45,7 +47,7 @@ class ViewUtils {
                 const ret = Reflect.set(self, prop, value, receiver)
                     || Reflect.set(view, prop, value, receiver);
 
-                config.emit("viewUpdated", receiver);
+                self.emit("updated", receiver);
 
                 return ret;
             }
@@ -68,14 +70,6 @@ class ViewUtils {
         this.view.resetType = value;
     }
 
-    onChange(callback: (_: View) => void) {
-        this.config.on("viewUpdated", (updatedView) => {
-            if (updatedView === this) {
-                callback(updatedView);
-            }
-        });
-    }
-
     id() {
         return this._id;
     }
@@ -90,14 +84,14 @@ class ViewUtils {
         const color = effectColors[milestone] ?? colors[index % colors.length];
 
         this.view.milestones[milestone] = { index, enabled: true, color };
-        this.config.emit("viewUpdated", this);
+        this.emit("updated", this);
     }
 
     removeMilestone(milestone: string) {
         if (milestone in this.view.milestones) {
             delete this.view.milestones[milestone];
             this.updateMilestoneOrder(getSortedMilestones(this.view));
-            this.config.emit("viewUpdated", this);
+            this.emit("updated", this);
         }
     }
 
@@ -105,7 +99,7 @@ class ViewUtils {
         const info = this.view.milestones[milestone];
         if (info !== undefined) {
             info.enabled = !info.enabled;
-            this.config.emit("viewUpdated", this);
+            this.emit("updated", this);
         }
     }
 
@@ -113,7 +107,7 @@ class ViewUtils {
         const info = this.view.milestones[milestone];
         if (info !== undefined) {
             info.color = color;
-            this.config.emit("viewUpdated", this);
+            this.emit("updated", this);
         }
     }
 
@@ -125,13 +119,13 @@ class ViewUtils {
             milestones.splice(newIndex, 0, milestone);
 
             this.updateMilestoneOrder(milestones);
-            this.config.emit("viewUpdated", this);
+            this.emit("updated", this);
         }
     }
 
     sortMilestones(history: HistoryManager) {
         sortMilestones(this as any, history);
-        this.config.emit("viewUpdated", this);
+        this.emit("updated", this);
     }
 
     resetColors() {
@@ -139,7 +133,7 @@ class ViewUtils {
         for (const [milestone, info] of Object.entries(this.view.milestones)) {
             info.color = effectColors[milestone] ?? colors[info.index % colors.length];
         }
-        this.config.emit("viewUpdated", this);
+        this.emit("updated", this);
     }
 
     toggleAdditionalInfo(key: keyof typeof additionalInformation) {
@@ -150,7 +144,7 @@ class ViewUtils {
         else {
             this.view.additionalInfo.push(key);
         }
-        this.config.emit("viewUpdated", this);
+        this.emit("updated", this);
     }
 
     private makeLimitWrapper(prop: "numRuns" | "skipRuns") {
@@ -162,7 +156,7 @@ class ViewUtils {
             },
             set enabled(value) {
                 self.view[prop].enabled = value;
-                self.config.emit("viewUpdated", self);
+                self.emit("updated", self);
             },
 
             get value() {
@@ -170,7 +164,7 @@ class ViewUtils {
             },
             set value(value) {
                 self.view[prop].value = value;
-                self.config.emit("viewUpdated", self);
+                self.emit("updated", self);
             }
         }
     }

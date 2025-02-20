@@ -150,13 +150,14 @@ export function makeViewTab(game: Game, view: View, config: ConfigManager, histo
         contentNode.find("figure:last").replaceWith(createGraph(updatedView));
     }
 
-    config.on("viewUpdated", (updatedView) => {
-        if (updatedView !== view) {
-            return;
-        }
-
+    view.on("updated", (updatedView) => {
         controlNode.find("> a").text(viewTitle(updatedView));
         redrawGraph(updatedView);
+        onRunSelection(null);
+    });
+
+    history.on("updated", () => {
+        redrawGraph(view);
         onRunSelection(null);
     });
 

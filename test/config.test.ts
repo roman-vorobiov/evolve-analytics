@@ -132,7 +132,7 @@ describe("Config", () => {
         });
 
         let modifiedView: View | undefined = undefined;
-        config.on("viewUpdated", v => { modifiedView = v; });
+        config.views[0].on("updated", v => { modifiedView = v; });
 
         config.views[0].universe = "magic";
 
@@ -149,7 +149,7 @@ describe("Config", () => {
         });
 
         let modifiedView: View | undefined = undefined;
-        config.on("viewUpdated", v => { modifiedView = v; });
+        config.views[0].on("updated", v => { modifiedView = v; });
 
         config.views[0].addMilestone("tech:club");
 
@@ -168,7 +168,7 @@ describe("Config", () => {
         });
 
         let modifiedView: View | undefined = undefined;
-        config.on("viewUpdated", v => { modifiedView = v; });
+        config.views[0].on("updated", v => { modifiedView = v; });
 
         config.views[0].addMilestone("effect:hot");
 
@@ -190,7 +190,7 @@ describe("Config", () => {
         });
 
         let modifiedView: View | undefined = undefined;
-        config.on("viewUpdated", v => { modifiedView = v; });
+        config.views[0].on("updated", v => { modifiedView = v; });
 
         config.views[0].removeMilestone("tech:club");
 
@@ -213,7 +213,7 @@ describe("Config", () => {
         });
 
         let modifiedView: View | undefined = undefined;
-        config.on("viewUpdated", v => { modifiedView = v; });
+        config.views[0].on("updated", v => { modifiedView = v; });
 
         config.views[0].removeMilestone("tech:wheel");
 
@@ -235,7 +235,7 @@ describe("Config", () => {
         });
 
         let modifiedView: View | undefined = undefined;
-        config.on("viewUpdated", v => { modifiedView = v; });
+        config.views[0].on("updated", v => { modifiedView = v; });
 
         config.views[0].toggleMilestone("reset:ascend");
 
@@ -260,7 +260,7 @@ describe("Config", () => {
         });
 
         let modifiedView: View | undefined = undefined;
-        config.on("viewUpdated", v => { modifiedView = v; });
+        config.views[0].on("updated", v => { modifiedView = v; });
 
         config.views[0].moveMilestone("tech:wheel", 2);
 
@@ -283,7 +283,7 @@ describe("Config", () => {
         });
 
         let modifiedView: View | undefined = undefined;
-        config.on("viewUpdated", v => { modifiedView = v; });
+        config.views[0].on("updated", v => { modifiedView = v; });
 
         config.views[0].resetType = "matrix";
 
@@ -305,7 +305,7 @@ describe("Config", () => {
         });
 
         let modifiedView: View | undefined = undefined;
-        config.on("viewUpdated", v => { modifiedView = v; });
+        config.views[0].on("updated", v => { modifiedView = v; });
 
         config.views[0].universe = "standard";
 

@@ -624,9 +624,7 @@ export function makeGraph(history: HistoryManager, view: View, game: Game, curre
         }
     });
 
-    view.onChange(() => {
-        pendingSelection.delete(view);
-    });
+    view.on("update", () => pendingSelection.delete(view));
 
     // Process legend
     if (pendingDraggingLegend.has(view)) {

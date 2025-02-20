@@ -129,7 +129,7 @@ export function makeViewSettings(view: View) {
     }
 
     replaceLimitInputs(view);
-    view.onChange(replaceLimitInputs);
+    view.on("update", replaceLimitInputs);
 
     return container;
 }
