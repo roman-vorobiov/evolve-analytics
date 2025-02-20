@@ -35,7 +35,12 @@ describe("Latest run", () => {
             const run = makeCurrentRun({
                 run: 123,
                 totalDays: 456,
-                milestones: { foo: 123, bar: 234 }
+                milestones: { foo: 123, bar: 124 },
+                activeEffects: { "effect:hot": 123, "effect:cold": 124 },
+                effectsHistory: [
+                    ["effect:inspired", 0, 123],
+                    ["effect:motivated", 0, 124]
+                ]
             });
 
             let game: Game;
@@ -59,11 +64,15 @@ describe("Latest run", () => {
                 expect(loadHistory()).toBe(null);
             });
 
-            it("should discard future milestones", () => {
+            it("should discard future milestones and effects", () => {
                 expect(loadLatestRun()).toEqual({
                     ...run,
                     totalDays: 123,
-                    milestones: { foo: 123 }
+                    milestones: { foo: 123 },
+                    activeEffects: { "effect:hot": 123 },
+                    effectsHistory: [
+                        ["effect:inspired", 0, 123]
+                    ]
                 });
             });
         });

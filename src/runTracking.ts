@@ -42,6 +42,8 @@ function isPreviousRun(runStats: LatestRun, game: Game) {
 
 export function restoreToDay(run: LatestRun, day: number) {
     run.milestones = filterMap(run.milestones, ([, timestamp]) => timestamp <= day);
+    run.activeEffects = filterMap(run.activeEffects, ([, startDay]) => startDay <= day);
+    run.effectsHistory = run.effectsHistory.filter(([,, endDay]) => endDay <= day);
     run.totalDays = day;
 }
 
