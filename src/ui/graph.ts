@@ -22,6 +22,12 @@ const pendingColorPicks = new WeakMap<View, [string, string]>();
 const pendingDraggingLegend = new WeakMap<View, JQuery<HTMLElement>>();
 const pendingSelection = new WeakMap<View, [{ top: number, left: number }, string]>();
 
+export function discardCachedState(view: View) {
+    pendingColorPicks.delete(view);
+    pendingDraggingLegend.delete(view);
+    pendingSelection.delete(view);
+}
+
 function getType(point: PlotPoint) {
     if (point.event) {
         return "event";
@@ -473,9 +479,9 @@ function generateMarks(plotPoints: PlotPoint[], filteredRuns: HistoryEntry[], be
         case "timestamp":
             if (view.showBars) {
                 marks.push(...barMarks(plotPoints, "dayDiff"));
+                marks.push(...rectPointerMarks(plotPoints, filteredRuns, "dayDiff", "day"));
                 marks.push(...segmentMarks(plotPoints, filteredRuns.length));
                 marks.push(...lollipopMarks(plotPoints, false, filteredRuns.length));
-                marks.push(...rectPointerMarks(plotPoints, filteredRuns, "dayDiff", "day"));
             }
 
             if (view.showLines) {
@@ -503,8 +509,8 @@ function generateMarks(plotPoints: PlotPoint[], filteredRuns: HistoryEntry[], be
 
         case "durationStacked":
             marks.push(...barMarks(plotPoints, "segment"));
-            marks.push(...lollipopMarks(plotPoints, true, filteredRuns.length));
             marks.push(...rectPointerMarks(plotPoints, filteredRuns, "segment", "segment"));
+            marks.push(...lollipopMarks(plotPoints, true, filteredRuns.length));
             break;
 
         case "records":
@@ -579,10 +585,6 @@ export function makeGraph(history: HistoryManager, view: View, game: Game, curre
         }
     });
 
-    $(plot).on("load", () => {
-        console.log("hello");
-    });
-
     // Handle selection
     if (pendingSelection.has(view)) {
         const [{ top, left }, milestone] = pendingSelection.get(view)!;
@@ -623,8 +625,6 @@ export function makeGraph(history: HistoryManager, view: View, game: Game, curre
             onSelect(null);
         }
     });
-
-    view.on("update", () => pendingSelection.delete(view));
 
     // Process legend
     if (pendingDraggingLegend.has(view)) {

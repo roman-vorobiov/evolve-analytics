@@ -1,6 +1,6 @@
 import { resets, universes } from "../enums";
 import { applyFilters } from "../exports/historyFiltering";
-import { makeGraph } from "./graph";
+import { makeGraph, discardCachedState } from "./graph";
 import { makeViewSettings } from "./viewSettings";
 import { makeMilestoneSettings } from "./milestoneSettings";
 import { makeAdditionalInfoSettings } from "./additionalInfoSettings";
@@ -152,6 +152,7 @@ export function makeViewTab(game: Game, view: View, config: ConfigManager, histo
 
     view.on("updated", (updatedView) => {
         controlNode.find("> a").text(viewTitle(updatedView));
+        discardCachedState(updatedView);
         redrawGraph(updatedView);
         onRunSelection(null);
     });
