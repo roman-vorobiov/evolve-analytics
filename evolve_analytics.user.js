@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.14.5
+// @version      0.14.6
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -2262,110 +2262,136 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         return Object.keys(view.milestones).sort((l, r) => view.milestones[l].index - view.milestones[r].index);
     }
 
-    function makeViewProxy(config, view) {
-        return new Proxy(view, {
-            get(obj, prop, receiver) {
-                function updateMilestoneOrder(milestones) {
-                    for (let i = 0; i !== milestones.length; ++i) {
-                        view.milestones[milestones[i]].index = i;
+    class ViewUtils extends Subscribable {
+        view;
+        config;
+        static idGenerator = 0;
+        _id = ++ViewUtils.idGenerator;
+        constructor(view, config) {
+            super();
+            this.view = view;
+            this.config = config;
+            const self = this;
+            return new Proxy(view, {
+                get(obj, prop, receiver) {
+                    return Reflect.get(self, prop, receiver)
+                        || Reflect.get(view, prop, receiver);
+                },
+                set(obj, prop, value, receiver) {
+                    if (value === view[prop]) {
+                        return true;
                     }
+                    const ret = Reflect.set(self, prop, value, receiver)
+                        || Reflect.set(view, prop, value, receiver);
+                    self.emit("updated", receiver);
+                    return ret;
                 }
-                switch (prop) {
-                    case "numRuns":
-                    case "skipRuns":
-                        return {
-                            get enabled() { return view[prop].enabled; },
-                            set enabled(value) { view[prop].enabled = value; config.emit("viewUpdated", receiver); },
-                            get value() { return view[prop].value; },
-                            set value(value) { view[prop].value = value; config.emit("viewUpdated", receiver); }
-                        };
-                    case "index":
-                        return () => config.views.indexOf(receiver);
-                    case "toggleMilestone":
-                        return (milestone) => {
-                            const info = view.milestones[milestone];
-                            if (info !== undefined) {
-                                info.enabled = !info.enabled;
-                                config.emit("viewUpdated", receiver);
-                            }
-                        };
-                    case "setMilestoneColor":
-                        return (milestone, color) => {
-                            const info = view.milestones[milestone];
-                            if (info !== undefined) {
-                                info.color = color;
-                                config.emit("viewUpdated", receiver);
-                            }
-                        };
-                    case "moveMilestone":
-                        return (milestone, newIndex) => {
-                            const oldIndex = view.milestones[milestone]?.index;
-                            if (oldIndex >= 0 && oldIndex !== newIndex) {
-                                const milestones = getSortedMilestones(view);
-                                milestones.splice(oldIndex, 1);
-                                milestones.splice(newIndex, 0, milestone);
-                                updateMilestoneOrder(milestones);
-                                config.emit("viewUpdated", receiver);
-                            }
-                        };
-                    case "addMilestone":
-                        return (milestone) => {
-                            const index = Object.entries(view.milestones).length;
-                            const colors = Object.values(Observable10);
-                            const color = effectColors[milestone] ?? colors[index % colors.length];
-                            view.milestones[milestone] = { index, enabled: true, color };
-                            config.emit("viewUpdated", receiver);
-                        };
-                    case "removeMilestone":
-                        return (milestone) => {
-                            if (milestone in view.milestones) {
-                                delete view.milestones[milestone];
-                                updateMilestoneOrder(getSortedMilestones(view));
-                                config.emit("viewUpdated", receiver);
-                            }
-                        };
-                    case "sortMilestones":
-                        return (history) => {
-                            sortMilestones(receiver, history);
-                            config.emit("viewUpdated", receiver);
-                        };
-                    case "resetColors":
-                        return () => {
-                            const colors = Object.values(Observable10);
-                            for (const [milestone, info] of Object.entries(view.milestones)) {
-                                info.color = effectColors[milestone] ?? colors[info.index % colors.length];
-                            }
-                            config.emit("viewUpdated", receiver);
-                        };
-                    case "toggleAdditionalInfo":
-                        return (key) => {
-                            const idx = view.additionalInfo.indexOf(key);
-                            if (idx !== -1) {
-                                view.additionalInfo.splice(idx, 1);
-                            }
-                            else {
-                                view.additionalInfo.push(key);
-                            }
-                            config.emit("viewUpdated", receiver);
-                        };
-                    default:
-                        return Reflect.get(obj, prop, receiver);
-                }
-            },
-            set(obj, prop, value, receiver) {
-                if (value === view[prop]) {
-                    return true;
-                }
-                if (prop === "resetType") {
-                    const info = view.milestones[`reset:${view.resetType}`];
-                    delete view.milestones[`reset:${view.resetType}`];
-                    view.milestones[`reset:${value}`] = info;
-                }
-                const ret = Reflect.set(obj, prop, value, receiver);
-                config.emit("viewUpdated", receiver);
-                return ret;
+            });
+        }
+        get numRuns() {
+            return this.makeLimitWrapper("numRuns");
+        }
+        get skipRuns() {
+            return this.makeLimitWrapper("skipRuns");
+        }
+        set resetType(value) {
+            const info = this.view.milestones[`reset:${this.view.resetType}`];
+            delete this.view.milestones[`reset:${this.view.resetType}`];
+            this.view.milestones[`reset:${value}`] = info;
+            this.view.resetType = value;
+        }
+        id() {
+            return this._id;
+        }
+        index() {
+            return this.config.views.indexOf(this);
+        }
+        addMilestone(milestone) {
+            const index = Object.entries(this.view.milestones).length;
+            const colors = Object.values(Observable10);
+            const color = effectColors[milestone] ?? colors[index % colors.length];
+            this.view.milestones[milestone] = { index, enabled: true, color };
+            this.emit("updated", this);
+        }
+        removeMilestone(milestone) {
+            if (milestone in this.view.milestones) {
+                delete this.view.milestones[milestone];
+                this.updateMilestoneOrder(getSortedMilestones(this.view));
+                this.emit("updated", this);
             }
-        });
+        }
+        toggleMilestone(milestone) {
+            const info = this.view.milestones[milestone];
+            if (info !== undefined) {
+                info.enabled = !info.enabled;
+                this.emit("updated", this);
+            }
+        }
+        setMilestoneColor(milestone, color) {
+            const info = this.view.milestones[milestone];
+            if (info !== undefined) {
+                info.color = color;
+                this.emit("updated", this);
+            }
+        }
+        moveMilestone(milestone, newIndex) {
+            const oldIndex = this.view.milestones[milestone]?.index;
+            if (oldIndex >= 0 && oldIndex !== newIndex) {
+                const milestones = getSortedMilestones(this.view);
+                milestones.splice(oldIndex, 1);
+                milestones.splice(newIndex, 0, milestone);
+                this.updateMilestoneOrder(milestones);
+                this.emit("updated", this);
+            }
+        }
+        sortMilestones(history) {
+            sortMilestones(this, history);
+            this.emit("updated", this);
+        }
+        resetColors() {
+            const colors = Object.values(Observable10);
+            for (const [milestone, info] of Object.entries(this.view.milestones)) {
+                info.color = effectColors[milestone] ?? colors[info.index % colors.length];
+            }
+            this.emit("updated", this);
+        }
+        toggleAdditionalInfo(key) {
+            const idx = this.view.additionalInfo.indexOf(key);
+            if (idx !== -1) {
+                this.view.additionalInfo.splice(idx, 1);
+            }
+            else {
+                this.view.additionalInfo.push(key);
+            }
+            this.emit("updated", this);
+        }
+        makeLimitWrapper(prop) {
+            const self = this;
+            return {
+                get enabled() {
+                    return self.view[prop].enabled;
+                },
+                set enabled(value) {
+                    self.view[prop].enabled = value;
+                    self.emit("updated", self);
+                },
+                get value() {
+                    return self.view[prop].value;
+                },
+                set value(value) {
+                    self.view[prop].value = value;
+                    self.emit("updated", self);
+                }
+            };
+        }
+        updateMilestoneOrder(milestones) {
+            for (let i = 0; i !== milestones.length; ++i) {
+                this.view.milestones[milestones[i]].index = i;
+            }
+        }
+    }
+    function makeViewProxy(config, view) {
+        return new ViewUtils(view, config);
     }
     class ConfigManager extends Subscribable {
         game;
@@ -2482,6 +2508,8 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
     }
     function restoreToDay(run, day) {
         run.milestones = filterMap(run.milestones, ([, timestamp]) => timestamp <= day);
+        run.activeEffects = filterMap(run.activeEffects, ([, startDay]) => startDay <= day);
+        run.effectsHistory = run.effectsHistory.filter(([, , endDay]) => endDay <= day);
         run.totalDays = day;
     }
     function processLatestRun(game, config, history) {
@@ -3319,6 +3347,12 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
     // Store it here and use it in the next redraw
     const pendingColorPicks = new WeakMap();
     const pendingDraggingLegend = new WeakMap();
+    const pendingSelection = new WeakMap();
+    function discardCachedState(view) {
+        pendingColorPicks.delete(view);
+        pendingDraggingLegend.delete(view);
+        pendingSelection.delete(view);
+    }
     function getType(point) {
         if (point.event) {
             return "event";
@@ -3701,9 +3735,9 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             case "timestamp":
                 if (view.showBars) {
                     marks.push(...barMarks(plotPoints, "dayDiff"));
+                    marks.push(...rectPointerMarks(plotPoints, filteredRuns, "dayDiff", "day"));
                     marks.push(...segmentMarks(plotPoints, filteredRuns.length));
                     marks.push(...lollipopMarks(plotPoints, false, filteredRuns.length));
-                    marks.push(...rectPointerMarks(plotPoints, filteredRuns, "dayDiff", "day"));
                 }
                 if (view.showLines) {
                     if (view.fillArea) {
@@ -3725,8 +3759,8 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
                 break;
             case "durationStacked":
                 marks.push(...barMarks(plotPoints, "segment"));
-                marks.push(...lollipopMarks(plotPoints, true, filteredRuns.length));
                 marks.push(...rectPointerMarks(plotPoints, filteredRuns, "segment", "segment"));
+                marks.push(...lollipopMarks(plotPoints, true, filteredRuns.length));
                 break;
             case "records":
                 marks.push(...recordMarks(plotPoints, filteredRuns.length));
@@ -3762,6 +3796,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         const plot = Plot.plot({
             marginTop,
             width: 800,
+            className: "analytics-plot",
             x: { axis: null },
             y: { grid: true, domain: calculateYScale(plotPoints, view) },
             color: { legend: true, domain: milestoneNames, range: milestoneColors },
@@ -3778,11 +3813,36 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             }
         });
         // Handle selection
-        plot.addEventListener("mousedown", () => {
+        if (pendingSelection.has(view)) {
+            const [{ top, left }, milestone] = pendingSelection.get(view);
+            waitFor(plot).then(() => {
+                const target = $(plot).find(`[data-milestone="${milestone}"]`);
+                const container = $(`#analytics-view-${view.id()}`);
+                function makePointerEvent(name) {
+                    return new PointerEvent(name, {
+                        pointerType: "mouse",
+                        bubbles: true,
+                        composed: true,
+                        clientX: left - container.scrollLeft(),
+                        clientY: top - container.scrollTop(),
+                    });
+                }
+                target[0].dispatchEvent(makePointerEvent("pointerenter"));
+                target[0].dispatchEvent(makePointerEvent("pointerdown"));
+            });
+        }
+        plot.addEventListener("mousedown", (event) => {
             if (plot.value && plot.value.run < filteredRuns.length) {
+                const container = $(`#analytics-view-${view.id()}`);
+                const coordinates = {
+                    top: event.clientY + container.scrollTop(),
+                    left: event.clientX + container.scrollLeft()
+                };
+                pendingSelection.set(view, [coordinates, plot.value.milestone]);
                 onSelect(filteredRuns[plot.value.run]);
             }
             else {
+                pendingSelection.delete(view);
                 onSelect(null);
             }
         });
@@ -3881,6 +3941,14 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         }
     }
     function makeViewSettings(view) {
+        const propertyListeners = {};
+        function onPropertyChange(props, handler) {
+            for (const prop of props) {
+                const handlers = propertyListeners[prop] ??= [];
+                handlers.push(handler);
+            }
+            handler();
+        }
         function setValue(key, value) {
             switch (key) {
                 case "universe":
@@ -3894,6 +3962,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
                     view[key] = value;
                     break;
             }
+            propertyListeners[key]?.forEach(f => f());
         }
         const bindThis = (property) => {
             return function () { setValue(property, this.value); };
@@ -3907,8 +3976,8 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             .on("change", bindThis("universe"));
         const starLevelInput = makeNumberInput("Any", view.starLevel, [0, 4])
             .on("change", bindThis("starLevel"));
-        const skipRunsInput = makeToggleableNumberInput("Ignore first N runs", "None", view.skipRuns);
-        const numRunsInput = makeToggleableNumberInput("Show last N runs", "All", view.numRuns);
+        let skipRunsInput = $();
+        let numRunsInput = $();
         const modeInput = makeSelect(Object.entries(viewModes), view.mode)
             .on("change", bindThis("mode"));
         const showBarsToggle = makeCheckbox("Bars", view.showBars, bind("showBars"));
@@ -3917,12 +3986,16 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         const avgWindowSlider = makeSetting("Smoothness", makeSlider([0, 100], view.smoothness, bind("smoothness")));
         const daysScaleInput = makeNumberInput("Auto", view.daysScale)
             .on("change", bindThis("daysScale"));
-        const resetName = view.universe === "magic" ? "Vacuum Collapse" : "Black Hole";
-        resetTypeInput.find(`> option[value="blackhole"]`).text(resetName);
-        showBarsToggle.toggle(view.mode === "timestamp");
-        showLinesToggle.toggle(view.mode === "timestamp");
-        fillAreaToggle.toggle(view.showLines && view.mode === "timestamp");
-        avgWindowSlider.toggle((view.showLines && view.mode === "timestamp") || view.mode === "duration");
+        onPropertyChange(["universe"], () => {
+            const resetName = view.universe === "magic" ? "Vacuum Collapse" : "Black Hole";
+            resetTypeInput.find(`> option[value="blackhole"]`).text(resetName);
+        });
+        onPropertyChange(["showLines", "mode"], () => {
+            showBarsToggle.toggle(view.mode === "timestamp");
+            showLinesToggle.toggle(view.mode === "timestamp");
+            fillAreaToggle.toggle(view.showLines && view.mode === "timestamp");
+            avgWindowSlider.toggle((view.showLines && view.mode === "timestamp") || view.mode === "duration");
+        });
         const filterSettings = makeFlexContainer("row")
             .append(makeSetting("Reset type", resetTypeInput))
             .append(makeSetting("Universe", universeInput))
@@ -3930,6 +4003,9 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         const rangeSettings = makeFlexContainer("row")
             .append(skipRunsInput)
             .append(numRunsInput);
+        const selectionSettings = makeFlexContainer("row")
+            .append(filterSettings)
+            .append(rangeSettings);
         const displaySettings = makeFlexContainer("row")
             .append(makeSetting("Mode", modeInput))
             .append(makeSetting("Days scale", daysScaleInput))
@@ -3937,13 +4013,20 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             .append(showLinesToggle)
             .append(fillAreaToggle)
             .append(avgWindowSlider);
-        const container = makeFlexContainer("row")
+        const container = makeFlexContainer("column")
             .addClass("analytics-view-settings")
             .css("margin-bottom", "1em");
         container
-            .append(filterSettings)
-            .append(rangeSettings)
+            .append(selectionSettings)
             .append(displaySettings);
+        function replaceLimitInputs(view) {
+            skipRunsInput.remove();
+            numRunsInput.remove();
+            rangeSettings.append(skipRunsInput = makeToggleableNumberInput("Ignore first N runs", "None", view.skipRuns));
+            rangeSettings.append(numRunsInput = makeToggleableNumberInput("Show last N runs", "All", view.numRuns));
+        }
+        replaceLimitInputs(view);
+        view.on("updated", replaceLimitInputs);
         return container;
     }
 
@@ -4085,7 +4168,8 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             return title;
         }
     }
-    function makeViewTab(id, game, view, config, history, currentRun) {
+    function makeViewTab(game, view, config, history, currentRun) {
+        const id = `analytics-view-${view.id()}`;
         const controlNode = $(`<li><a href="#${id}">${viewTitle(view)}</a></li>`);
         const contentNode = $(`<div id="${id}" class="vscroll" style="height: calc(100vh - 10rem)"></div>`);
         const removeViewNode = $(`<button class="button">Delete view</button>`)
@@ -4138,13 +4222,14 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         function redrawGraph(updatedView) {
             contentNode.find("figure:last").replaceWith(createGraph(updatedView));
         }
-        config.on("viewUpdated", (updatedView) => {
-            if (updatedView !== view) {
-                return;
-            }
+        view.on("updated", (updatedView) => {
             controlNode.find("> a").text(viewTitle(updatedView));
-            contentNode.find(".analytics-view-settings").replaceWith(makeViewSettings(view));
+            discardCachedState(updatedView);
             redrawGraph(updatedView);
+            onRunSelection(null);
+        });
+        history.on("updated", () => {
+            redrawGraph(view);
             onRunSelection(null);
         });
         game.onGameDay(() => {
@@ -4155,6 +4240,9 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
                 return;
             }
             if (view !== config.openView) {
+                return;
+            }
+            if (view.mode === "records") {
                 return;
             }
             redrawGraph(view);
@@ -4188,10 +4276,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             config.addView();
         });
         function addViewTab(view) {
-            const controlParentNode = analyticsPanel.find("> nav > ul");
-            const count = controlParentNode.children().length;
-            const id = `analytics-view-${count}`;
-            const [controlNode, contentNode] = makeViewTab(id, game, view, config, history, currentRun);
+            const [controlNode, contentNode] = makeViewTab(game, view, config, history, currentRun);
             controlNode.on("click", () => {
                 config.viewOpened(view);
             });
@@ -4241,21 +4326,19 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
                 showTab($(this), tabContentNode.parent().children().eq($(this).index()), "left");
             }
         });
+        let initialized = false;
         tabControlNode.on("click", () => {
+            if (!initialized) {
+                for (const view of config.views) {
+                    addViewTab(view);
+                }
+                analyticsPanel.tabs({ active: config.openViewIndex ?? 0 });
+                initialized = true;
+            }
             hideTab(tabControlNode.siblings(), tabContentNode.siblings(), "left");
             showTab(tabControlNode, tabContentNode, "right");
         });
-        for (const view of config.views) {
-            addViewTab(view);
-        }
         config.on("viewAdded", addViewTab);
-        // Redraw each view whenever history is updated
-        history.on("updated", () => {
-            for (const view of config.views) {
-                config.emit("viewUpdated", view);
-            }
-        });
-        analyticsPanel.tabs({ active: config.openViewIndex ?? 0 });
     }
 
     function addMainToggle(config) {
@@ -4273,10 +4356,12 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
     migrate();
     const evolve = await( synchronize());
     const game = new Game(evolve);
-    const config = getConfig(game);
-    const history = initializeHistory(game, config);
-    processLatestRun(game, config, history);
-    const currentRun = trackMilestones(game, config);
-    bootstrapUIComponents(game, config, history, currentRun);
+    if (game.finishedEvolution) {
+        const config = getConfig(game);
+        const history = initializeHistory(game, config);
+        processLatestRun(game, config, history);
+        const currentRun = trackMilestones(game, config);
+        bootstrapUIComponents(game, config, history, currentRun);
+    }
 
 })();
