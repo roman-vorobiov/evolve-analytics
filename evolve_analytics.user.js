@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.14.7
+// @version      0.14.8
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -3173,18 +3173,24 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         const tab = new Vue({
             el: "#mainTabs > .tab-content > :last-child",
             provide() {
+                // BTabItem requires being compiled inside a BTabs component
+                // It verifies this by injecting the parent via the btab prop - mock this dependency manually
                 return { btab: tabs };
             },
             mounted() {
+                // Without this, the tabs component doesn't track the state properly
                 tabs.$slots.default.push(this.$children[0].$vnode);
             }
         });
+        // For some reason, pushing a vnode to tabs.$slots causes the template to be compiled and mounted twice
+        // Ignore consecutive inserts with of the same node
         const original = tabs._registerItem;
         tabs._registerItem = (item) => {
             if (item.$options.propsData.label !== name) {
                 original(item);
             }
         };
+        // tab.$children[0].index is not initialized yet
         Vue.nextTick(() => {
             const tabIndex = tab.$children[0].index;
             let initialized = false;
@@ -4273,6 +4279,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             onRunSelection(null);
         });
         history.on("updated", () => {
+            discardCachedState(view);
             redrawGraph(view);
             onRunSelection(null);
         });
