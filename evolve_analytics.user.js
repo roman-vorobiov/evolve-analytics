@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.14.8
+// @version      0.14.9
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -3164,7 +3164,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         const tabID = `mTab${name}`;
         const tabs = (await waitFor(`div#mainTabs`))[0].__vue__;
         // .sticky messes up tab transitions, replace it with .vscroll
-        $("#settings").removeClass("sticky").addClass("vscroll");
+        // $("#settings").removeClass("sticky").addClass("vscroll");
         $("#mainTabs > .tab-content").append(`
         <b-tab-item label="${name}">
             <div id="${tabID}"></div>
