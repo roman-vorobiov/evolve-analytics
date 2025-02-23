@@ -174,3 +174,23 @@ html.dracula {
 .is-disabled {
     display: none !important;
 }
+
+#settings.slide-prev-leave-to {
+    position: absolute !important;
+}
+
+#settings.slide-next-leave-to {
+    position: absolute !important;
+}
+
+#settings.slide-prev-enter {
+    position: absolute !important;
+}
+
+#settings.slide-next-enter {
+    position: absolute !important;
+}
+
+#mainColumn {
+    overflow: hidden;
+}

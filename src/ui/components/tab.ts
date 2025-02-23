@@ -24,9 +24,6 @@ export async function addTab(name: string, factory: () => JQuery<HTMLElement>) {
 
     const tabs = (await waitFor(`div#mainTabs`) as JQuery<VueBoundElement<BTabs>>)[0].__vue__;
 
-    // .sticky messes up tab transitions, replace it with .vscroll
-    // $("#settings").removeClass("sticky").addClass("vscroll");
-
     $("#mainTabs > .tab-content").append(`
         <b-tab-item label="${name}">
             <div id="${tabID}"></div>
