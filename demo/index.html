@@ -8,6 +8,8 @@
     <link rel="stylesheet" href="https://unpkg.com/buefy@0.9.13/dist/buefy.min.css">
     <link rel="stylesheet" type="text/css" href="https://pmotschmann.github.io/Evolve/evolve/evolve.css">
     <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/themes/classic.min.css"/>
+    <script type="text/javascript" src="https://unpkg.com/vue@2.7.14/dist/vue.js"></script>
+    <script type="text/javascript" src="https://unpkg.com/buefy@0.9.22/dist/buefy.js"></script>
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/pickr.min.js"></script>
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/d3@7"></script>
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6"></script>
@@ -68,7 +70,18 @@
                     Steel: { display: true },
                     Elerium: { display: true }
                 },
-                tech: {}
+                tech: {},
+                settings: {
+                    animated: true,
+                    civTabs: 1,
+                    showEvolve: false,
+                    showCiv: true,
+                    showCivic: true,
+                    showResearch: true,
+                    showResources: true,
+                    showGenetics: true,
+                    showAchieve: true
+                }
             }
         }
 
@@ -85,40 +98,59 @@
             <div class="column is-one-quarter leftColumn"></div>
             <div id="mainColumn" class="column is-half">
                 <div class="content">
-                    <div class="b-tabs" id="mainTabs">
-                        <nav class="tabs">
-                            <ul role="tablist">
-                                <li role="tab" style="display: none;"><a id="3-label" tabindex="-1" data-unsp-sanitized="clean">Evolve</a></li>
-                                <li role="tab"><a id="5-label" tabindex="0" data-unsp-sanitized="clean">Civilization</a></li>
-                                <li role="tab"><a id="7-label" tabindex="-1" data-unsp-sanitized="clean">Civics</a></li>
-                                <li role="tab"><a id="9-label" tabindex="-1" data-unsp-sanitized="clean">Research</a></li>
-                                <li role="tab"><a id="11-label" tabindex="-1" data-unsp-sanitized="clean">Resources</a></li>
-                                <li role="tab"><a id="13-label" tabindex="-1" data-unsp-sanitized="clean">A.R.P.A.</a></li>
-                                <li role="tab"><a id="15-label" tabindex="-1" data-unsp-sanitized="clean">Stats</a></li>
-                                <li role="tab"><a id="17-label" tabindex="-1" data-unsp-sanitized="clean">Settings</a></li>
-                                <li role="tab" class="is-disabled"><a id="128-label" tabindex="-1" data-unsp-sanitized="clean"><span></span></a></li>
-                            </ul>
-                        </nav>
-                        <section class="tab-content">
-                            <div class="tab-item sticky" role="tabpanel" id="evolution" tabindex="-1" style="display: none;"></div>
-                            <div class="tab-item" role="tabpanel" id="5-content" tabindex="-1" style="display: none;"></div>
-                            <div class="tab-item" role="tabpanel" id="7-content" tabindex="-1" style="display: none;"></div>
-                            <div class="tab-item" role="tabpanel" id="9-content" tabindex="-1" style="display: none;"></div>
-                            <div class="tab-item" role="tabpanel" id="9-content" tabindex="-1" style="display: none;"></div>
-                            <div class="tab-item" role="tabpanel" id="9-content" tabindex="-1" style="display: none;"></div>
-                            <div class="tab-item" role="tabpanel" id="9-content" tabindex="-1" style="display: none;"></div>
-                            <div class="settings sticky" role="tabpanel" id="settings" tabindex="-1" style="display: none;">
-                                <button class="button" style="margin-right: 1em" onclick="resetConfig()">Reset views</button>
-                                <button class="button" style="margin-right: 1em" onclick="resetHistory()">Reset History</button>
-                                <button class="button" style="margin-right: 1em" onclick="resetLatestRun()">Reset Latest Run</button>
-                            </div>
-                            <div class="tab-item" role="tabpanel" id="128-content" tabindex="-1" style="display: none;"></div>
-                        </section>
-                    </div>
+                    <b-tabs id="mainTabs" v-model="s.civTabs" :animated="s.animated">
+                        <b-tab-item id="evolution" class="tab-item sticky" :visible="s.showEvolve">
+                            <template slot="header">Evolve</template>
+                        </b-tab-item>
+                        <b-tab-item :visible="s.showCiv">
+                            <template slot="header">Civilization</template>
+                            <div id="mTabCivil">Civ tab</div>
+                        </b-tab-item>
+                        <b-tab-item :visible="s.showCivic">
+                            <template slot="header">Civics</template>
+                            <div id="mTabCivic">Civics tab</div>
+                        </b-tab-item>
+                        <b-tab-item :visible="s.showResearch">
+                            <template slot="header">Reserch</template>
+                            <div id="mTabResearch">Research tab</div>
+                        </b-tab-item>
+                        <b-tab-item :visible="s.showResources">
+                            <template slot="header">Resources</template>
+                            <div id="mTabResource">Resources tab</div>
+                        </b-tab-item>
+                        <b-tab-item :visible="s.showGenetics">
+                            <template slot="header">A.R.P.A.</template>
+                            <div id="mTabArpa">ARPA tab</div>
+                        </b-tab-item>
+                        <b-tab-item :visible="s.showAchieve">
+                            <template slot="header">Stats</template>
+                            <div id="mTabStats">Stats tab</div>
+                        </b-tab-item>
+                        <b-tab-item id="settings" class="settings">
+                            <template slot="header">Settings</template>
+
+                            <button class="button" style="margin-right: 1em" onclick="resetConfig()">Reset views</button>
+                            <button class="button" style="margin-right: 1em" onclick="resetHistory()">Reset History</button>
+                            <button class="button" style="margin-right: 1em" onclick="resetLatestRun()">Reset Latest Run</button>
+                        </b-tab-item>
+                        <b-tab-item disabled>
+                            <template slot="header"></template>
+                            <div id="mTabObserve"></div>
+                        </b-tab-item>
+                    </b-tabs>
                 </div>
             </div>
             <div id="queueColumn" class="queueCol column is-one-quarter"></div>
         </div>
     </div>
+
+    <script lang="js">
+        new Vue({
+            el: "#main",
+            data: {
+                s: window.evolve.global.settings
+            }
+        });
+    </script>
 </body>
 </html>

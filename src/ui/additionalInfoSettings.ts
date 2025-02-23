@@ -1,5 +1,5 @@
 import { additionalInformation } from "../enums";
-import { makeCheckbox, makeFlexContainer } from "./utils";
+import { makeCheckbox, makeFlexContainer } from "./components";
 import type { View } from "../config";
 
 export function makeAdditionalInfoSettings(view: View) {

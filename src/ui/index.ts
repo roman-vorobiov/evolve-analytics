@@ -1,16 +1,17 @@
 import styles from "./styles.css";
-import { buildAnalyticsTab } from "./analyticsTab";
-import { waitFor, makeToggle } from "./utils";
+import { makeAnalyticsTab } from "./analyticsTab";
+import { makeToggle, addTab } from "./components";
+import { waitFor } from "./utils";
 import type { Game } from "../game";
 import type { ConfigManager } from "../config";
 import type { HistoryManager } from "../history";
 import type { LatestRun } from "../runTracking";
 
-function addMainToggle(config: ConfigManager) {
-    waitFor("#settings").then(() => {
-        const toggleNode = makeToggle("Record Runs", config.recordRuns, (checked) => { config.recordRuns = checked; });
-        toggleNode.insertAfter("#settings > .switch.setting:last");
-    });
+async function addMainToggle(config: ConfigManager) {
+    await waitFor("#settings");
+
+    const toggleNode = makeToggle("Record Runs", config.recordRuns, (checked) => { config.recordRuns = checked; });
+    toggleNode.insertAfter("#settings > .switch.setting:last");
 }
 
 export function bootstrapUIComponents(game: Game, config: ConfigManager, history: HistoryManager, currentRun: LatestRun) {
@@ -18,5 +19,5 @@ export function bootstrapUIComponents(game: Game, config: ConfigManager, history
 
     addMainToggle(config);
 
-    buildAnalyticsTab(game, config, history, currentRun);
+    addTab("Analytics", () => makeAnalyticsTab(game, config, history, currentRun));
 }

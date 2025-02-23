@@ -1,4 +1,4 @@
-import { makeSelect, makeSlider, makeCheckbox, makeNumberInput, makeToggleableNumberInput, makeFlexContainer } from "./utils";
+import { makeSelect, makeSlider, makeCheckbox, makeNumberInput, makeToggleableNumberInput, makeFlexContainer } from "./components";
 import { resets, universes, viewModes } from "../enums";
 import type { View, ViewConfig } from "../config";
 

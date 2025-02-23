@@ -1,4 +1,4 @@
-import { makeAutocompleteInput, makeFlexContainer, makeNumberInput, makeSelect, makeSlimButton } from "./utils";
+import { makeAutocompleteInput, makeFlexContainer, makeNumberInput, makeSelect, makeSlimButton } from "./components";
 import { buildings, techs, events, environmentEffects, milestoneTypes } from "../enums";
 import type { View } from "../config";
 import type { HistoryManager } from "../history";

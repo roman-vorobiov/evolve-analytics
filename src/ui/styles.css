@@ -170,3 +170,7 @@ html.dracula {
     margin-right: 1.5em;
     background: #1d2021;
 }
+
+.is-disabled {
+    display: none !important;
+}
