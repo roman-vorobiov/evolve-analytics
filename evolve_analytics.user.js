@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.14.9
+// @version      0.14.10
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -2882,6 +2882,26 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         .is-disabled {
             display: none !important;
         }
+
+        #settings.slide-prev-leave-to {
+            position: absolute !important;
+        }
+
+        #settings.slide-next-leave-to {
+            position: absolute !important;
+        }
+
+        #settings.slide-prev-enter {
+            position: absolute !important;
+        }
+
+        #settings.slide-next-enter {
+            position: absolute !important;
+        }
+
+        #mainColumn {
+            overflow: hidden;
+        }
     `;
 
     function makeMilestoneNamesMapping(view) {
@@ -3163,8 +3183,6 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
     async function addTab(name, factory) {
         const tabID = `mTab${name}`;
         const tabs = (await waitFor(`div#mainTabs`))[0].__vue__;
-        // .sticky messes up tab transitions, replace it with .vscroll
-        // $("#settings").removeClass("sticky").addClass("vscroll");
         $("#mainTabs > .tab-content").append(`
         <b-tab-item label="${name}">
             <div id="${tabID}"></div>
