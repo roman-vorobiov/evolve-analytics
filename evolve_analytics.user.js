@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.14.6
+// @version      0.14.7
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -16,7 +16,7 @@
 // @grant        GM_addStyle
 // ==/UserScript==
 
-/*global $ Plot htmlToImage LZString Pickr*/
+/*global $ Plot htmlToImage LZString Pickr Vue*/
 
 GM_addStyle(GM_getResourceText("PICKR_CSS"));
 
@@ -2878,6 +2878,10 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             margin-right: 1.5em;
             background: #1d2021;
         }
+
+        .is-disabled {
+            display: none !important;
+        }
     `;
 
     function makeMilestoneNamesMapping(view) {
@@ -3120,6 +3124,10 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         return entries;
     }
 
+    function makeFlexContainer(direction) {
+        return $(`<div class="flex-container" style="flex-direction: ${direction};"></div>`);
+    }
+
     function waitFor(query) {
         return new Promise(resolve => {
             const node = $(query);
@@ -3151,9 +3159,44 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         const length = children.length;
         return children[length - 1];
     }
-    function makeFlexContainer(direction) {
-        return $(`<div class="flex-container" style="flex-direction: ${direction};"></div>`);
+
+    async function addTab(name, factory) {
+        const tabID = `mTab${name}`;
+        const tabs = (await waitFor(`div#mainTabs`))[0].__vue__;
+        // .sticky messes up tab transitions, replace it with .vscroll
+        $("#settings").removeClass("sticky").addClass("vscroll");
+        $("#mainTabs > .tab-content").append(`
+        <b-tab-item label="${name}">
+            <div id="${tabID}"></div>
+        </b-tab-item>
+    `);
+        const tab = new Vue({
+            el: "#mainTabs > .tab-content > :last-child",
+            provide() {
+                return { btab: tabs };
+            },
+            mounted() {
+                tabs.$slots.default.push(this.$children[0].$vnode);
+            }
+        });
+        const original = tabs._registerItem;
+        tabs._registerItem = (item) => {
+            if (item.$options.propsData.label !== name) {
+                original(item);
+            }
+        };
+        Vue.nextTick(() => {
+            const tabIndex = tab.$children[0].index;
+            let initialized = false;
+            tabs.$on("input", (idx) => {
+                if (idx === tabIndex && !initialized) {
+                    $(`#${tabID}`).append(factory());
+                    initialized = true;
+                }
+            });
+        });
     }
+
     function makeSelect(options, defaultValue) {
         const optionNodes = options.map(([value, label]) => {
             return `<option value="${value}" ${value === defaultValue ? "selected" : ""}>${label}</option>`;
@@ -3265,6 +3308,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             .append(toggleNode)
             .append(inputNode);
     }
+
     function makeColorPickerTrigger(target, overflow = 0) {
         const width = Number(target.attr("width"));
         const height = Number(target.attr("height"));
@@ -3302,7 +3346,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         else {
             trigger = makeColorPickerTrigger(target, overflow);
             pickr = new Pickr({
-                container: "#analyticsPanel",
+                container: "#mTabAnalytics",
                 el: trigger[0],
                 useAsButton: true,
                 position: "top-middle",
@@ -4250,24 +4294,17 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         return [controlNode, contentNode];
     }
 
-    function buildAnalyticsTab(game, config, history, currentRun) {
-        const tabControlNode = $(`
-        <li role="tab" aria-controls="analytics-content" aria-selected="true">
-            <a id="analytics-label" tabindex="0" data-unsp-sanitized="clean">Analytics</a>
-        </li>
-    `);
-        const tabContentNode = $(`
-        <div class="tab-item" role="tabpanel" id="analytics" aria-labelledby="analytics-label" tabindex="0">
-            <div id="analyticsPanel" class="tab-item">
-                <nav class="tabs">
-                    <ul role="tablist" class="hscroll" style="margin-left: 0; width: 100%">
-                        <li><a id="analytics-add-view" role="button">+ Add View</a></li>
-                    </ul>
-                </nav>
-            </div>
+    function makeAnalyticsTab(game, config, history, currentRun) {
+        const analyticsPanel = $(`
+        <div>
+            <nav class="tabs">
+                <ul role="tablist" class="hscroll" style="margin-left: 0; width: 100%">
+                    <li><a id="analytics-add-view" role="button">+ Add View</a></li>
+                </ul>
+            </nav>
         </div>
     `);
-        const analyticsPanel = tabContentNode.find("> #analyticsPanel").tabs({
+        analyticsPanel.tabs({
             classes: {
                 "ui-tabs-active": "is-active"
             }
@@ -4296,61 +4333,25 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
                 refresh();
             });
         }
-        function hidden(node) {
-            return node.attr("tabindex") === "-1";
-        }
-        function hideTab(controlNode, contentNode, direction) {
-            controlNode.removeClass("is-active");
-            controlNode.attr("aria-selected", "false");
-            const hide = () => contentNode.css("display", "none").attr("tabindex", "-1");
-            if (direction !== undefined) {
-                contentNode.hide("slide", { direction, complete: hide }, 200);
-            }
-            else {
-                hide();
-            }
-        }
-        function showTab(controlNode, contentNode, direction) {
-            controlNode.addClass("is-active");
-            controlNode.attr("aria-selected", "true");
-            const show = () => contentNode.css("display", "").attr("tabindex", "0");
-            contentNode.show("slide", { direction, complete: show }, 200);
-        }
-        hideTab(tabControlNode, tabContentNode);
-        // Note that there's a hidden "Hell Observations" tab after setting
-        tabControlNode.insertBefore(lastChild($("#mainTabs > nav > ul")));
-        tabContentNode.insertBefore(lastChild($("#mainTabs > section")));
-        tabControlNode.siblings().on("click", function () {
-            if (!hidden(tabContentNode)) {
-                hideTab(tabControlNode, tabContentNode, "right");
-                showTab($(this), tabContentNode.parent().children().eq($(this).index()), "left");
-            }
-        });
-        let initialized = false;
-        tabControlNode.on("click", () => {
-            if (!initialized) {
-                for (const view of config.views) {
-                    addViewTab(view);
-                }
-                analyticsPanel.tabs({ active: config.openViewIndex ?? 0 });
-                initialized = true;
-            }
-            hideTab(tabControlNode.siblings(), tabContentNode.siblings(), "left");
-            showTab(tabControlNode, tabContentNode, "right");
-        });
         config.on("viewAdded", addViewTab);
+        for (const view of config.views) {
+            addViewTab(view);
+        }
+        analyticsPanel.tabs({
+            active: config.openViewIndex ?? 0
+        });
+        return analyticsPanel;
     }
 
-    function addMainToggle(config) {
-        waitFor("#settings").then(() => {
-            const toggleNode = makeToggle("Record Runs", config.recordRuns, (checked) => { config.recordRuns = checked; });
-            toggleNode.insertAfter("#settings > .switch.setting:last");
-        });
+    async function addMainToggle(config) {
+        await waitFor("#settings");
+        const toggleNode = makeToggle("Record Runs", config.recordRuns, (checked) => { config.recordRuns = checked; });
+        toggleNode.insertAfter("#settings > .switch.setting:last");
     }
     function bootstrapUIComponents(game, config, history, currentRun) {
         $("head").append(`<style type="text/css">${styles}</style>`);
         addMainToggle(config);
-        buildAnalyticsTab(game, config, history, currentRun);
+        addTab("Analytics", () => makeAnalyticsTab(game, config, history, currentRun));
     }
 
     migrate();
