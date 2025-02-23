@@ -158,6 +158,7 @@ export function makeViewTab(game: Game, view: View, config: ConfigManager, histo
     });
 
     history.on("updated", () => {
+        discardCachedState(view);
         redrawGraph(view);
         onRunSelection(null);
     });
