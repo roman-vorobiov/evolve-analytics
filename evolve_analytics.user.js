@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.14.11
+// @version      0.14.12
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -2882,7 +2882,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             background: #1d2021;
         }
 
-        .is-disabled {
+        li[role="tab"].is-disabled {
             display: none !important;
         }
 
