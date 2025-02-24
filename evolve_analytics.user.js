@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.14.10
+// @version      0.14.11
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -2271,6 +2271,9 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             super();
             this.view = view;
             this.config = config;
+            this.on("updated", () => {
+                this.config.emit("viewUpdated", this);
+            });
             const self = this;
             return new Proxy(view, {
                 get(obj, prop, receiver) {
