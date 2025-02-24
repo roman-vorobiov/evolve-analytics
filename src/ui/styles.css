@@ -171,7 +171,7 @@ html.dracula {
     background: #1d2021;
 }
 
-.is-disabled {
+li[role="tab"].is-disabled {
     display: none !important;
 }
 
