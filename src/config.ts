@@ -32,6 +32,10 @@ class ViewUtils extends Subscribable {
     constructor(private view: ViewConfig, private config: ConfigManager) {
         super();
 
+        this.on("updated", () => {
+            this.config.emit("viewUpdated", this);
+        });
+
         const self = this;
 
         return <any> new Proxy(view, {
