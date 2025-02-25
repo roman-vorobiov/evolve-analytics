@@ -10,60 +10,30 @@ import type { ConfigManager, View } from "../config";
 import type { HistoryEntry, HistoryManager } from "../history";
 import type { LatestRun } from "../runTracking";
 
-import type { default as htmltoimage } from "html-to-image";
+import type htmlTocanvas from "html2canvas";
 
-declare var htmlToImage: typeof htmltoimage;
-
-async function withCSSOverrides<T>(overrides: Record<string, Record<string, string>>, callback: () => Promise<T>): Promise<T> {
-    const overridesList = [];
-    for (const [query, props] of Object.entries(overrides)) {
-        const nodes = $(query);
-        for (const [rule, value] of Object.entries(props)) {
-            for (const node of nodes) {
-                overridesList.push({ node, rule, original: node.style[rule as any], override: value });
-            }
-        }
-    }
-
-    for (const { node, rule, override } of overridesList) {
-        $(node).css(rule, override);
-    }
-
-    const result = await callback();
-
-    for (const { node, rule, original } of overridesList) {
-        $(node).css(rule, original);
-    }
-
-    return result;
-}
+declare var html2canvas: typeof htmlTocanvas;
 
 async function copyToClipboard(node: JQuery) {
-    const isParent = (element: HTMLElement) => element.contains(node[0]);
-    const isChild = (element: HTMLElement) => node[0].contains(element);
+    const backgroundColor = $("html").css("background-color");
 
     const width = Math.round(node.width()! + 10);
     const height = Math.round(node.height()! + 10);
 
-    const cssOverrides = {
-        "html": { width: `${width}px`, height: `${height}px` },
-        "#mainColumn": { width: "100%" },
-        ".vscroll": { height: "100%" },
-        ".tab-item": { padding: "0" }
-    };
-
-    const blob = await withCSSOverrides(cssOverrides, () => {
-        return htmlToImage.toBlob($("html")[0], {
-            width,
-            height,
-            skipFonts: true,
-            filter: element => isParent(element) || isChild(element)
-        });
+    const canvas = await html2canvas(node[0], {
+        width,
+        height,
+        x: -10,
+        y: -10,
+        backgroundColor,
+        logging: false
     });
 
-    await navigator.clipboard.write([
-        new ClipboardItem({ "image/png": blob! })
-    ]);
+    canvas.toBlob((blob) => {
+        navigator.clipboard.write([
+            new ClipboardItem({ "image/png": blob! })
+        ]);
+    });
 }
 
 function viewTitle(view: View) {

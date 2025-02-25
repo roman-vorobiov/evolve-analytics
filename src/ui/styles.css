@@ -134,14 +134,28 @@ html.dracula {
     width: 100%;
 }
 
-.crossed {
-    text-decoration: line-through;
+.flex {
+    display: flex;
 }
 
-.flex-container {
-    display: flex;
+.flex-row {
+    flex-direction: row;
+}
+
+.flex-col {
+    flex-direction: column;
+}
+
+.flex-wrap {
     flex-wrap: wrap;
-    gap: 8px;
+}
+
+.justify-between {
+    justify-content: space-between;
+}
+
+.order-last {
+    order: calc(infinity);
 }
 
 .color-picker {
@@ -171,24 +185,79 @@ html.dracula {
     background: #1d2021;
 }
 
+#mTabAnalytics {
+    .gap-s {
+        gap: 0.5em;
+    }
+
+    .gap-m {
+        gap: 1em;
+    }
+
+    .slim {
+        height: 1.5rem;
+    }
+
+    .crossed {
+        text-decoration: line-through;
+    }
+
+    input[type="text"] {
+        height: 1.5rem;
+    }
+
+    input[type="number"] {
+        height: 1.5rem;
+    }
+
+    select {
+        height: 1.5rem;
+    }
+
+    .autocomplete.control {
+        width: 20rem;
+    }
+
+    .dropdown-content {
+        scrollbar-width: thin;
+        width: 20rem;
+    }
+
+    .dropdown-menu {
+        width: 20rem;
+    }
+
+    div.dropdown-item {
+        color: unset;
+    }
+
+    .dropdown-item {
+        width: 100%;
+        padding-left: 1rem;
+        padding-right: 1rem;
+    }
+}
+
 li[role="tab"].is-disabled {
     display: none !important;
 }
 
-#settings.slide-prev-leave-to {
-    position: absolute !important;
-}
+#settings {
+    &.slide-prev-leave-to {
+        position: absolute !important;
+    }
 
-#settings.slide-next-leave-to {
-    position: absolute !important;
-}
+    &.slide-next-leave-to {
+        position: absolute !important;
+    }
 
-#settings.slide-prev-enter {
-    position: absolute !important;
-}
+    &.slide-prev-enter {
+        position: absolute !important;
+    }
 
-#settings.slide-next-enter {
-    position: absolute !important;
+    &.slide-next-enter {
+        position: absolute !important;
+    }
 }
 
 #mainColumn {

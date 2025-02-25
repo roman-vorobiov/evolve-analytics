@@ -114,7 +114,6 @@ export function makeViewSettings(view: View) {
         .append(avgWindowSlider);
 
     const container = makeFlexContainer("column")
-        .addClass("analytics-view-settings")
         .css("margin-bottom", "1em");
 
     container

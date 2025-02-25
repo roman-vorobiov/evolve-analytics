@@ -230,6 +230,13 @@ export class ConfigManager extends Subscribable {
         return this.config.lastOpenViewIndex;
     }
 
+    set openViewIndex(index: number | undefined) {
+        this.config.lastOpenViewIndex = index;
+
+        // don't emit an event as this is purely a visual thing
+        saveConfig(this.config);
+    }
+
     get openView() {
         if (this.openViewIndex !== undefined) {
             return this.views[this.openViewIndex];
@@ -269,7 +276,7 @@ export class ConfigManager extends Subscribable {
         this.config.views.push(view);
         this.views.push(proxy);
 
-        this.config.lastOpenViewIndex = this.views.length - 1;
+        this.openViewIndex = this.views.length - 1;
 
         this.emit("viewAdded", proxy);
 

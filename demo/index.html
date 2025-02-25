@@ -13,7 +13,7 @@
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/pickr.min.js"></script>
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/d3@7"></script>
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6"></script>
-    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.min.js"></script>
+    <script type="text/javascript" src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
     <script type="text/javascript" src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
     <script type="text/javascript" src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
     <script type="text/javascript" src="./config.5.js"></script>
@@ -99,42 +99,32 @@
             <div id="mainColumn" class="column is-half">
                 <div class="content">
                     <b-tabs id="mainTabs" v-model="s.civTabs" :animated="s.animated">
-                        <b-tab-item id="evolution" class="tab-item sticky" :visible="s.showEvolve">
-                            <template slot="header">Evolve</template>
+                        <b-tab-item id="evolution" class="tab-item sticky" :visible="s.showEvolve" label="Evolve">
                         </b-tab-item>
-                        <b-tab-item :visible="s.showCiv">
-                            <template slot="header">Civilization</template>
+                        <b-tab-item label="Civilization" :visible="s.showCiv">
                             <div id="mTabCivil">Civ tab</div>
                         </b-tab-item>
-                        <b-tab-item :visible="s.showCivic">
-                            <template slot="header">Civics</template>
+                        <b-tab-item label="Civics" :visible="s.showCivic">
                             <div id="mTabCivic">Civics tab</div>
                         </b-tab-item>
-                        <b-tab-item :visible="s.showResearch">
-                            <template slot="header">Reserch</template>
+                        <b-tab-item label="Reserch" :visible="s.showResearch">
                             <div id="mTabResearch">Research tab</div>
                         </b-tab-item>
-                        <b-tab-item :visible="s.showResources">
-                            <template slot="header">Resources</template>
+                        <b-tab-item label="Resources" :visible="s.showResources">
                             <div id="mTabResource">Resources tab</div>
                         </b-tab-item>
-                        <b-tab-item :visible="s.showGenetics">
-                            <template slot="header">A.R.P.A.</template>
+                        <b-tab-item label="A.R.P.A." :visible="s.showGenetics">
                             <div id="mTabArpa">ARPA tab</div>
                         </b-tab-item>
-                        <b-tab-item :visible="s.showAchieve">
-                            <template slot="header">Stats</template>
+                        <b-tab-item label="Stats" :visible="s.showAchieve">
                             <div id="mTabStats">Stats tab</div>
                         </b-tab-item>
-                        <b-tab-item id="settings" class="settings sticky">
-                            <template slot="header">Settings</template>
-
+                        <b-tab-item label="Settings" id="settings" class="settings sticky">
                             <button class="button" style="margin-right: 1em" onclick="resetConfig()">Reset views</button>
                             <button class="button" style="margin-right: 1em" onclick="resetHistory()">Reset History</button>
                             <button class="button" style="margin-right: 1em" onclick="resetLatestRun()">Reset Latest Run</button>
                         </b-tab-item>
                         <b-tab-item disabled>
-                            <template slot="header"></template>
                             <div id="mTabObserve"></div>
                         </b-tab-item>
                     </b-tabs>
@@ -143,6 +133,7 @@
             <div id="queueColumn" class="queueCol column is-one-quarter"></div>
         </div>
     </div>
+    <div class="promoBar"></div>
 
     <script lang="js">
         new Vue({
