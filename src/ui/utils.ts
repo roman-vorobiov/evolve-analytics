@@ -23,17 +23,3 @@ export function waitFor(query: any): Promise<JQuery> {
         });
     });
 }
-
-export async function nextAnimationFrame() {
-    return new Promise((resolve) => {
-        requestAnimationFrame(() => {
-            requestAnimationFrame(resolve);
-        });
-    });
-}
-
-export function lastChild(node: JQuery) {
-    const children = node.children();
-    const length = children.length;
-    return children[length - 1];
-}

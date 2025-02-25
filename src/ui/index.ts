@@ -1,5 +1,4 @@
 import styles from "./styles.css";
-import { makeToggle } from "./components";
 import { waitFor } from "./utils";
 import type { Game } from "../game";
 import type { ConfigManager } from "../config";
@@ -9,9 +8,9 @@ import type { LatestRun } from "../runTracking";
 import AnalyticsTab from "./components/AnalyticsTab";
 
 import type VueType from "vue";
-import type { reactive } from "vue";
+import type { reactive, ref } from "vue";
 
-declare const Vue: typeof VueType & { reactive: typeof reactive };
+declare const Vue: typeof VueType & { reactive: typeof reactive, ref: typeof ref };
 
 type BTabItem = VueType & {
     index: number | null;
@@ -103,10 +102,22 @@ async function addAnalyticsTab(game: Game, config: ConfigManager, history: Histo
 }
 
 async function addMainToggle(config: ConfigManager) {
-    await waitFor("#settings");
+    const lastToggle = await waitFor("#settings > .switch.setting:last");
 
-    const toggleNode = makeToggle("Record Runs", config.recordRuns, (checked) => { config.recordRuns = checked; });
-    toggleNode.insertAfter("#settings > .switch.setting:last");
+    lastToggle.after(`
+        <b-switch class="setting" id="analytics-master-toggle" v-model="config.recordRuns">
+            Record Runs
+        </b-switch>
+    `);
+
+    new Vue({
+        el: "#analytics-master-toggle",
+        data() {
+            return {
+                config: Vue.ref(config)
+            };
+        }
+    });
 }
 
 function addStyles() {

@@ -120,9 +120,14 @@
                             <div id="mTabStats">Stats tab</div>
                         </b-tab-item>
                         <b-tab-item label="Settings" id="settings" class="settings sticky">
-                            <button class="button" style="margin-right: 1em" onclick="resetConfig()">Reset views</button>
-                            <button class="button" style="margin-right: 1em" onclick="resetHistory()">Reset History</button>
-                            <button class="button" style="margin-right: 1em" onclick="resetLatestRun()">Reset Latest Run</button>
+                            <b-switch class="setting">Dummy switch</b-switch>
+                            <b-switch class="setting">Dummy switch</b-switch>
+
+                            <div style="margin-top: 1em">
+                                <button class="button" style="margin-right: 1em" onclick="resetConfig()">Reset views</button>
+                                <button class="button" style="margin-right: 1em" onclick="resetHistory()">Reset History</button>
+                                <button class="button" style="margin-right: 1em" onclick="resetLatestRun()">Reset Latest Run</button>
+                            </div>
                         </b-tab-item>
                         <b-tab-item disabled>
                             <div id="mTabObserve"></div>

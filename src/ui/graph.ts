@@ -3,7 +3,7 @@ import { findBestRun, runTime, getSortedMilestones } from "../exports/utils";
 import { asPlotPoints, runAsPlotPoints, type PlotPoint } from "../exports/plotPoints";
 import { generateMilestoneNames, isEffectMilestone, isEventMilestone } from "../milestones";
 import { compose, filterMap } from "../utils";
-import { makeColorPicker } from "./components";
+import { makeColorPicker } from "./components/colorPicker";
 import { waitFor } from "./utils";
 import type { View } from "../config";
 import type { HistoryEntry, HistoryManager } from "../history";
