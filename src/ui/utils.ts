@@ -23,3 +23,11 @@ export function waitFor(query: any): Promise<JQuery> {
         });
     });
 }
+
+export async function nextAnimationFrame() {
+    return new Promise((resolve) => {
+        requestAnimationFrame(() => {
+            requestAnimationFrame(resolve);
+        });
+    });
+}

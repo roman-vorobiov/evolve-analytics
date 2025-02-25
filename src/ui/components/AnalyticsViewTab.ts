@@ -1,5 +1,6 @@
 import { resets, universes } from "../../enums";
 import { applyFilters } from "../../exports/historyFiltering";
+import { nextAnimationFrame } from "../utils";
 import type { ConfigManager, View } from "../../config";
 import type { HistoryManager, HistoryEntry } from "../../history";
 
@@ -7,16 +8,21 @@ import AnalyticsViewSettings from "./AnalyticsViewSettings";
 import AnalyticsMilestoneController from "./AnalyticsMilestoneController";
 import AnalyticsPlot from "./AnalyticsPlot";
 
-type This = {
+import type VueType from "vue";
+
+declare const Vue: typeof VueType;
+
+type This = Vue & {
     $refs: {
         plot: {
-            copyAsImage(): void
+            copyAsImage(): Promise<void>
         }
     },
     config: ConfigManager,
     history: HistoryManager,
     view: View,
-    selectedRun: HistoryEntry | null
+    selectedRun: HistoryEntry | null,
+    rendering: boolean
 }
 
 export default {
@@ -29,7 +35,8 @@ export default {
     props: ["view"],
     data(this: This) {
         return {
-            selectedRun: null
+            selectedRun: null,
+            rendering: false
         }
     },
     computed: {
@@ -53,8 +60,14 @@ export default {
         deleteView(this: This) {
             this.config.removeView(this.view);
         },
-        asImage(this: This) {
-            this.$refs.plot.copyAsImage();
+        async asImage(this: This) {
+            this.rendering = true;
+
+            // For some reason awaiting copyAsImage prevents UI from updating
+            await nextAnimationFrame();
+            await this.$refs.plot.copyAsImage();
+
+            this.rendering = false;
         },
         ignoreBefore(this: This) {
             if (this.selectedRun !== null) {
@@ -79,7 +92,14 @@ export default {
                 <analytics-plot ref="plot" :view="view" @select="(run) => { selectedRun = run }"/>
 
                 <div class="flex flex-row flex-wrap justify-between">
-                    <button class="button" @click="asImage">Copy as PNG</button>
+                    <button class="button" @click="asImage">
+                        <span v-if="rendering">
+                            Rendering...
+                        </span>
+                        <span v-else>
+                            Copy as PNG
+                        </span>
+                    </button>
                     <button class="button" @click="ignoreBefore" :disabled="selectedRun === null">Ignore previous runs</button>
                     <button class="button" @click="discardRun" :disabled="selectedRun === null">Discard run</button>
                     <button class="button" @click="deleteView">Delete view</button>

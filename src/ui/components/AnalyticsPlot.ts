@@ -91,8 +91,8 @@ export default {
             $(this.plot).replaceWith(plot);
             this.plot = plot as HTMLElement;
         },
-        copyAsImage(this: This) {
-            copyToClipboard(this.plot);
+        async copyAsImage(this: This) {
+            await copyToClipboard(this.plot);
         }
     },
     directives: {
