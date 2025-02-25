@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.14.12
+// @version      0.14.13
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -3222,6 +3222,15 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
                 }
             });
         });
+        // Vanilla evolve does `global.settings.civTabs = $(`#mainTabs > nav ul li`).length - 1`
+        // Replace the button with the mock click handler that assigns the correct tab index
+        const observationButtons = await waitFor("button.observe");
+        const text = observationButtons.first().text();
+        const mockButton = $(`<button class="button observe right">${text}</button>`);
+        mockButton.on("click", () => {
+            $("#mainColumn div:first-child")[0].__vue__.s.civTabs = 8;
+        });
+        observationButtons.replaceWith(mockButton);
     }
 
     function makeSelect(options, defaultValue) {
