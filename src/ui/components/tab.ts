@@ -64,4 +64,16 @@ export async function addTab(name: string, factory: () => JQuery<HTMLElement>) {
             }
         });
     });
+
+    // Vanilla evolve does `global.settings.civTabs = $(`#mainTabs > nav ul li`).length - 1`
+    // Replace the button with the mock click handler that assigns the correct tab index
+    const observationButtons = await waitFor("button.observe");
+    const text = observationButtons.first().text();
+
+    const mockButton = $(`<button class="button observe right">${text}</button>`);
+    mockButton.on("click", () => {
+        ($("#mainColumn div:first-child") as JQuery<VueBoundElement<any>>)[0].__vue__.s.civTabs = 8;
+    });
+
+    observationButtons.replaceWith(mockButton);
 }
