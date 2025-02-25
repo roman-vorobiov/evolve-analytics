@@ -41,7 +41,7 @@ class ViewUtils extends Subscribable {
         return <any> new Proxy(view, {
             get(obj, prop: keyof ViewConfig, receiver) {
                 return Reflect.get(self, prop, receiver)
-                    || Reflect.get(view, prop, receiver);
+                    ?? Reflect.get(view, prop, receiver);
             },
             set(obj, prop: keyof ViewConfig, value, receiver) {
                 if (value === view[prop]) {
@@ -72,6 +72,10 @@ class ViewUtils extends Subscribable {
         this.view.milestones[`reset:${value}`] = info;
 
         this.view.resetType = value;
+    }
+
+    get active(): boolean {
+        return this.config.openView === this as any;
     }
 
     id() {
@@ -233,22 +237,18 @@ export class ConfigManager extends Subscribable {
     set openViewIndex(index: number | undefined) {
         this.config.lastOpenViewIndex = index;
 
-        // don't emit an event as this is purely a visual thing
         saveConfig(this.config);
+
+        const view = this.views[index!];
+        if (view !== undefined) {
+            view.emit("opened", view);
+        }
     }
 
     get openView() {
         if (this.openViewIndex !== undefined) {
             return this.views[this.openViewIndex];
         }
-    }
-
-    viewOpened(view: View) {
-        const idx = this.views.indexOf(view);
-        this.config.lastOpenViewIndex = idx === -1 ? undefined : idx;
-
-        // don't emit an event as this is purely a visual thing
-        saveConfig(this.config);
     }
 
     addView() {

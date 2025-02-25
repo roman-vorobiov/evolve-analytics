@@ -311,26 +311,4 @@ describe("Config", () => {
 
         expect(modifiedView).toBeUndefined();
     });
-
-    it("should remember last opened view", () => {
-        const config = makeConfig({});
-
-        const view1 = config.addView();
-        const view2 = config.addView();
-        const view3 = config.addView();
-
-        expect(config.openView).toBe(view3);
-
-        config.viewOpened(view2);
-        expect(config.openView).toBe(view2);
-
-        config.removeView(view2);
-        expect(config.openView).toBe(view1);
-
-        config.removeView(view1);
-        expect(config.openView).toBe(view3);
-
-        config.removeView(view3);
-        expect(config.openView).toBeUndefined();
-    });
 });

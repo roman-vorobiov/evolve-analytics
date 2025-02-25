@@ -4,7 +4,7 @@ import type { Game } from "../../game";
 import type { HistoryEntry, HistoryManager } from "../../history";
 import type { LatestRun } from "../../runTracking";
 
-import type Vue from "vue";
+import type { default as Vue, Ref } from "vue";
 
 import type htmlTocanvas from "html2canvas";
 
@@ -33,18 +33,22 @@ async function copyToClipboard(node: HTMLElement) {
 }
 
 type This = Vue & {
+    active: Ref<boolean>,
     game: Game,
     config: ConfigManager,
     view: View,
     history: HistoryManager,
     currentRun: LatestRun,
-    supportsRealTimeUpdates: boolean,
     selectedRun: HistoryEntry | null,
-    plot: HTMLElement
+    plot: HTMLElement,
+    initialized(): boolean,
+    supportsRealTimeUpdates(): boolean,
+    redraw(): void,
+    copyAsImage(): void
 }
 
 export default {
-    inject: ["game", "config", "history", "currentRun"],
+    inject: ["active", "game", "config", "history", "currentRun"],
     props: ["view"],
     data() {
         return {
@@ -52,9 +56,16 @@ export default {
             plot: null
         };
     },
-    computed: {
+    methods: {
+        initialized(this: This) {
+            return this.plot.localName !== "div";
+        },
         supportsRealTimeUpdates(this: This) {
             if (!this.config.recordRuns) {
+                return false;
+            }
+
+            if (!this.active.value) {
                 return false;
             }
 
@@ -62,7 +73,7 @@ export default {
                 return false;
             }
 
-            if (this.view !== this.config.openView) {
+            if (!this.view.active) {
                 return false;
             }
 
@@ -71,6 +82,17 @@ export default {
             }
 
             return true;
+        },
+        redraw(this: This) {
+            const plot = makeGraph(this.history, this.view, this.game, this.currentRun, (run) => {
+                this.$emit("select", run);
+            });
+
+            $(this.plot).replaceWith(plot);
+            this.plot = plot as HTMLElement;
+        },
+        copyAsImage(this: This) {
+            copyToClipboard(this.plot);
         }
     },
     directives: {
@@ -80,39 +102,35 @@ export default {
 
                 self.plot = element;
 
-                function update() {
-                    const newElement = makeGraph(self.history, self.view, self.game, self.currentRun, (run) => {
-                        self.$emit("select", run);
-                    });
-                    $(self.plot).replaceWith(newElement);
-                    self.plot = newElement as HTMLElement;
+                if (self.view.active) {
+                    self.redraw();
                 }
-
-                update();
+                else {
+                    self.view.on("opened", () => {
+                        if (!self.initialized()) {
+                            self.redraw();
+                        }
+                    });
+                }
 
                 self.view.on("updated", () => {
                     discardCachedState(self.view);
                     self.$emit("select", null);
-                    update();
+                    self.redraw();
                 });
 
                 self.history.on("updated", () => {
                     discardCachedState(self.view);
                     self.$emit("select", null);
-                    update();
+                    self.redraw();
                 });
 
                 self.game.onGameDay(() => {
-                    if (self.supportsRealTimeUpdates) {
-                        update();
+                    if (self.supportsRealTimeUpdates()) {
+                        self.redraw();
                     }
                 });
             }
-        }
-    },
-    methods: {
-        copyAsImage(this: This) {
-            copyToClipboard(this.plot);
         }
     },
     template: `

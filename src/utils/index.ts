@@ -41,3 +41,12 @@ export function lazyLoad<T>(fn: () => T): T {
 export function compose<Args extends any[], Ret>(l: (...args: [...Args]) => Ret, r: (...args: [...Args]) => Ret) {
     return (...args: [...Args]) => l(...args) && r(...args);
 }
+
+export function spy<F extends Function>(obj: any, key: string, spy: F) {
+    const original = obj[key];
+
+    obj[key] = (...args: any) => {
+        spy(...args);
+        return original(...args);
+    };
+}

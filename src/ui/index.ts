@@ -1,5 +1,6 @@
 import styles from "./styles.css";
 import { waitFor } from "./utils";
+import { spy } from "../utils";
 import type { Game } from "../game";
 import type { ConfigManager } from "../config";
 import type { HistoryManager } from "../history";
@@ -8,9 +9,13 @@ import type { LatestRun } from "../runTracking";
 import AnalyticsTab from "./components/AnalyticsTab";
 
 import type VueType from "vue";
-import type { reactive, ref } from "vue";
+import type { reactive, ref, readonly } from "vue";
 
-declare const Vue: typeof VueType & { reactive: typeof reactive, ref: typeof ref };
+declare const Vue: typeof VueType & {
+    reactive: typeof reactive,
+    ref: typeof ref,
+    readonly: typeof readonly
+};
 
 type BTabItem = VueType & {
     index: number | null;
@@ -32,7 +37,7 @@ async function addAnalyticsTab(game: Game, config: ConfigManager, history: Histo
 
     $("#mainTabs > .tab-content").append(`
         <b-tab-item label="Analytics">
-            <analytics-tab-wrapper/>
+            <analytics-tab-wrapper ref="tab"/>
         </b-tab-item>
     `);
 
@@ -43,15 +48,35 @@ async function addAnalyticsTab(game: Game, config: ConfigManager, history: Histo
         inject: {
             config: { from: "config", default: null },
         },
+        provide() {
+            return {
+                active: Vue.readonly(this.active)
+            }
+        },
+        data() {
+            return {
+                active: Vue.ref({ value: false }),
+                initialized: false
+            };
+        },
         computed: {
             // See below
             duplicate() {
                 return this.config === null;
             },
         },
+        methods: {
+            activate() {
+                this.active.value = true;
+                this.initialized = true;
+            },
+            deactivate() {
+                this.active.value = false;
+            }
+        },
         template: `
             <div v-if="!duplicate" id="mTabAnalytics">
-                <analytics-tab/>
+                <analytics-tab v-if="initialized"/>
             </div>
         `
     };
@@ -74,6 +99,10 @@ async function addAnalyticsTab(game: Game, config: ConfigManager, history: Histo
             };
         },
         mounted(this: BTabItem) {
+            const tab = this.$refs.tab as any;
+            spy(this.$children[0], "activate", () => tab.activate());
+            spy(this.$children[0], "deactivate", () => tab.deactivate());
+
             // Without this, the tabs component doesn't track the state properly
             tabs.$slots.default!.push(this.$children[0].$vnode);
         }
