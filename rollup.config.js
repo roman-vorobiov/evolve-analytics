@@ -29,7 +29,8 @@ export default {
             const banner = await fs.readFile("evolve_analytics.meta.js", "utf-8");
             const prefix = await fs.readFile("evolve_analytics.prefix.js", "utf-8");
             return banner + "\n" + prefix;
-        }
+        },
+        indent: false
     },
     external: ["jqueryui"],
     plugins: [
