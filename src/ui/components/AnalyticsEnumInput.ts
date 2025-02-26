@@ -1,10 +1,17 @@
 export default {
-    props: ["value", "options"],
+    props: ["value", "options", "label"],
     template: `
-        <select :value="value" @input="$emit('input', $event.target.value)">
-            <option v-for="(label, key) in options" :value="key" :selected="key === value">
-                {{ label }}
-            </option>
-        </select>
+        <div class="flex gap-s">
+            <label class="self-center">
+                <slot/>
+            </label>
+            <b-dropdown hoverable>
+                <button class="button is-primary" slot="trigger">
+                    <span>{{ options[value] }}</span>
+                    <i class="fas fa-sort-down"></i>
+                </button>
+                <b-dropdown-item v-for="(label, key) in options" :key="key" @click="$emit('input', key)">{{ label }}</b-dropdown-item>
+            </b-dropdown>
+        </div>
     `
 };

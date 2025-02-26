@@ -94,8 +94,8 @@ export default {
         }
     },
     template: `
-        <div class="flex flex-row flex-wrap gap-s">
-            <label>Track:</label>
+        <div class="flex flex-row flex-wrap gap-s theme">
+            <label class="self-center">Track:</label>
             <b-autocomplete
                 v-model="input"
                 :data="filteredOptions"

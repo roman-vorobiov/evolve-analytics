@@ -154,6 +154,10 @@ html.dracula {
     justify-content: space-between;
 }
 
+.self-center {
+    align-self: center;
+}
+
 .order-last {
     order: calc(infinity);
 }
@@ -186,20 +190,17 @@ html.dracula {
 }
 
 #mTabAnalytics {
-    .gap-s {
-        gap: 0.5em;
+    input::-webkit-outer-spin-button,
+    input::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+        text-align: center;
     }
 
-    .gap-m {
-        gap: 1em;
-    }
-
-    .slim {
-        height: 1.5rem;
-    }
-
-    .crossed {
-        text-decoration: line-through;
+    input[type=number] {
+        -moz-appearance: textfield;
+        text-align: center;
+        border-radius: 0;
     }
 
     input[type="text"] {
@@ -210,21 +211,84 @@ html.dracula {
         height: 1.5rem;
     }
 
-    select {
+    .input {
+        vertical-align: bottom;
+    }
+
+    .theme {
+        margin-bottom: 0;
+    }
+
+    .slim {
         height: 1.5rem;
     }
 
+    .gap-s {
+        gap: 0.5em;
+    }
+
+    .gap-m {
+        gap: 1em;
+    }
+
+    .crossed {
+        text-decoration: line-through;
+    }
+
+    span.add {
+        line-height: normal;
+        width: 1.5rem;
+        height: 1.5rem;
+    }
+
+    span.sub {
+        line-height: normal;
+        width: 1.5rem;
+        height: 1.5rem;
+    }
+
+    div.b-slider {
+        width: 10rem;
+    }
+
+    .b-checkbox.checkbox .control-label {
+        padding-left: 0.5rem;
+    }
+
+    .b-checkbox.checkbox:not(.button) {
+        margin-right: 0;
+    }
+
+    .b-slider {
+        margin: 0 0 0 1rem;
+        align-self: center;
+    }
+
+    .b-slider-fill {
+        top: unset;
+        transform: unset;
+    }
+
     .autocomplete.control {
-        width: 20rem;
+        flex-grow: 1;
+    }
+
+    .dropdown {
+        width: fit-content;
+
+        button {
+            width: 9rem;
+        }
+    }
+
+    .dropdown-menu {
+        flex-grow: 1;
+        min-width: 9rem;
     }
 
     .dropdown-content {
         scrollbar-width: thin;
-        width: 20rem;
-    }
-
-    .dropdown-menu {
-        width: 20rem;
+        flex-grow: 1;
     }
 
     div.dropdown-item {
