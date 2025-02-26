@@ -5,12 +5,12 @@ import AnalyticsEnumInput from "./AnalyticsEnumInput";
 import AnalyticsNumberInput from "./AnalyticsNumberInput";
 import AnalyticsToggleableNumberInput from "./AnalyticsToggleableNumberInput";
 
-function optional(key: keyof View) {
+function optional<Key extends keyof View>(key: Key) {
     return {
         get() {
             return this.view[key];
         },
-        set(value: any) {
+        set(value: View[Key]) {
             this.view[key] = value;
         }
     }

@@ -4,7 +4,7 @@ import type { Game } from "../../game";
 import type { HistoryEntry, HistoryManager } from "../../history";
 import type { LatestRun } from "../../runTracking";
 
-import type { default as Vue, Ref } from "vue";
+import type { default as Vue, VNode } from "vue";
 
 import type htmlTocanvas from "html2canvas";
 
@@ -33,7 +33,6 @@ async function copyToClipboard(node: HTMLElement) {
 }
 
 type This = Vue & {
-    active: Ref<boolean>,
     game: Game,
     config: ConfigManager,
     view: View,
@@ -48,7 +47,7 @@ type This = Vue & {
 }
 
 export default {
-    inject: ["active", "game", "config", "history", "currentRun"],
+    inject: ["game", "config", "history", "currentRun"],
     props: ["view"],
     data() {
         return {
@@ -65,15 +64,15 @@ export default {
                 return false;
             }
 
-            if (!this.active.value) {
-                return false;
-            }
-
-            if (!this.view.includeCurrentRun) {
+            if (!this.config.active) {
                 return false;
             }
 
             if (!this.view.active) {
+                return false;
+            }
+
+            if (!this.view.includeCurrentRun) {
                 return false;
             }
 
@@ -97,7 +96,7 @@ export default {
     },
     directives: {
         plot: {
-            inserted(element: HTMLElement, _: any, vnode: any) {
+            inserted(element: HTMLElement, _: any, vnode: VNode) {
                 const self = vnode.context as This;
 
                 self.plot = element;

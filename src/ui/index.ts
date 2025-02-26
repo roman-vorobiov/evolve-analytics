@@ -1,6 +1,7 @@
 import styles from "./styles.css";
 import { waitFor } from "./utils";
 import { spy } from "../utils";
+import { EvolveTabs } from "../evolve";
 import type { Game } from "../game";
 import type { ConfigManager } from "../config";
 import type { HistoryManager } from "../history";
@@ -32,6 +33,10 @@ type BTabs = VueType & {
 
 type VueBoundElement<T extends VueType> = HTMLElement & { __vue__: T };
 
+function openTab(index: EvolveTabs) {
+    ($("#mainColumn div:first-child") as JQuery<VueBoundElement<any>>)[0].__vue__.s.civTabs = index;;
+}
+
 async function addAnalyticsTab(game: Game, config: ConfigManager, history: HistoryManager, currentRun: LatestRun) {
     const tabs = (await waitFor(`div#mainTabs`) as JQuery<VueBoundElement<BTabs>>)[0].__vue__;
 
@@ -48,14 +53,8 @@ async function addAnalyticsTab(game: Game, config: ConfigManager, history: Histo
         inject: {
             config: { from: "config", default: null },
         },
-        provide() {
-            return {
-                active: Vue.readonly(this.active)
-            }
-        },
         data() {
             return {
-                active: Vue.ref({ value: false }),
                 initialized: false
             };
         },
@@ -67,11 +66,11 @@ async function addAnalyticsTab(game: Game, config: ConfigManager, history: Histo
         },
         methods: {
             activate() {
-                this.active.value = true;
+                this.config.active = true;
                 this.initialized = true;
             },
             deactivate() {
-                this.active.value = false;
+                this.config.active = false;
             }
         },
         template: `
@@ -100,11 +99,17 @@ async function addAnalyticsTab(game: Game, config: ConfigManager, history: Histo
         },
         mounted(this: BTabItem) {
             const tab = this.$refs.tab as any;
+
             spy(this.$children[0], "activate", () => tab.activate());
             spy(this.$children[0], "deactivate", () => tab.deactivate());
 
             // Without this, the tabs component doesn't track the state properly
             tabs.$slots.default!.push(this.$children[0].$vnode);
+
+            // If the analytics tab was opened before, restore it
+            if (config.active) {
+                Vue.nextTick(() => openTab(EvolveTabs.Analytics));
+            }
         }
     });
 
@@ -124,7 +129,7 @@ async function addAnalyticsTab(game: Game, config: ConfigManager, history: Histo
 
     const mockButton = $(`<button class="button observe right">${text}</button>`);
     mockButton.on("click", () => {
-        ($("#mainColumn div:first-child") as JQuery<VueBoundElement<any>>)[0].__vue__.s.civTabs = 8;
+        openTab(EvolveTabs.HellObservations);
     });
 
     observationButtons.replaceWith(mockButton);

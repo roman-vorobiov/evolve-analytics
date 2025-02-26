@@ -40,6 +40,19 @@ export type Evolve = {
     }
 }
 
+export const enum EvolveTabs {
+    Evolution = 0,
+    Civilization = 1,
+    Civics = 2,
+    Research = 3,
+    Resources = 4,
+    Arpa = 5,
+    Stats = 6,
+    Settings = 7,
+    HellObservations = 8,
+    Analytics = 9
+}
+
 export function synchronize(): Promise<Evolve> {
     const win = typeof unsafeWindow !== "undefined" ? unsafeWindow : window;
 

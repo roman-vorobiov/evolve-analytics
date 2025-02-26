@@ -194,6 +194,7 @@ export type Config = {
     version: number,
     recordRuns: boolean,
     lastOpenViewIndex?: number,
+    active?: boolean,
     views: ViewConfig[]
 }
 
@@ -212,6 +213,15 @@ export class ConfigManager extends Subscribable {
             saveConfig(this.config);
             this.milestones = this.collectMilestones();
         });
+    }
+
+    get active() {
+        return this.config.active ?? false;
+    }
+
+    set active(value: boolean) {
+        this.config.active = value;
+        saveConfig(this.config);
     }
 
     get recordRuns() {
