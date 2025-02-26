@@ -9,9 +9,26 @@ export default {
             this.$refs.input.stepDown();
             this.onChange(this.$refs.input.value);
         },
-        onChange(rawValue: string) {
-            const value = rawValue === "" ? undefined : rawValue;
-            this.$emit("input", value);
+        onChange(rawValue: string | number) {
+            if (rawValue === "") {
+                this.$emit("input", undefined);
+            }
+            else {
+                let value = Number(rawValue);
+
+                if (this.min !== undefined) {
+                    value = Math.max(this.min, value);
+                }
+                if (this.max !== undefined) {
+                    value = Math.min(this.max, value);
+                }
+
+                if (value !== Number(rawValue)) {
+                    this.$refs.input.value = value
+                }
+
+                this.$emit("input", value);
+            }
         }
     },
     template: `
