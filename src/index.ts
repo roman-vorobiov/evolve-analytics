@@ -18,5 +18,16 @@ if (game.finishedEvolution) {
     processLatestRun(game, config, history);
 
     const currentRun = trackMilestones(game, config);
-    bootstrapUIComponents(game, config, history, currentRun);
+
+    if (!document.hidden) {
+        bootstrapUIComponents(game, config, history, currentRun);
+    }
+    else {
+        document.addEventListener("visibilitychange", function initializeUI() {
+            if (!document.hidden) {
+                document.removeEventListener("visibilitychange", initializeUI);
+                bootstrapUIComponents(game, config, history, currentRun);
+            }
+        });
+    }
 }
