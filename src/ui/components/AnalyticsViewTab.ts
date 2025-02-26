@@ -8,11 +8,7 @@ import AnalyticsViewSettings from "./AnalyticsViewSettings";
 import AnalyticsMilestoneController from "./AnalyticsMilestoneController";
 import AnalyticsPlot from "./AnalyticsPlot";
 
-import type VueType from "vue";
-
-declare const Vue: typeof VueType;
-
-type This = Vue & {
+type This = {
     $refs: {
         plot: {
             copyAsImage(): Promise<void>

@@ -36,7 +36,8 @@ export default {
         AnalyticsToggleableNumberInput,
         AnalyticsPlot
     },
-    props: ["view", "history"],
+    inject: ["history"],
+    props: ["view"],
     data(this: This) {
         return {
             input: "",
