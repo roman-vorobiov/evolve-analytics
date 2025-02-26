@@ -633,6 +633,8 @@ export function makeGraph(history: HistoryManager, view: View, game: Game, curre
     }
     else
     {
+        $(plot).find("> div").css("justify-content", "center");
+
         $(plot).find("> div > span").each(function() {
             const svgNode = $(this).find("> svg");
 
