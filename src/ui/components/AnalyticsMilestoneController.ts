@@ -7,12 +7,16 @@ import AnalyticsNumberInput from "./AnalyticsNumberInput";
 import AnalyticsToggleableNumberInput from "./AnalyticsToggleableNumberInput";
 import AnalyticsPlot from "./AnalyticsPlot";
 
+import type Fuzzysort from "fuzzysort";
+
+declare const fuzzysort: typeof Fuzzysort;
+
 type MilestoneOption = { type: keyof typeof milestoneTypes, id: string, label: string }
 
 function makeMilestoneGroup(name: string, type: string, options: Record<string, string>) {
     return {
         type: name,
-        options: Object.entries(options).map(([id, label]) => ({ type, id, label })) as MilestoneOption[]
+        options: Object.entries(options).map(([id, label]) => <MilestoneOption> { type, id, label })
     }
 }
 
@@ -53,12 +57,10 @@ export default {
     },
     computed: {
         filteredOptions(this: This) {
-            const input = this.input.toLowerCase();
-
             return this.options
                 .map(({ type, options }) => ({
                     type,
-                    options: options.filter(({ label }) => label.toLowerCase().indexOf(input) >= 0)
+                    options: fuzzysort.go(this.input, options, { key: "label", all: true }).map(c => c.obj)
                 }))
                 .filter(({ options }) => options.length !== 0);
         },

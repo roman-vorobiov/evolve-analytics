@@ -18,6 +18,7 @@
         "@types/d3": "^7.4.3",
         "@types/jquery": "^3.5.30",
         "@types/jqueryui": "^1.12.23",
+        "fuzzysort": "^3.1.0",
         "html2canvas": "^1.4.1",
         "lz-string": "^1.5.0",
         "rollup": "^4.34.7",
