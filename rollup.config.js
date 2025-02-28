@@ -20,6 +20,36 @@ function css() {
     };
 }
 
+function preserveIndentation() {
+    const filter = createFilter(["**/*.ts"], []);
+
+    const indent = "    ";
+
+    return {
+        name: "preserveIndentation",
+        transform(code, id) {
+            if (filter(id)) {
+                let lines = code.split("\n");
+                let insideLiteral = false;
+
+                lines = lines.map((line) => {
+                    if (insideLiteral && line.length !== 0) {
+                        line = indent + line;
+                    }
+
+                    if (line.split("`").length % 2 === 0) {
+                        insideLiteral = !insideLiteral;
+                    }
+
+                    return line;
+                });
+
+                return lines.join("\n");
+            }
+        }
+    };
+}
+
 export default {
     input: "src/index.ts",
     output: {
@@ -29,11 +59,11 @@ export default {
             const banner = await fs.readFile("evolve_analytics.meta.js", "utf-8");
             const prefix = await fs.readFile("evolve_analytics.prefix.js", "utf-8");
             return banner + "\n" + prefix;
-        },
-        indent: false
+        }
     },
     external: ["jqueryui"],
     plugins: [
+        preserveIndentation(),
         typescript(),
         css(),
         tla(),
