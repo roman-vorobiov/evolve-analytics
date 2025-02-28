@@ -4,7 +4,7 @@ import { makeGameState, makeConfig, makeHistory } from "./fixture";
 import { Game } from "../src/game";
 import { HistoryManager, blankHistory } from "../src/history";
 import { ConfigManager } from "../src/config";
-import type { LatestRun } from "../src/runTracking";
+import type { LatestRun } from "../src/pendingRun";
 import type { HistoryEntry } from "../src/history";
 
 describe("History", () => {

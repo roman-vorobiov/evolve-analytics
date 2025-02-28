@@ -5,10 +5,8 @@ import { HistoryManager, type RunHistory } from "../src/history";
 import { transformMap } from "../src/utils";
 import type { ViewConfig } from "../src/config";
 import type { Evolve } from "../src/evolve";
-import type { LatestRun } from "../src/runTracking";
+import type { LatestRun } from "../src/pendingRun";
 import type { RecursivePartial } from "../src/utils";
-
-import { reactive, shallowReactive } from "vue";
 
 export class LocalStorageMock {
     store: Record<string, string>;
@@ -163,12 +161,12 @@ export function makeConfig(arg0: ConfigDependenciesSpec | Partial<Config>, arg1?
 
     dependencies.game ??= new Game(makeGameState({}));
 
-    return new ConfigManager(dependencies.game, reactive({
+    return new ConfigManager(dependencies.game, {
         version: 14,
         recordRuns: true,
         views: [],
         ...config
-    }));
+    });
 }
 
 type HistoryDependenciesSpec = { game?: Game, config?: ConfigManager };
@@ -191,11 +189,11 @@ export function makeHistory(arg0: HistoryDependenciesSpec | RunHistory, arg1?: R
     dependencies.game ??= new Game(makeGameState({}));
     dependencies.config ??= makeConfig({ game: dependencies.game }, {});
 
-    return new HistoryManager(dependencies.game, dependencies.config, shallowReactive(history));
+    return new HistoryManager(dependencies.game, dependencies.config, history);
 }
 
 export function makeCurrentRun(overrides: Partial<LatestRun>): LatestRun {
-    return reactive({
+    return {
         run: 1,
         universe: "standard",
         resets: {},
@@ -204,5 +202,5 @@ export function makeCurrentRun(overrides: Partial<LatestRun>): LatestRun {
         activeEffects: {},
         effectsHistory: [],
         ...overrides
-    });
+    };
 }

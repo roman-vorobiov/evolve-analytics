@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 import { makeGameState, makeCurrentRun } from "./fixture";
 
-import { inferResetType } from "../src/runTracking";
+import { inferResetType } from "../src/pendingRun";
 import { Game } from "../src/game";
 
 describe("Latest run info", () => {

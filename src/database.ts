@@ -1,6 +1,6 @@
 import type { Config } from "./config";
 import type { RunHistory } from "./history";
-import type { LatestRun } from "./runTracking";
+import type { LatestRun } from "./pendingRun";
 
 import * as LZString from "lz-string";
 

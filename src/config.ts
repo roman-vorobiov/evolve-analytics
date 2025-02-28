@@ -154,14 +154,18 @@ export type Config = {
 }
 
 export class ConfigManager {
+    private config: Config;
     views: View[];
 
-    constructor(private game: Game, private config: Config) {
+    constructor(private game: Game, config: Config) {
+        this.config = reactive(config);
+        this.watch(() => saveConfig(this.config));
+
         this.views = this.config.views.map(v => makeViewProxy(this, v));
     }
 
-    get raw() {
-        return this.config;
+    watch(callback: () => void, immediate = false) {
+        watch(this.config, callback, { deep: true, immediate });
     }
 
     get active() {
@@ -257,8 +261,7 @@ export class ConfigManager {
 }
 
 export function getConfig(game: Game) {
-    const config = reactive(loadConfig() ?? { version: VERSION, recordRuns: true, views: [] });
-    watch(config, () => saveConfig(config), { deep: true });
+    const config = loadConfig() ?? { version: VERSION, recordRuns: true, views: [] };
 
     return new ConfigManager(game, config);
 }

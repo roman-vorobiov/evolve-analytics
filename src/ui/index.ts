@@ -5,7 +5,7 @@ import { EvolveTabs } from "../evolve";
 import type { Game } from "../game";
 import type { ConfigManager } from "../config";
 import type { HistoryManager } from "../history";
-import type { LatestRun } from "../runTracking";
+import type { LatestRun } from "../pendingRun";
 
 import AnalyticsTab from "./components/AnalyticsTab";
 

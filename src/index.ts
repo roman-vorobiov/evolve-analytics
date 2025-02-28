@@ -3,7 +3,8 @@ import { synchronize } from "./evolve";
 import { Game } from "./game";
 import { getConfig } from "./config";
 import { initializeHistory } from "./history";
-import { processLatestRun, trackMilestones } from "./runTracking";
+import { prepareCurrentRun } from "./pendingRun";
+import { trackMilestones } from "./runTracking";
 import { waitFocus } from "./utils";
 import { bootstrapUIComponents } from "./ui";
 
@@ -19,10 +20,9 @@ const config = getConfig(game);
 
 const history = initializeHistory(game, config);
 
-// Commit the latest run to history or keep it
-processLatestRun(game, config, history);
+const currentRun = prepareCurrentRun(game, config, history);
 
-const currentRun = trackMilestones(game, config);
+trackMilestones(currentRun, game, config);
 
 // Do not touch DOM when the tab is in the background
 await waitFocus();

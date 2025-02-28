@@ -1,5 +1,5 @@
 import { describe, expect, it, jest } from "@jest/globals";
-import { makeGameStateFactory, makeConfig, makeMilestones, makeView } from "./fixture";
+import { makeGameStateFactory, makeConfig, makeMilestones, makeView, makeCurrentRun } from "./fixture";
 
 import { Game } from "../src/game";
 import { collectMilestones, trackMilestones } from "../src/runTracking";
@@ -22,7 +22,7 @@ const makeGameState = makeGameStateFactory({
     }
 });
 
-function nextDay(evolve: Evolve) {
+export function nextDay(evolve: Evolve) {
     ++evolve.global.stats.days;
 
     evolve.craftCost = {};
@@ -115,7 +115,8 @@ describe("Run tracking", () => {
             ]
         });
 
-        const currentRun = trackMilestones(game, config);
+        const currentRun = makeCurrentRun({});
+        trackMilestones(currentRun, game, config);
 
         nextDay(evolve);
         expect(currentRun.milestones).toEqual({});
@@ -152,7 +153,8 @@ describe("Run tracking", () => {
             ]
         });
 
-        trackMilestones(game, config);
+        const currentRun = makeCurrentRun({});
+        trackMilestones(currentRun, game, config);
 
         nextDay(evolve);
         expect(mock).toHaveBeenCalledTimes(1);
@@ -170,7 +172,8 @@ describe("Run tracking", () => {
         const game = new Game(evolve);
         const config = makeConfig({ game }, {});
 
-        const currentRun = trackMilestones(game, config);
+        const currentRun = makeCurrentRun({ totalDays: 1 });
+        trackMilestones(currentRun, game, config);
 
         expect(currentRun.totalDays).toEqual(1);
 
@@ -188,7 +191,8 @@ describe("Run tracking", () => {
         const game = new Game(evolve);
         const config = makeConfig({ game }, {});
 
-        const currentRun = trackMilestones(game, config);
+        const currentRun = makeCurrentRun({});
+        trackMilestones(currentRun, game, config);
 
         nextDay(evolve);
         expect(currentRun.raceName).toEqual("Foo");
@@ -208,7 +212,8 @@ describe("Run tracking", () => {
             ]
         });
 
-        const currentRun = trackMilestones(game, config);
+        const currentRun = makeCurrentRun({});
+        trackMilestones(currentRun, game, config);
 
         nextDay(evolve);
         expect(currentRun.milestones).toEqual({});
@@ -241,7 +246,8 @@ describe("Run tracking", () => {
             ]
         });
 
-        const currentRun = trackMilestones(game, config);
+        const currentRun = makeCurrentRun({});
+        trackMilestones(currentRun, game, config);
 
         nextDay(evolve);
         expect(currentRun.milestones).toEqual({});

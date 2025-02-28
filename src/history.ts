@@ -1,12 +1,12 @@
 import { saveHistory, loadHistory } from "./database";
-import { inferResetType, type LatestRun } from "./runTracking";
+import { inferResetType, type LatestRun } from "./pendingRun";
 import { shouldIncludeRun } from "./exports/historyFiltering";
 import { rotateMap } from "./utils"
 import type { universes } from "./enums";
 import type { Game } from "./game";
 import type { ConfigManager } from "./config";
 
-import { shallowReactive, watch } from "vue";
+import { ref, watch, type Ref } from "vue";
 
 export type MilestoneReference = [number, number];
 export type EffectReference = [number, number, number];
@@ -29,13 +29,17 @@ export type RunHistory = {
 
 export class HistoryManager {
     public milestones: Record<number, string>;
+    private length: Ref<number>;
 
     constructor(private game: Game, private config: ConfigManager, private history: RunHistory) {
+        this.length = ref(history.runs.length);
+        this.watch(() => saveHistory(history));
+
         this.milestones = rotateMap(history.milestones);
     }
 
-    get raw() {
-        return this.history;
+    watch(callback: () => void) {
+        watch(this.length, callback);
     }
 
     get milestoneIDs() {
@@ -50,6 +54,7 @@ export class HistoryManager {
         const idx = this.runs.indexOf(run);
         if (idx !== -1) {
             this.history.runs.splice(idx, 1);
+            this.length.value = this.runs.length;
         }
     }
 
@@ -82,6 +87,7 @@ export class HistoryManager {
         this.augmentEntry(entry, runStats);
 
         this.history.runs.push(entry);
+        this.length.value = this.runs.length;
     }
 
     getMilestone(id: number): string {
@@ -120,8 +126,7 @@ export function blankHistory(): RunHistory {
 }
 
 export function initializeHistory(game: Game, config: ConfigManager): HistoryManager {
-    const history = shallowReactive(loadHistory() ?? blankHistory());
-    watch(history, () => saveHistory(history), { deep: false });
+    const history = loadHistory() ?? blankHistory();
 
     return new HistoryManager(game, config, history);
 }

@@ -1,166 +1,121 @@
-import { describe, expect, it, beforeEach, jest } from "@jest/globals";
+import { describe, expect, it, jest } from "@jest/globals";
 import { makeGameState, makeConfig, makeHistory, makeCurrentRun } from "./fixture";
 
-import { saveCurrentRun, loadLatestRun, loadHistory } from "../src/database";
+import { saveCurrentRun } from "../src/database";
 import { Game } from "../src/game";
-import { ConfigManager } from "../src/config";
-import { HistoryManager, blankHistory } from "../src/history";
-import { processLatestRun } from "../src/runTracking";
+import { blankHistory } from "../src/history";
+import { makeNewRunStats, prepareCurrentRun } from "../src/pendingRun";
 
-describe("Latest run", () => {
-    describe("Processing on script initialization", () => {
-        describe("Empty state", () => {
-            const game = new Game(makeGameState({}));
-            const config = makeConfig({ game }, {});
-            const history = makeHistory({ game, config }, blankHistory());
+describe("Pending run processing", () => {
+    it("should create an empty run when the storage is empty", () => {
+        const game = new Game(makeGameState({
+            global: {
+                stats: {
+                    reset: 123,
+                    cataclysm: 456
+                },
+                race: { universe: "antimatter" }
+            }
+        }));
+        const config = makeConfig({ game }, {});
+        const history = makeHistory({ game, config }, blankHistory());
 
-            beforeEach(() => {
-                processLatestRun(game, config, history);
-            });
+        const currentRun = prepareCurrentRun(game, config, history);
 
-            it("should not change the latest run storage", () => {
-                expect(loadLatestRun()).toBe(null);
-            });
-
-            it("should not update the history", () => {
-                expect(history.milestones).toEqual({});
-                expect(history.milestoneIDs).toEqual({});
-                expect(history.runs).toEqual([]);
-
-                expect(loadHistory()).toBe(null);
-            });
+        expect(currentRun).toEqual({
+            run: game.runNumber,
+            universe: game.universe,
+            resets: game.resetCounts,
+            totalDays: game.day,
+            milestones: {},
+            activeEffects: {},
+            effectsHistory: []
         });
 
-        describe("Current run", () => {
-            const run = makeCurrentRun({
-                run: 123,
-                totalDays: 456,
-                milestones: { foo: 123, bar: 124 },
-                activeEffects: { "effect:hot": 123, "effect:cold": 124 },
-                effectsHistory: [
-                    ["effect:inspired", 0, 123],
-                    ["effect:motivated", 0, 124]
-                ]
-            });
+        expect(history.milestones).toEqual({});
+        expect(history.milestoneIDs).toEqual({});
+        expect(history.runs).toEqual([]);
+    });
 
-            let game: Game;
-            let config: ConfigManager;
-            let history: HistoryManager;
+    it("should discard future milestones and effects if current run", () => {
+        const run = makeCurrentRun({
+            run: 123,
+            totalDays: 456,
+            milestones: { foo: 123, bar: 124 },
+            activeEffects: { "effect:hot": 123, "effect:cold": 124 },
+            effectsHistory: [
+                ["effect:inspired", 0, 123],
+                ["effect:motivated", 0, 124]
+            ]
+        });
+        saveCurrentRun(run);
 
-            beforeEach(() => {
-                game = new Game(makeGameState({ global: { stats: { reset: 122, days: 123 } } }));
-                config = makeConfig({ game }, {});
-                history = makeHistory({ game, config }, blankHistory());
+        const game = new Game(makeGameState({ global: { stats: { reset: 122, days: 123 } } }));
+        const config = makeConfig({ game }, {});
+        const history = makeHistory({ game, config }, blankHistory());
 
-                jest.spyOn(history, "commitRun");
+        jest.spyOn(history, "commitRun");
+        const currentRun = prepareCurrentRun(game, config, history);
 
-                saveCurrentRun(run);
-
-                processLatestRun(game, config, history);
-            });
-
-            it("should not commit the run to history", () => {
-                expect(history.commitRun).not.toHaveBeenCalled();
-                expect(loadHistory()).toBe(null);
-            });
-
-            it("should discard future milestones and effects", () => {
-                expect(loadLatestRun()).toEqual({
-                    ...run,
-                    totalDays: 123,
-                    milestones: { foo: 123 },
-                    activeEffects: { "effect:hot": 123 },
-                    effectsHistory: [
-                        ["effect:inspired", 0, 123]
-                    ]
-                });
-            });
+        expect(currentRun).toEqual({
+            ...run,
+            totalDays: 123,
+            milestones: { foo: 123 },
+            activeEffects: { "effect:hot": 123 },
+            effectsHistory: [
+                ["effect:inspired", 0, 123]
+            ]
         });
 
-        describe("Previous run", () => {
-            const run = makeCurrentRun({ run: 123, totalDays: 456 });
+        expect(history.commitRun).not.toHaveBeenCalled();
+    });
 
-            let game: Game;
-            let config: ConfigManager;
-            let history: HistoryManager;
+    it("should commit the previous run to history", () => {
+        const run = makeCurrentRun({ run: 123, totalDays: 456 });
+        saveCurrentRun(run);
 
-            beforeEach(() => {
-                game = new Game(makeGameState({ global: { stats: { reset: 123, days: 456 } } }));
-                config = makeConfig({ game }, {});
-                history = makeHistory({ game, config }, blankHistory());
+        const game = new Game(makeGameState({ global: { stats: { reset: 123, days: 456 } } }));
+        const config = makeConfig({ game }, {});
+        const history = makeHistory({ game, config }, blankHistory());
 
-                jest.spyOn(history, "commitRun");
+        jest.spyOn(history, "commitRun");
+        const currentRun = prepareCurrentRun(game, config, history);
 
-                saveCurrentRun(run);
+        expect(currentRun).toEqual(makeNewRunStats(game));
 
-                processLatestRun(game, config, history);
-            });
+        expect(history.commitRun).toHaveBeenCalledWith(run);
+    });
 
-            it("should discard the run", () => {
-                expect(loadLatestRun()).toBe(null);
-            });
+    it("should not commit the run to history if recording is disabled", () => {
+        const run = makeCurrentRun({ run: 123, totalDays: 456 });
 
-            it("should commit the run to history", () => {
-                expect(history.commitRun).toHaveBeenCalledWith(run);
-            });
-        });
+        saveCurrentRun(run);
 
-        describe("Paused", () => {
-            const run = makeCurrentRun({ run: 123, totalDays: 456 });
+        const game = new Game(makeGameState({ global: { stats: { reset: 123, days: 456 } } }));
+        const config = makeConfig({ game }, { recordRuns: false });
+        const history = makeHistory({ game, config }, blankHistory());
 
-            let game: Game;
-            let config: ConfigManager;
-            let history: HistoryManager;
+        jest.spyOn(history, "commitRun");
+        const currentRun = prepareCurrentRun(game, config, history);
 
-            beforeEach(() => {
-                game = new Game(makeGameState({ global: { stats: { reset: 123, days: 456 } } }));
-                config = makeConfig({ game }, { recordRuns: false });
-                history = makeHistory({ game, config }, blankHistory());
+        expect(currentRun).toEqual(makeNewRunStats(game));
 
-                jest.spyOn(history, "commitRun");
+        expect(history.commitRun).not.toHaveBeenCalled();
+    });
 
-                saveCurrentRun(run);
+    it("should not commit other runs to history", () => {
+        const run = makeCurrentRun({ run: 123, totalDays: 456 });
+        saveCurrentRun(run);
 
-                processLatestRun(game, config, history);
-            });
+        const game = new Game(makeGameState({ global: { stats: { reset: 125, days: 456 } } }));
+        const config = makeConfig({ game }, {});
+        const history = makeHistory({ game, config }, blankHistory());
 
-            it("should discard the run", () => {
-                expect(loadLatestRun()).toBe(null);
-            });
+        jest.spyOn(history, "commitRun");
+        const currentRun = prepareCurrentRun(game, config, history);
 
-            it("should not commit the run to history", () => {
-                expect(history.commitRun).not.toHaveBeenCalled();
-                expect(loadHistory()).toBe(null);
-            });
-        });
+        expect(currentRun).toEqual(makeNewRunStats(game));
 
-        describe("Other run", () => {
-            const run = makeCurrentRun({ run: 123, totalDays: 456 });
-
-            let game: Game;
-            let config: ConfigManager;
-            let history: HistoryManager;
-
-            beforeEach(() => {
-                game = new Game(makeGameState({ global: { stats: { reset: 125, days: 456 } } }));
-                config = makeConfig({ game }, {});
-                history = makeHistory({ game, config }, blankHistory());
-
-                jest.spyOn(history, "commitRun");
-
-                saveCurrentRun(run);
-
-                processLatestRun(game, config, history);
-            });
-
-            it("should discard the run", () => {
-                expect(loadLatestRun()).toBe(null);
-            });
-
-            it("should not commit the run to history", () => {
-                expect(history.commitRun).not.toHaveBeenCalled();
-                expect(loadHistory()).toBe(null);
-            });
-        });
+        expect(history.commitRun).not.toHaveBeenCalled();
     });
 });

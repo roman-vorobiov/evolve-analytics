@@ -7,7 +7,7 @@ import { makeColorPicker } from "./components/colorPicker";
 import { waitFor } from "./utils";
 import type { View } from "../config";
 import type { HistoryEntry, HistoryManager } from "../history";
-import type { LatestRun } from "../runTracking";
+import type { LatestRun } from "../pendingRun";
 import type { Game } from "../game";
 
 import * as Plot from "@observablehq/plot";

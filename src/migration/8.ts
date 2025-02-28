@@ -1,7 +1,7 @@
 import { transformMap } from "../utils";
 import type { ViewConfig, Config } from "../config";
 import type { RunHistory } from "../history";
-import type { LatestRun } from "../runTracking";
+import type { LatestRun } from "../pendingRun";
 
 function rename(milestone: string) {
     return milestone.replace("harbour", "harbor");

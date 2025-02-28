@@ -2,7 +2,7 @@ import { makeGraph, discardCachedState } from "../graph";
 import type { ConfigManager, View } from "../../config";
 import type { Game } from "../../game";
 import type { HistoryEntry, HistoryManager } from "../../history";
-import type { LatestRun } from "../../runTracking";
+import type { LatestRun } from "../../pendingRun";
 
 import type { VNode } from "vue";
 

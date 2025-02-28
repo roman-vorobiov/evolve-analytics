@@ -1,89 +1,12 @@
-import { saveCurrentRun, loadLatestRun, discardLatestRun } from "./database";
-import { isEffectMilestone, makeMilestoneChecker, type MilestoneChecker } from "./milestones";
 import eventsInfo from "./events";
-import { patternMatcher, filterMap } from "./utils";
-import type { resets, universes } from "./enums";
+import { isEffectMilestone, makeMilestoneChecker } from "./milestones";
+import { patternMatcher } from "./utils";
 import type { Game } from "./game";
 import type { ConfigManager } from "./config";
-import type { HistoryManager } from "./history";
+import type { MilestoneChecker } from "./milestones";
+import type { LatestRun } from "./pendingRun";
 
-import { reactive, watch } from "vue";
-
-export type LatestRun = {
-    run: number,
-    starLevel?: number,
-    universe?: keyof typeof universes,
-    resets: Partial<Record<keyof typeof resets, number>>,
-    totalDays: number,
-    milestones: Record<string, number>,
-    activeEffects: Record<string, number>,
-    effectsHistory: [string, number, number][],
-    raceName?: string,
-    combatDeaths?: number,
-    junkTraits?: Record<string, number>
-}
-
-export function inferResetType(runStats: LatestRun, game: Game) {
-    const resetCounts = game.resetCounts;
-
-    // Find which reset got incremented
-    const reset = Object.keys(resetCounts).find((reset: keyof typeof resets) => {
-        return resetCounts[reset] === (runStats.resets[reset] ?? 0) + 1;
-    });
-
-    return reset ?? "unknown";
-}
-
-function isCurrentRun(runStats: LatestRun, game: Game) {
-    return game.finishedEvolution && runStats.run === game.runNumber;
-}
-
-function isPreviousRun(runStats: LatestRun, game: Game) {
-    return runStats.run === game.runNumber - 1;
-}
-
-export function restoreToDay(run: LatestRun, day: number) {
-    run.milestones = filterMap(run.milestones, ([, timestamp]) => timestamp <= day);
-    run.activeEffects = filterMap(run.activeEffects, ([, startDay]) => startDay <= day);
-    run.effectsHistory = run.effectsHistory.filter(([,, endDay]) => endDay <= day);
-    run.totalDays = day;
-}
-
-export function processLatestRun(game: Game, config: ConfigManager, history: HistoryManager) {
-    const latestRun = loadLatestRun();
-
-    if (latestRun === null) {
-        return;
-    }
-
-    if (isCurrentRun(latestRun, game)) {
-        // If it is the current run, check if we loaded an earlier save - discard any milestones "from the future"
-        restoreToDay(latestRun, game.day);
-        saveCurrentRun(latestRun);
-    }
-    else {
-        // If it's not the current run, discard it so that we can start tracking from scratch
-        discardLatestRun();
-
-        // The game refreshes the page after a reset
-        // Thus, if the latest run is the previous one, it can be comitted to history
-        if (isPreviousRun(latestRun, game) && config.recordRuns) {
-            history.commitRun(latestRun);
-        }
-    }
-}
-
-function makeNewRunStats(game: Game): LatestRun {
-    return {
-        run: game.runNumber,
-        universe: game.universe,
-        resets: game.resetCounts,
-        totalDays: game.day,
-        milestones: {},
-        activeEffects: {},
-        effectsHistory: []
-    };
-}
+import Vue from "vue";
 
 function updateMilestones(runStats: LatestRun, checkers: MilestoneChecker[]) {
     for (const { milestone, reached } of checkers) {
@@ -97,17 +20,17 @@ function updateMilestones(runStats: LatestRun, checkers: MilestoneChecker[]) {
             const startDay = runStats.activeEffects[milestone];
 
             if (isActive && startDay === undefined) {
-                runStats.activeEffects[milestone] = runStats.totalDays;
+                Vue.set(runStats.activeEffects, milestone, runStats.totalDays);
             }
             else if (!isActive && startDay !== undefined) {
                 runStats.effectsHistory.push([milestone, startDay, runStats.totalDays - 1]);
-                delete runStats.activeEffects[milestone];
+                Vue.delete(runStats.activeEffects, milestone);
             }
         }
         else if (reached()) {
             // Since this callback is invoked at the beginning of a day,
             // the milestone was reached the previous day
-            runStats.milestones[milestone] = Math.max(0, runStats.totalDays - 1);
+            Vue.set(runStats.milestones, milestone, Math.max(0, runStats.totalDays - 1));
         }
     }
 }
@@ -138,11 +61,11 @@ function junkTraits(game: Game) {
 }
 
 function updateAdditionalInfo(runStats: LatestRun, game: Game) {
-    runStats.starLevel ??= game.starLevel;
-    runStats.universe ??= game.universe;
-    runStats.raceName ??= game.raceName;
-    runStats.junkTraits ??= junkTraits(game);
-    runStats.combatDeaths = game.combatDeaths;
+    Vue.set(runStats, "starLevel", game.starLevel);
+    Vue.set(runStats, "universe", game.universe);
+    Vue.set(runStats, "raceName", game.raceName);
+    Vue.set(runStats, "junkTraits", junkTraits(game));
+    Vue.set(runStats, "combatDeaths", game.combatDeaths);
 }
 
 function withEventConditions(milestones: string[]): string[] {
@@ -170,24 +93,19 @@ function makeMilestoneCheckers(game: Game, config: ConfigManager) {
     return withEventConditions(milestones).map(m => makeMilestoneChecker(game, m)!);
 }
 
-export function trackMilestones(game: Game, config: ConfigManager) {
-    const currentRunStats = reactive(loadLatestRun() ?? makeNewRunStats(game));
-    watch(currentRunStats, () => saveCurrentRun(currentRunStats), { deep: true });
-
+export function trackMilestones(currentRun: LatestRun, game: Game, config: ConfigManager) {
     let checkers: MilestoneChecker[] = [];
-    watch(config.raw, () => { checkers = makeMilestoneCheckers(game, config) }, { deep: true, immediate: true });
+    config.watch(() => { checkers = makeMilestoneCheckers(game, config) }, true /*immediate*/);
 
     game.onGameDay(day => {
         if (!config.recordRuns) {
             return;
         }
 
-        currentRunStats.totalDays = day;
+        currentRun.totalDays = day;
 
-        updateAdditionalInfo(currentRunStats, game);
+        updateAdditionalInfo(currentRun, game);
 
-        updateMilestones(currentRunStats, checkers);
+        updateMilestones(currentRun, checkers);
     });
-
-    return currentRunStats;
 }

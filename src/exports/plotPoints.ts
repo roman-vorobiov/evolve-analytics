@@ -3,7 +3,7 @@ import eventsInfo from "../events";
 import { zip, rotateMap, lastValue, patternMatch, transformMap, objectSubset } from "../utils";
 import type { HistoryManager, HistoryEntry } from "../history";
 import type { ViewConfig } from "../config";
-import type { LatestRun } from "../runTracking";
+import type { LatestRun } from "../pendingRun";
 import type { Game } from "../game";
 
 export type PlotPoint = {
