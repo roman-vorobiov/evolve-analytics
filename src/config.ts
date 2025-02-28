@@ -1,12 +1,13 @@
 import { VERSION } from "./migration";
 import { saveConfig, loadConfig } from "./database";
-import { Subscribable } from "./subscribable";
 import colorScheme from "./enums/colorSchemes";
 import { effectColors } from "./effects";
 import { getSortedMilestones, sortMilestones } from "./exports/utils";
 import type { resets, universes, viewModes, additionalInformation } from "./enums";
 import type { Game } from "./game";
 import type { HistoryManager } from "./history";
+
+import { reactive, watch } from "vue";
 
 export type ViewConfig = {
     resetType: keyof typeof resets,
@@ -25,17 +26,8 @@ export type ViewConfig = {
     additionalInfo: Array<keyof typeof additionalInformation>
 }
 
-class ViewUtils extends Subscribable {
-    static idGenerator = 0;
-    private _id = ++ViewUtils.idGenerator;
-
+class ViewUtils {
     constructor(private view: ViewConfig, private config: ConfigManager) {
-        super();
-
-        this.on("updated", () => {
-            this.config.emit("viewUpdated", this);
-        });
-
         const self = this;
 
         return <any> new Proxy(view, {
@@ -44,26 +36,14 @@ class ViewUtils extends Subscribable {
                     ?? Reflect.get(view, prop, receiver);
             },
             set(obj, prop: keyof ViewConfig, value, receiver) {
-                if (value === view[prop]) {
-                    return true;
-                }
-
-                const ret = Reflect.set(self, prop, value, receiver)
+                return Reflect.set(self, prop, value, receiver)
                     || Reflect.set(view, prop, value, receiver);
-
-                self.emit("updated", receiver);
-
-                return ret;
             }
         });
     }
 
-    get numRuns() {
-        return this.makeLimitWrapper("numRuns");
-    }
-
-    get skipRuns() {
-        return this.makeLimitWrapper("skipRuns");
+    get raw() {
+        return this.view;
     }
 
     set resetType(value: keyof typeof resets) {
@@ -75,31 +55,27 @@ class ViewUtils extends Subscribable {
     }
 
     get active(): boolean {
-        return this.config.openView === this as any;
+        return this.config.openViewIndex === this.index;
     }
 
-    id() {
-        return this._id;
-    }
-
-    index() {
+    get index() {
         return this.config.views.indexOf(this as any);
     }
 
     addMilestone(milestone: string) {
-        const index = Object.entries(this.view.milestones).length;
-        const colors = Object.values(colorScheme);
-        const color = effectColors[milestone] ?? colors[index % colors.length];
+        if (!(milestone in this.view.milestones)) {
+            const index = Object.entries(this.view.milestones).length;
+            const colors = Object.values(colorScheme);
+            const color = effectColors[milestone] ?? colors[index % colors.length];
 
-        this.view.milestones[milestone] = { index, enabled: true, color };
-        this.emit("updated", this);
+            this.view.milestones[milestone] = { index, enabled: true, color };
+        }
     }
 
     removeMilestone(milestone: string) {
         if (milestone in this.view.milestones) {
             delete this.view.milestones[milestone];
             this.updateMilestoneOrder(getSortedMilestones(this.view));
-            this.emit("updated", this);
         }
     }
 
@@ -107,7 +83,6 @@ class ViewUtils extends Subscribable {
         const info = this.view.milestones[milestone];
         if (info !== undefined) {
             info.enabled = !info.enabled;
-            this.emit("updated", this);
         }
     }
 
@@ -115,7 +90,6 @@ class ViewUtils extends Subscribable {
         const info = this.view.milestones[milestone];
         if (info !== undefined) {
             info.color = color;
-            this.emit("updated", this);
         }
     }
 
@@ -127,13 +101,11 @@ class ViewUtils extends Subscribable {
             milestones.splice(newIndex, 0, milestone);
 
             this.updateMilestoneOrder(milestones);
-            this.emit("updated", this);
         }
     }
 
     sortMilestones(history: HistoryManager) {
         sortMilestones(this as any, history);
-        this.emit("updated", this);
     }
 
     resetColors() {
@@ -141,7 +113,6 @@ class ViewUtils extends Subscribable {
         for (const [milestone, info] of Object.entries(this.view.milestones)) {
             info.color = effectColors[milestone] ?? colors[info.index % colors.length];
         }
-        this.emit("updated", this);
     }
 
     toggleAdditionalInfo(key: keyof typeof additionalInformation) {
@@ -151,29 +122,6 @@ class ViewUtils extends Subscribable {
         }
         else {
             this.view.additionalInfo.push(key);
-        }
-        this.emit("updated", this);
-    }
-
-    private makeLimitWrapper(prop: "numRuns" | "skipRuns") {
-        const self = this;
-
-        return {
-            get enabled() {
-                return self.view[prop].enabled;
-            },
-            set enabled(value) {
-                self.view[prop].enabled = value;
-                self.emit("updated", self);
-            },
-
-            get value() {
-                return self.view[prop].value;
-            },
-            set value(value) {
-                self.view[prop].value = value;
-                self.emit("updated", self);
-            }
         }
     }
 
@@ -198,21 +146,15 @@ export type Config = {
     views: ViewConfig[]
 }
 
-export class ConfigManager extends Subscribable {
-    milestones: string[];
+export class ConfigManager {
     views: View[];
 
     constructor(private game: Game, private config: Config) {
-        super();
-
-        this.milestones = this.collectMilestones();
-
         this.views = this.config.views.map(v => makeViewProxy(this, v));
+    }
 
-        this.on("*", () => {
-            saveConfig(this.config);
-            this.milestones = this.collectMilestones();
-        });
+    get raw() {
+        return this.config;
     }
 
     get active() {
@@ -221,7 +163,6 @@ export class ConfigManager extends Subscribable {
 
     set active(value: boolean) {
         this.config.active = value;
-        saveConfig(this.config);
     }
 
     get recordRuns() {
@@ -231,7 +172,6 @@ export class ConfigManager extends Subscribable {
     set recordRuns(value: boolean) {
         if (value !== this.config.recordRuns) {
             this.config.recordRuns = value;
-            this.emit("updated", this);
         }
     }
 
@@ -246,19 +186,6 @@ export class ConfigManager extends Subscribable {
 
     set openViewIndex(index: number | undefined) {
         this.config.lastOpenViewIndex = index;
-
-        saveConfig(this.config);
-
-        const view = this.views[index!];
-        if (view !== undefined) {
-            view.emit("opened", view);
-        }
-    }
-
-    get openView() {
-        if (this.openViewIndex !== undefined) {
-            return this.views[this.openViewIndex];
-        }
     }
 
     addView() {
@@ -281,50 +208,43 @@ export class ConfigManager extends Subscribable {
             additionalInfo: []
         };
 
-        const proxy = makeViewProxy(this, view);
-
-        this.config.views.push(view);
-        this.views.push(proxy);
-
-        this.openViewIndex = this.views.length - 1;
-
-        this.emit("viewAdded", proxy);
-
-        return proxy;
+        return this.insertView(view);
     }
 
     removeView(view: View) {
         const idx = this.views.indexOf(view);
         if (idx !== -1) {
             this.config.views.splice(idx, 1);
-            this.views.splice(idx, 1);
+            const removed = this.views.splice(idx, 1);
 
-            if (idx === this.config.lastOpenViewIndex) {
-                if (this.views.length === 0) {
-                    this.config.lastOpenViewIndex = undefined;
-                }
-                else {
-                    // Open the view on the left or, if the leftmost one was deleted, on the right
-                    this.config.lastOpenViewIndex = Math.max(0, this.config.lastOpenViewIndex - 1);
-                }
+            if (idx !== 0) {
+                this.openViewIndex = idx - 1;
+            }
+            else if (this.views.length === 0) {
+                this.openViewIndex = undefined;
             }
 
-            this.emit("viewRemoved", view);
+            return removed[0];
         }
     }
 
-    private collectMilestones() {
-        const uniqueMilestones = new Set(this.config.views.flatMap(v => {
-            return Object.entries(v.milestones)
-                .filter(([milestone]) => !milestone.startsWith("reset:"))
-                .map(([milestone]) => milestone);
-        }));
+    private insertView(view: ViewConfig, index?: number) {
+        index ??= this.views.length;
 
-        return Array.from(uniqueMilestones);
+        const proxy = makeViewProxy(this, view);
+
+        this.config.views.splice(index, 0, view);
+        this.views.splice(index, 0, proxy);
+
+        this.openViewIndex = index;
+
+        return proxy;
     }
 }
 
 export function getConfig(game: Game) {
-    const config = loadConfig() ?? { version: VERSION, recordRuns: true, views: [] };
+    const config = reactive(loadConfig() ?? { version: VERSION, recordRuns: true, views: [] });
+    watch(config, () => saveConfig(config), { deep: true });
+
     return new ConfigManager(game, config);
 }

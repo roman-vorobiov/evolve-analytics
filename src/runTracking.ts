@@ -7,6 +7,8 @@ import type { Game } from "./game";
 import type { ConfigManager } from "./config";
 import type { HistoryManager } from "./history";
 
+import { reactive, watch } from "vue";
+
 export type LatestRun = {
     run: number,
     starLevel?: number,
@@ -153,17 +155,27 @@ function withEventConditions(milestones: string[]): string[] {
     return [...conditions, ...milestones];
 }
 
+export function collectMilestones(config: ConfigManager) {
+    const uniqueMilestones = new Set(config.views.flatMap(v => {
+        return Object.entries(v.milestones)
+            .filter(([milestone]) => !milestone.startsWith("reset:"))
+            .map(([milestone]) => milestone);
+    }));
+
+    return Array.from(uniqueMilestones);
+}
+
 function makeMilestoneCheckers(game: Game, config: ConfigManager) {
-    return withEventConditions(config.milestones).map(m => makeMilestoneChecker(game, m)!);
+    const milestones = collectMilestones(config);
+    return withEventConditions(milestones).map(m => makeMilestoneChecker(game, m)!);
 }
 
 export function trackMilestones(game: Game, config: ConfigManager) {
-    const currentRunStats = loadLatestRun() ?? makeNewRunStats(game);
+    const currentRunStats = reactive(loadLatestRun() ?? makeNewRunStats(game));
+    watch(currentRunStats, () => saveCurrentRun(currentRunStats), { deep: true });
 
-    let checkers = makeMilestoneCheckers(game, config);
-    config.on("*", () => {
-        checkers = makeMilestoneCheckers(game, config);
-    });
+    let checkers: MilestoneChecker[] = [];
+    watch(config.raw, () => { checkers = makeMilestoneCheckers(game, config) }, { deep: true, immediate: true });
 
     game.onGameDay(day => {
         if (!config.recordRuns) {
@@ -175,8 +187,6 @@ export function trackMilestones(game: Game, config: ConfigManager) {
         updateAdditionalInfo(currentRunStats, game);
 
         updateMilestones(currentRunStats, checkers);
-
-        saveCurrentRun(currentRunStats);
     });
 
     return currentRunStats;

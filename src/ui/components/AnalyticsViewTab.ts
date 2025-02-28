@@ -88,17 +88,22 @@ export default {
                 <analytics-plot ref="plot" :view="view" @select="(run) => { selectedRun = run }"/>
 
                 <div class="flex flex-row flex-wrap justify-between">
-                    <button class="button" @click="asImage">
-                        <span v-if="rendering">
-                            Rendering...
-                        </span>
-                        <span v-else>
-                            Copy as PNG
-                        </span>
-                    </button>
-                    <button class="button" @click="ignoreBefore" :disabled="selectedRun === null">Ignore previous runs</button>
-                    <button class="button" @click="discardRun" :disabled="selectedRun === null">Discard run</button>
-                    <button class="button" @click="deleteView">Delete view</button>
+                    <div class="flex flex-row gap-m">
+                        <button class="button" @click="ignoreBefore" :disabled="selectedRun === null">Ignore previous runs</button>
+                        <button class="button" @click="discardRun" :disabled="selectedRun === null">Discard run</button>
+                    </div>
+
+                    <div class="flex flex-row gap-m">
+                        <button class="button" @click="asImage">
+                            <span v-if="rendering">
+                                Rendering...
+                            </span>
+                            <span v-else>
+                                Copy as PNG
+                            </span>
+                        </button>
+                        <button class="button" @click="deleteView">Delete</button>
+                    </div>
                 </div>
             </div>
         </b-tab-item>

@@ -9,29 +9,10 @@ import type { LatestRun } from "../runTracking";
 
 import AnalyticsTab from "./components/AnalyticsTab";
 
-import type VueType from "vue";
-import type { reactive, ref, readonly } from "vue";
+import { default as Vue, ref } from "vue";
+import type { BTabs, BTabItem } from "buefy";
 
-declare const Vue: typeof VueType & {
-    reactive: typeof reactive,
-    ref: typeof ref,
-    readonly: typeof readonly
-};
-
-type BTabItem = VueType & {
-    index: number | null;
-    $options: {
-        propsData: {
-            label: string
-        }
-    }
-}
-
-type BTabs = VueType & {
-    _registerItem(item: BTabItem): void
-}
-
-type VueBoundElement<T extends VueType> = HTMLElement & { __vue__: T };
+type VueBoundElement<T extends Vue> = HTMLElement & { __vue__: T };
 
 function openTab(index: EvolveTabs) {
     ($("#mainColumn div:first-child") as JQuery<VueBoundElement<any>>)[0].__vue__.s.civTabs = index;;
@@ -92,7 +73,7 @@ async function addAnalyticsTab(game: Game, config: ConfigManager, history: Histo
                 btab: tabs,
 
                 game,
-                config: Vue.reactive(config),
+                config,
                 history,
                 currentRun
             };
@@ -117,7 +98,7 @@ async function addAnalyticsTab(game: Game, config: ConfigManager, history: Histo
     // Ignore consecutive inserts with of the same node
     const original = tabs._registerItem;
     tabs._registerItem = (item: BTabItem) => {
-        if (item.$options.propsData.label !== "Analytics") {
+        if (item.label !== "Analytics") {
             original(item);
         }
     };
@@ -148,7 +129,7 @@ async function addMainToggle(config: ConfigManager) {
         el: "#analytics-master-toggle",
         data() {
             return {
-                config: Vue.ref(config)
+                config: ref(config)
             };
         }
     });

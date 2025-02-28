@@ -2,9 +2,7 @@ import type { ConfigManager } from "../../config";
 
 import AnalyticsViewTab from "./AnalyticsViewTab";
 
-import type VueType from "vue";
-
-declare const Vue: typeof VueType;
+import Vue from "vue";
 
 type This = Vue & {
     config: ConfigManager,
@@ -44,7 +42,7 @@ export default {
     template: `
         <b-tabs v-model="config.openViewIndex" class="resTabs">
             <template v-for="view in config.views">
-                <analytics-view-tab :view="view"/>
+                <analytics-view-tab :key="view.id" :view="view"/>
             </template>
         </b-tabs>
     `

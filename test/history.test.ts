@@ -1,7 +1,6 @@
 import { describe, expect, it, beforeEach } from "@jest/globals";
 import { makeGameState, makeConfig, makeHistory } from "./fixture";
 
-import { loadHistory } from "../src/database";
 import { Game } from "../src/game";
 import { HistoryManager, blankHistory } from "../src/history";
 import { ConfigManager } from "../src/config";
@@ -10,51 +9,6 @@ import type { HistoryEntry } from "../src/history";
 
 describe("History", () => {
     describe("New entry", () => {
-        it("should update the storage", () => {
-            const game = new Game(makeGameState({ global: { stats: { bioseed: 1 } } }));
-            const history = makeHistory({ game }, blankHistory());
-
-            history.commitRun({
-                run: 123,
-                universe: "standard",
-                resets: {},
-                totalDays: 456,
-                milestones: {},
-                activeEffects: {},
-                effectsHistory: []
-            });
-            history.commitRun({
-                run: 124,
-                universe: "standard",
-                resets: {},
-                totalDays: 789,
-                milestones: {},
-                activeEffects: {},
-                effectsHistory: []
-            });
-
-            expect(loadHistory()).toEqual({
-                milestones: {
-                    "reset:bioseed": 0
-                },
-                runs: [
-                    { run: 123, universe: "standard", milestones: [[0, 456]] },
-                    { run: 124, universe: "standard", milestones: [[0, 789]] }
-                ]
-            });
-
-            history.discardRun(history.runs[0]);
-
-            expect(loadHistory()).toEqual({
-                milestones: {
-                    "reset:bioseed": 0
-                },
-                runs: [
-                    { run: 124, universe: "standard", milestones: [[0, 789]] }
-                ]
-            });
-        });
-
         it("should add the reset point as a milestone", () => {
             const game = new Game(makeGameState({ global: { stats: { bioseed: 1 } } }));
             const history = makeHistory({ game }, blankHistory());

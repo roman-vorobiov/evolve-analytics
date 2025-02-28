@@ -7,9 +7,7 @@ import AnalyticsNumberInput from "./AnalyticsNumberInput";
 import AnalyticsToggleableNumberInput from "./AnalyticsToggleableNumberInput";
 import AnalyticsPlot from "./AnalyticsPlot";
 
-import type Fuzzysort from "fuzzysort";
-
-declare const fuzzysort: typeof Fuzzysort;
+import fuzzysort from "fuzzysort";
 
 type MilestoneOption = { type: keyof typeof milestoneTypes, id: string, label: string }
 

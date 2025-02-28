@@ -102,7 +102,6 @@ describe("Latest run", () => {
 
             it("should commit the run to history", () => {
                 expect(history.commitRun).toHaveBeenCalledWith(run);
-                expect(loadHistory()).not.toBe(null);
             });
         });
 

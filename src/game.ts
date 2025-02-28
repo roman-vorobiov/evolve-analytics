@@ -1,19 +1,10 @@
-import { resets, type Temperature } from "./enums";
+import { resets, challengeGenes } from "./enums";
 import { transformMap } from "./utils";
-import { Subscribable } from "./subscribable";
-import { challengeGenes } from "./enums";
+import type { Temperature } from "./enums";
 import type { Evolve, BuildingInfoTabs, ArpaInfoTab } from "./evolve";
 
-import type { default as JQuery } from "jquery";
-
-declare const $: typeof JQuery;
-
-export class Game extends Subscribable {
-    private subscribed = false;
-
-    constructor(private evolve: Evolve) {
-        super();
-    }
+export class Game {
+    constructor(private evolve: Evolve) {}
 
     get runNumber() {
         return this.evolve.global.stats.reset + 1;
@@ -133,23 +124,13 @@ export class Game extends Subscribable {
     }
 
     onGameDay(fn: (day: number) => void) {
-        this.on("newDay", fn);
-
-        if (!this.subscribed) {
-            this.subscribeToGameUpdates();
-            this.subscribed = true;
-        }
-    }
-
-    private subscribeToGameUpdates() {
         let previousDay: number | null = null;
         this.onGameTick(() => {
             const day = this.day;
 
             if (previousDay !== day) {
-                this.emit("newDay", this.day);
-
                 previousDay = day;
+                fn(day);
             }
         });
     }

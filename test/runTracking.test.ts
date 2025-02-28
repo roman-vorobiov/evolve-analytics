@@ -1,9 +1,8 @@
 import { describe, expect, it, jest } from "@jest/globals";
 import { makeGameStateFactory, makeConfig, makeMilestones, makeView } from "./fixture";
 
-import { loadLatestRun } from "../src/database";
 import { Game } from "../src/game";
-import { trackMilestones } from "../src/runTracking";
+import { collectMilestones, trackMilestones } from "../src/runTracking";
 import type { Evolve } from "../src/evolve";
 
 const makeGameState = makeGameStateFactory({
@@ -30,20 +29,75 @@ function nextDay(evolve: Evolve) {
 }
 
 describe("Run tracking", () => {
-    it("should save each day", () => {
-        const evolve = makeGameState({});
-        const game = new Game(evolve);
-        const config = makeConfig({ game }, {});
+    describe("Milestone collection", () => {
+        it("should collect milestones from each view", () => {
+            const config = makeConfig({
+                views: [
+                    makeView({
+                        milestones: makeMilestones([
+                            "built:city-apartment:1",
+                            "built:space-spaceport:2"
+                        ])
+                    }),
+                    makeView({
+                        milestones: makeMilestones([
+                            "built:interstellar-mining_droid:3",
+                            "built:galaxy-dreadnought:4"
+                        ])
+                    })
+                ]
+            });
 
-        trackMilestones(game, config);
+            expect(collectMilestones(config)).toEqual([
+                "built:city-apartment:1",
+                "built:space-spaceport:2",
+                "built:interstellar-mining_droid:3",
+                "built:galaxy-dreadnought:4"
+            ]);
+        });
 
-        expect(loadLatestRun()).toBe(null);
+        it("should not duplicate the same milestone", () => {
+            const config = makeConfig({
+                views: [
+                    makeView({
+                        milestones: makeMilestones([
+                            "built:city-apartment:1",
+                            "built:space-spaceport:2"
+                        ])
+                    }),
+                    makeView({
+                        milestones: makeMilestones([
+                            "built:space-spaceport:2",
+                            "built:galaxy-dreadnought:4"
+                        ])
+                    })
+                ]
+            });
 
-        nextDay(evolve);
-        expect(loadLatestRun()?.totalDays).toEqual(2);
+            expect(collectMilestones(config)).toEqual([
+                "built:city-apartment:1",
+                "built:space-spaceport:2",
+                "built:galaxy-dreadnought:4"
+            ]);
+        });
 
-        nextDay(evolve);
-        expect(loadLatestRun()?.totalDays).toEqual(3);
+        it("should collect disabled milestones", () => {
+            const config = makeConfig({
+                views: [
+                    makeView({
+                        milestones: makeMilestones({
+                            "built:city-apartment:1": { enabled: false },
+                            "built:space-spaceport:2": { enabled: true }
+                        })
+                    })
+                ]
+            });
+
+            expect(collectMilestones(config)).toEqual([
+                "built:city-apartment:1",
+                "built:space-spaceport:2"
+            ]);
+        });
     });
 
     it("should timestamp milestones as they are reached", () => {
@@ -61,22 +115,22 @@ describe("Run tracking", () => {
             ]
         });
 
-        trackMilestones(game, config);
+        const currentRun = trackMilestones(game, config);
 
         nextDay(evolve);
-        expect(loadLatestRun()?.milestones).toEqual({});
+        expect(currentRun.milestones).toEqual({});
 
         ++evolve.global.space.foo.count;
         ++evolve.global.space.bar.count;
         nextDay(evolve);
-        expect(loadLatestRun()?.milestones).toEqual({
+        expect(currentRun.milestones).toEqual({
             "built:space-foo:1": 2
         });
 
         ++evolve.global.space.foo.count;
         ++evolve.global.space.bar.count;
         nextDay(evolve);
-        expect(loadLatestRun()?.milestones).toEqual({
+        expect(currentRun.milestones).toEqual({
             "built:space-foo:1": 2,
             "built:space-bar:2": 3
         });
@@ -116,17 +170,17 @@ describe("Run tracking", () => {
         const game = new Game(evolve);
         const config = makeConfig({ game }, {});
 
-        trackMilestones(game, config);
+        const currentRun = trackMilestones(game, config);
 
-        expect(loadLatestRun()).toBe(null);
+        expect(currentRun.totalDays).toEqual(1);
 
         nextDay(evolve);
-        expect(loadLatestRun()?.totalDays).toEqual(2);
+        expect(currentRun.totalDays).toEqual(2);
 
         config.recordRuns = false;
 
         nextDay(evolve);
-        expect(loadLatestRun()?.totalDays).toEqual(2);
+        expect(currentRun.totalDays).toEqual(2);
     });
 
     it("should gather additional info", () => {
@@ -134,12 +188,10 @@ describe("Run tracking", () => {
         const game = new Game(evolve);
         const config = makeConfig({ game }, {});
 
-        trackMilestones(game, config);
-
-        expect(loadLatestRun()).toBe(null);
+        const currentRun = trackMilestones(game, config);
 
         nextDay(evolve);
-        expect(loadLatestRun()?.raceName).toEqual("Foo");
+        expect(currentRun.raceName).toEqual("Foo");
     });
 
     it("should track event preconditions", () => {
@@ -156,20 +208,20 @@ describe("Run tracking", () => {
             ]
         });
 
-        trackMilestones(game, config);
+        const currentRun = trackMilestones(game, config);
 
         nextDay(evolve);
-        expect(loadLatestRun()?.milestones).toEqual({});
+        expect(currentRun.milestones).toEqual({});
 
         ++evolve.global.galaxy.scout_ship.count;
         nextDay(evolve);
-        expect(loadLatestRun()?.milestones).toEqual({
+        expect(currentRun.milestones).toEqual({
             "event_condition:alien": 2
         });
 
         evolve.global.tech.xeno = 1;
         nextDay(evolve);
-        expect(loadLatestRun()?.milestones).toEqual({
+        expect(currentRun.milestones).toEqual({
             "event_condition:alien": 2,
             "event:alien": 3
         });
@@ -189,33 +241,33 @@ describe("Run tracking", () => {
             ]
         });
 
-        trackMilestones(game, config);
+        const currentRun = trackMilestones(game, config);
 
         nextDay(evolve);
-        expect(loadLatestRun()?.milestones).toEqual({});
-        expect(loadLatestRun()?.activeEffects).toEqual({});
-        expect(loadLatestRun()?.effectsHistory).toEqual([]);
+        expect(currentRun.milestones).toEqual({});
+        expect(currentRun.activeEffects).toEqual({});
+        expect(currentRun.effectsHistory).toEqual([]);
 
         evolve.global.race.inspired = 123;
         nextDay(evolve);
-        expect(loadLatestRun()?.milestones).toEqual({});
-        expect(loadLatestRun()?.activeEffects).toEqual({
+        expect(currentRun.milestones).toEqual({});
+        expect(currentRun.activeEffects).toEqual({
             "effect:inspired": 3
         });
-        expect(loadLatestRun()?.effectsHistory).toEqual([]);
+        expect(currentRun.effectsHistory).toEqual([]);
 
         nextDay(evolve);
-        expect(loadLatestRun()?.milestones).toEqual({});
-        expect(loadLatestRun()?.activeEffects).toEqual({
+        expect(currentRun.milestones).toEqual({});
+        expect(currentRun.activeEffects).toEqual({
             "effect:inspired": 3
         });
-        expect(loadLatestRun()?.effectsHistory).toEqual([]);
+        expect(currentRun.effectsHistory).toEqual([]);
 
         delete evolve.global.race.inspired;
         nextDay(evolve);
-        expect(loadLatestRun()?.milestones).toEqual({});
-        expect(loadLatestRun()?.activeEffects).toEqual({});
-        expect(loadLatestRun()?.effectsHistory).toEqual([
+        expect(currentRun.milestones).toEqual({});
+        expect(currentRun.activeEffects).toEqual({});
+        expect(currentRun.effectsHistory).toEqual([
             ["effect:inspired", 3, 4]
         ]);
     });

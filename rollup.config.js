@@ -1,8 +1,8 @@
+import { promises as fs } from "fs";
 import { createFilter } from "@rollup/pluginutils";
 import typescript from "@rollup/plugin-typescript";
 import tla from "rollup-plugin-tla";
 import externalGlobals from "rollup-plugin-external-globals";
-import { promises as fs } from "fs";
 
 function css() {
     const filter = createFilter(["**/*.css"], []);
@@ -38,8 +38,12 @@ export default {
         css(),
         tla(),
         externalGlobals({
+            "vue": "Vue",
+            "@observablehq/plot": "Plot",
             "lz-string": "LZString",
-            "@simonwep/pickr": "Pickr"
+            "@simonwep/pickr": "Pickr",
+            "fuzzysort": "fuzzysort",
+            "html2canvas": "html2canvas"
         })
     ],
     watch: {

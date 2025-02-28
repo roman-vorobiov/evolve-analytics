@@ -10,9 +10,7 @@ import type { HistoryEntry, HistoryManager } from "../history";
 import type { LatestRun } from "../runTracking";
 import type { Game } from "../game";
 
-import type * as PlotType from "@observablehq/plot";
-
-declare const Plot: typeof PlotType;
+import * as Plot from "@observablehq/plot";
 
 const topTextOffset = -27;
 const marginTop = 30;
@@ -134,7 +132,7 @@ function monotonic<T>(numRuns: number, params: T): T {
 }
 
 // Plot.stackY outputs the middle between y1 and y2 as y for whatever reason - use y2 to place ticks on top
-function adjustedStackY<T>(options: T & PlotType.StackOptions) {
+function adjustedStackY<T>(options: T & Plot.StackOptions) {
     const convert = ({ y1, y2, ...options }: any) => ({ ...options, y: y2 });
     return convert(Plot.stackY(options));
 }
@@ -592,7 +590,7 @@ export function makeGraph(history: HistoryManager, view: View, game: Game, curre
 
         waitFor(plot).then(() => {
             const target = $(plot).find(`[data-milestone="${milestone}"]`);
-            const container = $(`#analytics-view-${view.id()}`);
+            const container = $(`#mTabAnalytics > .b-tabs > section`);
 
             function makePointerEvent(name: string) {
                 return new PointerEvent(name, {
@@ -611,7 +609,7 @@ export function makeGraph(history: HistoryManager, view: View, game: Game, curre
 
     plot.addEventListener("mousedown", (event: MouseEvent) => {
         if (plot.value && plot.value.run < filteredRuns.length) {
-            const container = $(`#analytics-view-${view.id()}`);
+            const container = $(`#mTabAnalytics > .b-tabs > section`);
             const coordinates = {
                 top: event.clientY + container.scrollTop()!,
                 left: event.clientX + container.scrollLeft()!
@@ -645,7 +643,7 @@ export function makeGraph(history: HistoryManager, view: View, game: Game, curre
 
             // Metadata
             svgNode
-                .attr("data-view", view.index())
+                .attr("data-view", view.index)
                 .attr("data-milestone", milestone);
 
             // Styling

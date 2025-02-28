@@ -1,11 +1,12 @@
 import { saveHistory, loadHistory } from "./database";
 import { inferResetType, type LatestRun } from "./runTracking";
 import { shouldIncludeRun } from "./exports/historyFiltering";
-import { Subscribable } from "./subscribable";
 import { rotateMap } from "./utils"
 import type { universes } from "./enums";
 import type { Game } from "./game";
 import type { ConfigManager } from "./config";
+
+import { shallowReactive, watch } from "vue";
 
 export type MilestoneReference = [number, number];
 export type EffectReference = [number, number, number];
@@ -26,23 +27,15 @@ export type RunHistory = {
     runs: HistoryEntry[]
 }
 
-export class HistoryManager extends Subscribable {
-    private game: Game;
-    private config: ConfigManager;
-    private history: RunHistory;
+export class HistoryManager {
     public milestones: Record<number, string>;
 
-    constructor(game: Game, config: ConfigManager, history: RunHistory) {
-        super();
-
-        this.game = game;
-        this.config = config;
-        this.history = history;
+    constructor(private game: Game, private config: ConfigManager, private history: RunHistory) {
         this.milestones = rotateMap(history.milestones);
+    }
 
-        this.on("*", () => {
-            saveHistory(this.history);
-        });
+    get raw() {
+        return this.history;
     }
 
     get milestoneIDs() {
@@ -57,7 +50,6 @@ export class HistoryManager extends Subscribable {
         const idx = this.runs.indexOf(run);
         if (idx !== -1) {
             this.history.runs.splice(idx, 1);
-            this.emit("updated", this);
         }
     }
 
@@ -90,7 +82,6 @@ export class HistoryManager extends Subscribable {
         this.augmentEntry(entry, runStats);
 
         this.history.runs.push(entry);
-        this.emit("updated", this);
     }
 
     getMilestone(id: number): string {
@@ -129,7 +120,8 @@ export function blankHistory(): RunHistory {
 }
 
 export function initializeHistory(game: Game, config: ConfigManager): HistoryManager {
-    const history = loadHistory() ?? blankHistory();
+    const history = shallowReactive(loadHistory() ?? blankHistory());
+    watch(history, () => saveHistory(history), { deep: false });
 
     return new HistoryManager(game, config, history);
 }

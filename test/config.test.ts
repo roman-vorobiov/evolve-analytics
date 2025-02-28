@@ -1,314 +1,317 @@
 import { describe, expect, it } from "@jest/globals";
-import { makeConfig, makeView, makeMilestones } from "./fixture";
+import { makeConfig, makeView, makeMilestones, makeGameState } from "./fixture";
 
 import colorScheme from "../src/enums/colorSchemes";
-import type { View } from "../src/config";
+import type { universes } from "../src/enums";
+import { Game } from "../src/game";
 
 describe("Config", () => {
-    it("should collect milestones from each view", () => {
-        const config = makeConfig({
-            views: [
-                makeView({
-                    milestones: makeMilestones([
-                        "built:city-apartment:1",
-                        "built:space-spaceport:2"
-                    ])
-                }),
-                makeView({
-                    milestones: makeMilestones([
-                        "built:interstellar-mining_droid:3",
-                        "built:galaxy-dreadnought:4"
-                    ])
-                })
-            ]
-        });
-
-        expect(config.milestones).toEqual([
-            "built:city-apartment:1",
-            "built:space-spaceport:2",
-            "built:interstellar-mining_droid:3",
-            "built:galaxy-dreadnought:4"
-        ]);
-    });
-
-    it("should not duplicate the same milestone", () => {
-        const config = makeConfig({
-            views: [
-                makeView({
-                    milestones: makeMilestones([
-                        "built:city-apartment:1",
-                        "built:space-spaceport:2"
-                    ])
-                }),
-                makeView({
-                    milestones: makeMilestones([
-                        "built:space-spaceport:2",
-                        "built:galaxy-dreadnought:4"
-                    ])
-                })
-            ]
-        });
-
-        expect(config.milestones).toEqual([
-            "built:city-apartment:1",
-            "built:space-spaceport:2",
-            "built:galaxy-dreadnought:4"
-        ]);
-    });
-
-    it("should collect disabled milestones", () => {
-        const config = makeConfig({
-            views: [
-                makeView({
-                    milestones: makeMilestones([
-                        "built:city-apartment:1",
-                        "built:space-spaceport:2"
-                    ])
-                })
-            ]
-        });
-
-        config.views[0].toggleMilestone("built:city-apartment:1");
-
-        expect(config.milestones).toEqual([
-            "built:city-apartment:1",
-            "built:space-spaceport:2"
-        ]);
-    });
-
-    it("should emit events when a view is added", () => {
+    it("should have no views by default", () => {
         const config = makeConfig({});
 
-        let addedView: View | undefined = undefined;
-        config.on("viewAdded", v => { addedView = v; });
+        expect(config.openViewIndex).toBeUndefined();
+        expect(config.views).toEqual([]);
+    });
 
-        config.addView();
+    describe("Adding views", () => {
+        it("should append new views at the end", () => {
+            const config = makeConfig({});
 
-        expect(addedView).toEqual({
-            mode: "timestamp",
-            showBars: true,
-            showLines: false,
-            fillArea: false,
-            smoothness: 0,
-            resetType: "ascend",
-            universe: "standard",
-            includeCurrentRun: false,
-            numRuns: { enabled: false },
-            skipRuns: { enabled: false },
-            milestones: {
-                "reset:ascend": { index: 0, enabled: true, color: colorScheme.blue }
-            },
-            additionalInfo: []
+            const view1 = config.addView();
+            expect(config.openViewIndex).toEqual(0);
+
+            const view2 = config.addView();
+            expect(config.openViewIndex).toEqual(1);
+
+            const view3 = config.addView();
+            expect(config.openViewIndex).toEqual(2);
+
+            expect(config.views).toEqual([view1, view2, view3]);
+        });
+
+        it.each(<Array<keyof typeof universes>> [
+            "antimatter",
+            "heavy"
+        ])("should use the current universe", (universe) => {
+            const game = new Game(makeGameState({ global: { race: { universe } } }));
+            const config = makeConfig({ game }, {});
+
+            const view = config.addView();
+
+            expect(config.views).toEqual([view]);
+
+            expect(view).toEqual({
+                mode: "timestamp",
+                showBars: true,
+                showLines: false,
+                fillArea: false,
+                smoothness: 0,
+                resetType: "ascend",
+                universe,
+                includeCurrentRun: false,
+                numRuns: { enabled: false },
+                skipRuns: { enabled: false },
+                milestones: {
+                    "reset:ascend": { index: 0, enabled: true, color: colorScheme.blue }
+                },
+                additionalInfo: []
+            });
         });
     });
 
-    it("should emit events when a view is removed", () => {
-        const config = makeConfig({
-            views: [
-                makeView({
-                    milestones: makeMilestones(["reset:ascend"])
-                })
-            ]
+    describe("Removing views", () => {
+        it("should remove existing views", () => {
+            const config = makeConfig({
+                views: [
+                    makeView({
+                        milestones: makeMilestones(["reset:ascend"])
+                    })
+                ]
+            });
+
+            const originalView = config.views[0];
+            const removedView = config.removeView(originalView);
+
+            expect(removedView).toBe(originalView);
+            expect(config.views).toEqual([]);
         });
 
-        const originalView = config.views[0];
+        it("should not remove unknown views", () => {
+            const config = makeConfig({
+                views: [
+                    makeView({
+                        milestones: makeMilestones(["reset:ascend"])
+                    }),
+                    makeView({
+                        milestones: makeMilestones(["reset:ascend"])
+                    })
+                ]
+            });
 
-        let removedView: View | undefined = undefined;
-        config.on("viewRemoved", v => { removedView = v; });
+            const originalViews = config.views.slice();
+            const removedView = config.removeView(originalViews[1]);
 
-        config.removeView(originalView);
-
-        expect(removedView).toBe(originalView);
-    });
-
-    it("should emit events when a view is modified", () => {
-        const config = makeConfig({
-            views: [
-                makeView({
-                    universe: "standard",
-                    milestones: makeMilestones(["reset:ascend"])
-                })
-            ]
+            expect(removedView).toBe(originalViews[1]);
+            expect(config.views).toEqual([originalViews[0]]);
         });
 
-        let modifiedView: View | undefined = undefined;
-        config.views[0].on("updated", v => { modifiedView = v; });
+        it("should open the view on the left of the deleted one (if one exists)", () => {
+            const config = makeConfig({
+                views: [
+                    makeView({}),
+                    makeView({}),
+                    makeView({}),
+                    makeView({})
+                ]
+            });
 
-        config.views[0].universe = "magic";
+            const [view1, view2, view3, view4] = config.views;
 
-        expect(modifiedView).toEqual(makeView({ universe: "magic" }));
-    });
+            config.removeView(view3);
 
-    it("should emit events when a milestone is added", () => {
-        const config = makeConfig({
-            views: [
-                makeView({
-                    milestones: makeMilestones(["reset:ascend"])
-                })
-            ]
+            expect(config.openViewIndex).toEqual(1);
+            expect(config.views).toEqual([view1, view2, view4]);
         });
 
-        let modifiedView: View | undefined = undefined;
-        config.views[0].on("updated", v => { modifiedView = v; });
+        it("should open the view on the right of the deleted one (if it was the 1st one)", () => {
+            const config = makeConfig({
+                views: [
+                    makeView({}),
+                    makeView({}),
+                    makeView({})
+                ]
+            });
 
-        config.views[0].addMilestone("tech:club");
+            const [view1, view2, view3] = config.views;
 
-        expect(modifiedView).toEqual(makeView({
-            milestones: makeMilestones(["reset:ascend", "tech:club"])
-        }));
-    });
+            config.openViewIndex = 0;
+            config.removeView(view1);
 
-    it("should use predefined colors for effects", () => {
-        const config = makeConfig({
-            views: [
-                makeView({
-                    milestones: makeMilestones(["reset:ascend"])
-                })
-            ]
+            expect(config.openViewIndex).toEqual(0);
+            expect(config.views).toEqual([view2, view3]);
         });
 
-        let modifiedView: View | undefined = undefined;
-        config.views[0].on("updated", v => { modifiedView = v; });
+        it("should reset the open view index if the last view is deleted", () => {
+            const config = makeConfig({
+                views: [
+                    makeView({})
+                ]
+            });
 
-        config.views[0].addMilestone("effect:hot");
+            config.removeView(config.views[0]);
 
-        expect(modifiedView).toEqual(makeView({
-            milestones: {
-                "reset:ascend": { index: 0, enabled: true, color: colorScheme.blue },
-                "effect:hot": { index: 1, enabled: true, color: colorScheme.red }
-            }
-        }));
-    });
-
-    it("should emit events when a milestone is removed", () => {
-        const config = makeConfig({
-            views: [
-                makeView({
-                    milestones: makeMilestones(["reset:ascend", "tech:club"])
-                })
-            ]
+            expect(config.openViewIndex).toEqual(undefined);
+            expect(config.views).toEqual([]);
         });
-
-        let modifiedView: View | undefined = undefined;
-        config.views[0].on("updated", v => { modifiedView = v; });
-
-        config.views[0].removeMilestone("tech:club");
-
-        expect(modifiedView).toEqual(makeView({
-            milestones: makeMilestones(["reset:ascend"])
-        }));
     });
 
-    it("should update indices when a milestone is removed", () => {
-        const config = makeConfig({
-            views: [
-                makeView({
+    describe("Views", () => {
+        describe("Milestones", () => {
+            it("should not add duplicate milestones", () => {
+                const config = makeConfig({
+                    views: [
+                        makeView({
+                            milestones: makeMilestones(["reset:ascend", "tech:club"])
+                        })
+                    ]
+                });
+
+                config.views[0].addMilestone("tech:club");
+
+                expect(config.views[0].milestones).toEqual({
+                    "reset:ascend": { index: 0, enabled: true, color: colorScheme.blue },
+                    "tech:club": { index: 1, enabled: true, color: colorScheme.orange },
+                });
+            });
+
+            it("should use colors scheme", () => {
+                const config = makeConfig({
+                    views: [
+                        makeView({
+                            milestones: makeMilestones(["reset:ascend"])
+                        })
+                    ]
+                });
+
+                config.views[0].addMilestone("tech:wheel");
+                config.views[0].addMilestone("tech:club");
+                config.views[0].addMilestone("tech:housing");
+
+                expect(config.views[0].milestones).toEqual({
+                    "reset:ascend": { index: 0, enabled: true, color: colorScheme.blue },
+                    "tech:wheel": { index: 1, enabled: true, color: colorScheme.orange },
+                    "tech:club": { index: 2, enabled: true, color: colorScheme.red },
+                    "tech:housing": { index: 3, enabled: true, color: colorScheme.cyan }
+                });
+            });
+
+            it("should use predefined colors for effects", () => {
+                const config = makeConfig({
+                    views: [
+                        makeView({
+                            milestones: makeMilestones(["reset:ascend"])
+                        })
+                    ]
+                });
+
+                config.views[0].addMilestone("effect:hot");
+
+                expect(config.views[0].milestones).toEqual({
+                    "reset:ascend": { index: 0, enabled: true, color: colorScheme.blue },
+                    "effect:hot": { index: 1, enabled: true, color: colorScheme.red }
+                });
+            });
+
+            it("should remove existing milestones", () => {
+                const config = makeConfig({
+                    views: [
+                        makeView({
+                            milestones: makeMilestones(["reset:ascend", "tech:club"])
+                        })
+                    ]
+                });
+
+                config.views[0].removeMilestone("tech:club");
+
+                expect(config.views[0].milestones).toEqual({
+                    "reset:ascend": { index: 0, enabled: true, color: colorScheme.blue }
+                });
+            });
+
+            it("should not remove unknown milestones", () => {
+                const config = makeConfig({
+                    views: [
+                        makeView({
+                            milestones: makeMilestones(["reset:ascend", "tech:club"])
+                        })
+                    ]
+                });
+
+                config.views[0].removeMilestone("tech:wheel");
+
+                expect(config.views[0].milestones).toEqual({
+                    "reset:ascend": { index: 0, enabled: true, color: colorScheme.blue },
+                    "tech:club": { index: 1, enabled: true, color: colorScheme.orange }
+                });
+            });
+
+            it("should update indices when a milestone is removed", () => {
+                const config = makeConfig({
+                    views: [
+                        makeView({
+                            milestones: {
+                                "tech:club": { index: 0, enabled: true, color: colorScheme.blue },
+                                "tech:wheel": { index: 1, enabled: true, color: colorScheme.orange },
+                                "reset:ascend": { index: 2, enabled: true, color: colorScheme.red }
+                            }
+                        })
+                    ]
+                });
+
+                config.views[0].removeMilestone("tech:wheel");
+
+                expect(config.views[0].milestones).toEqual({
+                    "tech:club": { index: 0, enabled: true, color: colorScheme.blue },
+                    "reset:ascend": { index: 1, enabled: true, color: colorScheme.red }
+                });
+            });
+
+            it("should toggle milestones", () => {
+                const config = makeConfig({
+                    views: [
+                        makeView({
+                            milestones: makeMilestones(["reset:ascend"])
+                        })
+                    ]
+                });
+
+                config.views[0].toggleMilestone("reset:ascend");
+
+                expect(config.views[0].milestones).toEqual({
+                    "reset:ascend": { index: 0, enabled: false, color: colorScheme.blue }
+                });
+            });
+
+            it("should move milestones", () => {
+                const config = makeConfig({
+                    views: [
+                        makeView({
+                            milestones: {
+                                "tech:club": { index: 0, enabled: true, color: colorScheme.blue },
+                                "tech:wheel": { index: 1, enabled: true, color: colorScheme.orange },
+                                "reset:ascend": { index: 2, enabled: true, color: colorScheme.red }
+                            }
+                        })
+                    ]
+                });
+
+                config.views[0].moveMilestone("tech:wheel", 2);
+
+                expect(config.views[0].milestones).toEqual({
+                    "tech:club": { index: 0, enabled: true, color: colorScheme.blue },
+                    "tech:wheel": { index: 2, enabled: true, color: colorScheme.orange },
+                    "reset:ascend": { index: 1, enabled: true, color: colorScheme.red }
+                });
+            });
+
+            it("should update milestones when switching reset types", () => {
+                const config = makeConfig({
+                    views: [
+                        makeView({
+                            milestones: makeMilestones({ "reset:ascend": { index: 1, enabled: false, color: colorScheme.gray } })
+                        })
+                    ]
+                });
+
+                config.views[0].resetType = "matrix";
+
+                expect(config.views[0]).toMatchObject({
+                    resetType: "matrix",
                     milestones: {
-                        "tech:club": { index: 0, enabled: true, color: colorScheme.blue },
-                        "tech:wheel": { index: 1, enabled: true, color: colorScheme.orange },
-                        "reset:ascend": { index: 2, enabled: true, color: colorScheme.red }
+                        "reset:matrix": { index: 1, enabled: false, color: colorScheme.gray }
                     }
-                })
-            ]
+                });
+            });
         });
-
-        let modifiedView: View | undefined = undefined;
-        config.views[0].on("updated", v => { modifiedView = v; });
-
-        config.views[0].removeMilestone("tech:wheel");
-
-        expect(modifiedView).toEqual(makeView({
-            milestones: {
-                "tech:club": { index: 0, enabled: true, color: colorScheme.blue },
-                "reset:ascend": { index: 1, enabled: true, color: colorScheme.red }
-            }
-        }));
-    });
-
-    it("should emit events when a milestone is modified", () => {
-        const config = makeConfig({
-            views: [
-                makeView({
-                    milestones: makeMilestones(["reset:ascend"])
-                })
-            ]
-        });
-
-        let modifiedView: View | undefined = undefined;
-        config.views[0].on("updated", v => { modifiedView = v; });
-
-        config.views[0].toggleMilestone("reset:ascend");
-
-        expect(modifiedView).toEqual(makeView({
-            milestones: {
-                "reset:ascend": { index: 0, enabled: false, color: colorScheme.blue }
-            }
-        }));
-    });
-
-    it("should emit events when a milestone is moved", () => {
-        const config = makeConfig({
-            views: [
-                makeView({
-                    milestones: {
-                        "tech:club": { index: 0, enabled: true, color: colorScheme.blue },
-                        "tech:wheel": { index: 1, enabled: true, color: colorScheme.orange },
-                        "reset:ascend": { index: 2, enabled: true, color: colorScheme.red }
-                    }
-                })
-            ]
-        });
-
-        let modifiedView: View | undefined = undefined;
-        config.views[0].on("updated", v => { modifiedView = v; });
-
-        config.views[0].moveMilestone("tech:wheel", 2);
-
-        expect(modifiedView).toEqual(makeView({
-            milestones: {
-                "tech:club": { index: 0, enabled: true, color: colorScheme.blue },
-                "tech:wheel": { index: 2, enabled: true, color: colorScheme.orange },
-                "reset:ascend": { index: 1, enabled: true, color: colorScheme.red }
-            }
-        }));
-    });
-
-    it("should update milestones when switching reset types", () => {
-        const config = makeConfig({
-            views: [
-                makeView({
-                    milestones: makeMilestones({ "reset:ascend": { index: 1, enabled: false, color: colorScheme.gray } })
-                })
-            ]
-        });
-
-        let modifiedView: View | undefined = undefined;
-        config.views[0].on("updated", v => { modifiedView = v; });
-
-        config.views[0].resetType = "matrix";
-
-        expect(modifiedView).toEqual(makeView({
-            resetType: "matrix",
-            milestones: {
-                "reset:matrix": { index: 1, enabled: false, color: colorScheme.gray }
-            }
-        }));
-    });
-
-    it("should not emit events when the value doesn't change", () => {
-        const config = makeConfig({
-            views: [
-                makeView({
-                    milestones: makeMilestones(["reset:ascend"])
-                })
-            ]
-        });
-
-        let modifiedView: View | undefined = undefined;
-        config.views[0].on("updated", v => { modifiedView = v; });
-
-        config.views[0].universe = "standard";
-
-        expect(modifiedView).toBeUndefined();
     });
 });
