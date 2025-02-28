@@ -5,18 +5,20 @@ import AnalyticsEnumInput from "./AnalyticsEnumInput";
 import AnalyticsNumberInput from "./AnalyticsNumberInput";
 import AnalyticsToggleableNumberInput from "./AnalyticsToggleableNumberInput";
 
+import Vue from "vue";
+
 function optional<Key extends keyof View>(key: Key) {
     return {
         get() {
             return this.view[key];
         },
         set(value: View[Key]) {
-            this.view[key] = value;
+            Vue.set(this.view, key, value)
         }
     }
 }
 
-type This = {
+type This = Vue & {
     view: View
 }
 

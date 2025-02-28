@@ -8,7 +8,13 @@ import type { resets, universes, viewModes, additionalInformation } from "./enum
 import type { Game } from "./game";
 import type { HistoryManager } from "./history";
 
-import { reactive, watch } from "vue";
+import { default as Vue, reactive, watch } from "vue";
+
+type MilestoneInfo = {
+    index: number,
+    enabled: boolean,
+    color: string
+}
 
 export type ViewConfig = {
     resetType: keyof typeof resets,
@@ -23,7 +29,7 @@ export type ViewConfig = {
     numRuns: { enabled: boolean, value?: number },
     skipRuns: { enabled: boolean, value?: number },
     daysScale?: number,
-    milestones: Record<string, { index: number, enabled: boolean, color: string }>,
+    milestones: Record<string, MilestoneInfo>,
     additionalInfo: Array<keyof typeof additionalInformation>
 }
 
@@ -69,13 +75,13 @@ class ViewUtils {
             const colors = Object.values(colorScheme);
             const color = effectColors[milestone] ?? colors[index % colors.length];
 
-            this.view.milestones[milestone] = { index, enabled: true, color };
+            Vue.set(this.view.milestones, milestone, { index, enabled: true, color });
         }
     }
 
     removeMilestone(milestone: string) {
         if (milestone in this.view.milestones) {
-            delete this.view.milestones[milestone];
+            Vue.delete(this.view.milestones, milestone);
             this.updateMilestoneOrder(getSortedMilestones(this.view));
         }
     }
