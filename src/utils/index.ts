@@ -50,3 +50,7 @@ export function spy<F extends Function>(obj: any, key: string, spy: F) {
         return original(...args);
     };
 }
+
+export function clone<T>(obj: T): T {
+    return JSON.parse(JSON.stringify(obj));
+}

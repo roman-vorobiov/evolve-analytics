@@ -2,6 +2,7 @@ import { VERSION } from "./migration";
 import { saveConfig, loadConfig } from "./database";
 import colorScheme from "./enums/colorSchemes";
 import { effectColors } from "./effects";
+import { clone } from "./utils";
 import { getSortedMilestones, sortMilestones } from "./exports/utils";
 import type { resets, universes, viewModes, additionalInformation } from "./enums";
 import type { Game } from "./game";
@@ -209,6 +210,13 @@ export class ConfigManager {
         };
 
         return this.insertView(view);
+    }
+
+    cloneView(view: View) {
+        const idx = this.views.indexOf(view);
+        if (idx !== -1) {
+            return this.insertView(clone(view.raw), idx + 1);
+        }
     }
 
     removeView(view: View) {

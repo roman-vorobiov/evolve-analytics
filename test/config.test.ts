@@ -29,6 +29,22 @@ describe("Config", () => {
             expect(config.views).toEqual([view1, view2, view3]);
         });
 
+        it("should insert the cloned view after the original", () => {
+            const config = makeConfig({
+                views: [
+                    makeView({}),
+                    makeView({})
+                ]
+            });
+
+            const [view1, view2] = config.views;
+
+            const view3 = config.cloneView(view1);
+            expect(config.openViewIndex).toEqual(1);
+
+            expect(config.views).toEqual([view1, view3, view2]);
+        });
+
         it.each(<Array<keyof typeof universes>> [
             "antimatter",
             "heavy"

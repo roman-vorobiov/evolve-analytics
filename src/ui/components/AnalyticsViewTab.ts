@@ -56,6 +56,9 @@ export default {
         deleteView(this: This) {
             this.config.removeView(this.view);
         },
+        cloneView(this: This) {
+            this.config.cloneView(this.view);
+        },
         async asImage(this: This) {
             this.rendering = true;
 
@@ -102,6 +105,7 @@ export default {
                                 Copy as PNG
                             </span>
                         </button>
+                        <button class="button" @click="cloneView">Clone</button>
                         <button class="button" @click="deleteView">Delete</button>
                     </div>
                 </div>
