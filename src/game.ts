@@ -1,5 +1,5 @@
 import { resets, challengeGenes } from "./enums";
-import { transformMap } from "./utils";
+import { spy, transformMap } from "./utils";
 import type { Temperature } from "./enums";
 import type { Evolve, BuildingInfoTabs, ArpaInfoTab } from "./evolve";
 
@@ -29,6 +29,21 @@ export class Game {
 
     get finishedEvolution() {
         return this.evolve.global.race.species !== "protoplasm"
+    }
+
+    async waitEvolved() {
+        return new Promise<void>(resolve => {
+            if (this.finishedEvolution) {
+                resolve();
+            }
+            else {
+                this.onGameTick(() => {
+                    if (this.finishedEvolution) {
+                        resolve();
+                    }
+                });
+            }
+        })
     }
 
     get resetCounts(): Record<keyof typeof resets, number> {
@@ -136,13 +151,6 @@ export class Game {
     }
 
     private onGameTick(fn: () => void) {
-        let craftCost = this.evolve.craftCost;
-        Object.defineProperty(this.evolve, "craftCost", {
-            get: () => craftCost,
-            set: (value) => {
-                craftCost = value;
-                fn();
-            }
-        });
+        spy(this.evolve, "craftCost", fn);
     }
 }

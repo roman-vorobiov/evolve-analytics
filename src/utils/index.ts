@@ -43,14 +43,42 @@ export function compose<Args extends any[], Ret>(l: (...args: [...Args]) => Ret,
 }
 
 export function spy<F extends Function>(obj: any, key: string, spy: F) {
-    const original = obj[key];
+    let original = obj[key];
 
-    obj[key] = (...args: any) => {
-        spy(...args);
-        return original(...args);
-    };
+    if (original instanceof Function) {
+        obj[key] = (...args: any) => {
+            spy(...args);
+            return original(...args);
+        };
+    }
+    else {
+        Object.defineProperty(obj, key, {
+            configurable: true,
+            get: () => original,
+            set: (value) => {
+                original = value;
+                spy();
+            }
+        });
+    }
 }
 
 export function clone<T>(obj: T): T {
     return JSON.parse(JSON.stringify(obj));
+}
+
+export function waitFocus() {
+    return new Promise<void>(resolve => {
+        if (!document.hidden) {
+            resolve();
+        }
+        else {
+            document.addEventListener("visibilitychange", function impl() {
+                if (!document.hidden) {
+                    document.removeEventListener("visibilitychange", impl);
+                    resolve();
+                }
+            });
+        }
+    });
 }

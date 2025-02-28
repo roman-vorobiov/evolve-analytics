@@ -4,6 +4,7 @@ import { Game } from "./game";
 import { getConfig } from "./config";
 import { initializeHistory } from "./history";
 import { processLatestRun, trackMilestones } from "./runTracking";
+import { waitFocus } from "./utils";
 import { bootstrapUIComponents } from "./ui";
 
 migrate();
@@ -11,23 +12,19 @@ migrate();
 const evolve = await synchronize();
 const game = new Game(evolve);
 
-if (game.finishedEvolution) {
-    const config = getConfig(game);
-    const history = initializeHistory(game, config);
+// The game may refresh after the evolution - wait until it is complete
+await game.waitEvolved();
 
-    processLatestRun(game, config, history);
+const config = getConfig(game);
 
-    const currentRun = trackMilestones(game, config);
+const history = initializeHistory(game, config);
 
-    if (!document.hidden) {
-        bootstrapUIComponents(game, config, history, currentRun);
-    }
-    else {
-        document.addEventListener("visibilitychange", function initializeUI() {
-            if (!document.hidden) {
-                document.removeEventListener("visibilitychange", initializeUI);
-                bootstrapUIComponents(game, config, history, currentRun);
-            }
-        });
-    }
-}
+// Commit the latest run to history or keep it
+processLatestRun(game, config, history);
+
+const currentRun = trackMilestones(game, config);
+
+// Do not touch DOM when the tab is in the background
+await waitFocus();
+
+await bootstrapUIComponents(game, config, history, currentRun);

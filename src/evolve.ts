@@ -37,7 +37,8 @@ export type Evolve = {
                 temp: number
             }
         }
-    }
+    },
+    messageQueue?(msg: string, category: string): void
 }
 
 export const enum EvolveTabs {

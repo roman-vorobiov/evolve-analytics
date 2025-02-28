@@ -103,17 +103,20 @@ async function addAnalyticsTab(game: Game, config: ConfigManager, history: Histo
         }
     };
 
-    // Vanilla evolve does `global.settings.civTabs = $(`#mainTabs > nav ul li`).length - 1`
-    // Replace the button with the mock click handler that assigns the correct tab index
-    const observationButtons = await waitFor("button.observe");
-    const text = observationButtons.first().text();
+    // Because the observation button may not always exist,
+    // use then() instead of await to unblock bootstrapUIComponents() and allow logging in index.ts
+    waitFor("button.observe").then(observationButtons => {
+        // Vanilla evolve does `global.settings.civTabs = $(`#mainTabs > nav ul li`).length - 1`
+        // Replace the button with the mock click handler that assigns the correct tab index
+        const text = observationButtons.first().text();
 
-    const mockButton = $(`<button class="button observe right">${text}</button>`);
-    mockButton.on("click", () => {
-        openTab(EvolveTabs.HellObservations);
+        const mockButton = $(`<button class="button observe right">${text}</button>`);
+        mockButton.on("click", () => {
+            openTab(EvolveTabs.HellObservations);
+        });
+
+        observationButtons.replaceWith(mockButton);
     });
-
-    observationButtons.replaceWith(mockButton);
 }
 
 async function addMainToggle(config: ConfigManager) {
