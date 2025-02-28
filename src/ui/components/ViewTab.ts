@@ -4,9 +4,9 @@ import { nextAnimationFrame } from "../utils";
 import type { ConfigManager, View } from "../../config";
 import type { HistoryManager, HistoryEntry } from "../../history";
 
-import AnalyticsViewSettings from "./AnalyticsViewSettings";
-import AnalyticsMilestoneController from "./AnalyticsMilestoneController";
-import AnalyticsPlot from "./AnalyticsPlot";
+import ViewSettings from "./ViewSettings";
+import MilestoneController from "./MilestoneController";
+import Plot from "./Plot";
 
 type This = {
     $refs: {
@@ -23,9 +23,9 @@ type This = {
 
 export default {
     components: {
-        AnalyticsViewSettings,
-        AnalyticsMilestoneController,
-        AnalyticsPlot
+        ViewSettings,
+        MilestoneController,
+        Plot
     },
     inject: ["config", "history"],
     props: ["view"],
@@ -84,11 +84,11 @@ export default {
     template: `
         <b-tab-item :label="title">
             <div class="flex flex-col gap-m">
-                <analytics-view-settings :view="view"/>
+                <view-settings :view="view"/>
 
-                <analytics-milestone-controller :view="view"/>
+                <milestone-controller :view="view"/>
 
-                <analytics-plot ref="plot" :view="view" @select="(run) => { selectedRun = run }"/>
+                <plot ref="plot" :view="view" @select="(run) => { selectedRun = run }"/>
 
                 <div class="flex flex-row flex-wrap justify-between">
                     <div class="flex flex-row gap-m">

@@ -2,10 +2,7 @@ import { buildings, techs, events, environmentEffects, milestoneTypes } from "..
 import type { View } from "../../config";
 import type { HistoryManager } from "../../history";
 
-import AnalyticsEnumInput from "./AnalyticsEnumInput";
-import AnalyticsNumberInput from "./AnalyticsNumberInput";
-import AnalyticsToggleableNumberInput from "./AnalyticsToggleableNumberInput";
-import AnalyticsPlot from "./AnalyticsPlot";
+import NumberInput from "./NumberInput";
 
 import fuzzysort from "fuzzysort";
 
@@ -33,10 +30,7 @@ type This = {
 
 export default {
     components: {
-        AnalyticsEnumInput,
-        AnalyticsNumberInput,
-        AnalyticsToggleableNumberInput,
-        AnalyticsPlot
+        NumberInput
     },
     inject: ["history"],
     props: ["view"],
@@ -107,7 +101,7 @@ export default {
                 open-on-focus
                 placeholder="e.g. Launch Facility"
             />
-            <analytics-number-input v-if="selected?.type === 'built'" v-model="count" min="1"/>
+            <number-input v-if="selected?.type === 'built'" v-model="count" min="1"/>
 
             <button class="button slim" @click="add" :disabled="selected === null">Add</button>
             <button class="button slim" @click="remove" :disabled="selected === null">Remove</button>

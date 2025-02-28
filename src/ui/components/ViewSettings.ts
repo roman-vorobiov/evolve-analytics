@@ -1,9 +1,9 @@
 import { resets, universes, viewModes, additionalInformation } from "../../enums";
 import type { View } from "../../config";
 
-import AnalyticsEnumInput from "./AnalyticsEnumInput";
-import AnalyticsNumberInput from "./AnalyticsNumberInput";
-import AnalyticsToggleableNumberInput from "./AnalyticsToggleableNumberInput";
+import EnumInput from "./EnumInput";
+import NumberInput from "./NumberInput";
+import ToggleableNumberInput from "./ToggleableNumberInput";
 
 import Vue from "vue";
 
@@ -24,9 +24,9 @@ type This = Vue & {
 
 export default {
     components: {
-        AnalyticsEnumInput,
-        AnalyticsNumberInput,
-        AnalyticsToggleableNumberInput
+        EnumInput,
+        NumberInput,
+        ToggleableNumberInput
     },
     props: ["view"],
     data(this: This) {
@@ -60,19 +60,19 @@ export default {
     template: `
         <div class="flex flex-col flex-wrap gap-m">
             <div class="flex flex-row flex-wrap gap-m theme">
-                <analytics-enum-input v-model="view.resetType" :options="resets">Reset type</analytics-enum-input>
-                <analytics-enum-input v-model="universe" :options="universes">Universe</analytics-enum-input>
-                <analytics-number-input v-model="starLevel" min="0" max="4" placeholder="Any">Star level</analytics-number-input>
+                <enum-input v-model="view.resetType" :options="resets">Reset type</enum-input>
+                <enum-input v-model="universe" :options="universes">Universe</enum-input>
+                <number-input v-model="starLevel" min="0" max="4" placeholder="Any">Star level</number-input>
             </div>
 
             <div class="flex flex-row flex-wrap gap-m theme">
-                <analytics-number-input v-model="daysScale" min="1" placeholder="Auto">Days scale</analytics-number-input>
-                <analytics-toggleable-number-input label="Skip first N runs" v-model="view.skipRuns" min="0" placeholder="None"/>
-                <analytics-toggleable-number-input label="Show last N runs" v-model="view.numRuns" min="1" placeholder="All"/>
+                <number-input v-model="daysScale" min="1" placeholder="Auto">Days scale</number-input>
+                <toggleable-number-input label="Skip first N runs" v-model="view.skipRuns" min="0" placeholder="None"/>
+                <toggleable-number-input label="Show last N runs" v-model="view.numRuns" min="1" placeholder="All"/>
             </div>
 
             <div class="flex flex-row flex-wrap gap-m theme">
-                <analytics-enum-input v-model="view.mode" :options="viewModes">Mode</analytics-enum-input>
+                <enum-input v-model="view.mode" :options="viewModes">Mode</enum-input>
                 <template v-if="view.mode === 'timestamp'">
                     <b-checkbox v-model="view.showBars">Bars</b-checkbox>
                     <b-checkbox v-model="view.showLines">Lines</b-checkbox>
