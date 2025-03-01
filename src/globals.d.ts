@@ -9,6 +9,6 @@ declare module "buefy" {
     }
 
     interface BTabs extends Vue {
-        _registerItem(item: BTabItem): void
+        _registerItem(item: BTabItem): void;
     }
 }

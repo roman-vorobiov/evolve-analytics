@@ -107,6 +107,11 @@ export default {
         selectedRun(this: This) {
             this.$emit("select", this.selectedRun)
         },
+        "config.views": function(this: This) {
+            if (!this.initialized) {
+                this.redraw();
+            }
+        },
         "config.openViewIndex": function(this: This) {
             if (!this.initialized) {
                 this.redraw();

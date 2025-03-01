@@ -36,6 +36,9 @@ export default {
         }
     },
     computed: {
+        id(this: This) {
+            return `analytics-view-tab-${this.view.id}`;
+        },
         title(this: This) {
             if (this.view.universe === "magic" && this.view.resetType === "blackhole") {
                 return "Vacuum Collapse";
@@ -82,7 +85,7 @@ export default {
         }
     },
     template: `
-        <b-tab-item :label="title">
+        <b-tab-item :label="title" :id="id">
             <div class="flex flex-col gap-m">
                 <view-settings :view="view"/>
 

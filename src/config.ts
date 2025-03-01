@@ -34,6 +34,9 @@ export type ViewConfig = {
 }
 
 class ViewUtils {
+    private static idGenerator = 0;
+    private _id = ++ViewUtils.idGenerator;
+
     constructor(private view: ViewConfig, private config: ConfigManager) {
         const self = this;
 
@@ -51,6 +54,10 @@ class ViewUtils {
 
     get raw() {
         return this.view;
+    }
+
+    get id() {
+        return this._id;
     }
 
     set resetType(value: keyof typeof resets) {
