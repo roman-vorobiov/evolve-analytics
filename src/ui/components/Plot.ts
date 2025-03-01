@@ -38,7 +38,8 @@ type This = Vue & {
     currentRun: LatestRun,
     selectedRun: HistoryEntry | null,
     plot: HTMLElement,
-    initialized: boolean,
+    timestamp: number | null,
+    outdated: boolean,
     supportsRealTimeUpdates: boolean,
     redraw(): void,
     copyAsImage(): void,
@@ -51,12 +52,13 @@ export default {
     data() {
         return {
             selectedRun: null,
-            plot: null
+            plot: null,
+            timestamp: null
         };
     },
     computed: {
-        initialized(this: This) {
-            return this.plot.localName !== "div";
+        outdated(this: This) {
+            return this.timestamp === null || (this.supportsRealTimeUpdates && this.timestamp !== this.game.day);
         },
         supportsRealTimeUpdates(this: This) {
             if (!this.config.recordRuns) {
@@ -84,8 +86,9 @@ export default {
     },
     methods: {
         redraw(this: This) {
-            if (this.view.active) {
+            if (this.view.active && this.outdated) {
                 this.plot = this.makeGraph();
+                this.timestamp = this.game.day;
             }
         },
         makeGraph(this: This) {
@@ -107,17 +110,17 @@ export default {
         selectedRun(this: This) {
             this.$emit("select", this.selectedRun)
         },
-        "config.views": function(this: This) {
-            if (!this.initialized) {
-                this.redraw();
-            }
+        "config.active"(this: This) {
+            this.redraw();
         },
-        "config.openViewIndex": function(this: This) {
-            if (!this.initialized) {
-                this.redraw();
-            }
+        "config.openViewIndex"(this: This) {
+            this.redraw();
         },
-        "history.runs": function(this: This) {
+        "config.views"(this: This) {
+            // The index doesn't always change when a view is removed
+            this.redraw();
+        },
+        "history.runs"(this: This) {
             discardCachedState(this.view);
             this.selectedRun = null;
             this.redraw();
