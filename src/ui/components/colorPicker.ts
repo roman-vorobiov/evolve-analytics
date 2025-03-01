@@ -20,89 +20,83 @@ function makeColorPickerTrigger(target: JQuery<HTMLElement>, overflow: number = 
     return trigger;
 }
 
-function attachColorPickerTrigger(trigger: JQuery<HTMLElement>, target: JQuery<HTMLElement>) {
-    target.parent().css("position", "relative");
-    trigger.insertAfter(target);
+type PickrVTable = {
+    onChange: (value: string) => void,
+    onSave: (value: string) => void,
+    onCancel: () => void,
+    currentColor: () => string
 }
 
-const colorPickerCache: Record<string, [Pickr, JQuery<HTMLElement>]> = {};
+// Reuse the same Pickr instance
+let colorPickerInstance: [Pickr, JQuery<HTMLElement>] | null = null;
+const vtable: PickrVTable & { defaultColor: string } = {} as any;
 
-export function makeColorPicker(
-    target: JQuery<HTMLElement>,
-    overflow: number,
-    defaultColor: string,
-    callbacks: {
-        onChange: (value: string) => void,
-        onSave: (value: string) => void,
-        onCancel: () => void,
-        currentColor: () => string
+function getPickrInstance(): [Pickr, JQuery<HTMLElement>] {
+    if (colorPickerInstance !== null) {
+        return colorPickerInstance
     }
-) {
-    let pickr: Pickr;
-    let trigger: JQuery<HTMLElement>;
 
-    // The Pickr instances are not destroyd on redraws, which leads to memory leaks
-    // Reuse existing ones instead
-    const cacheKey = `${target.attr("data-view")}/${target.attr("data-milestone")}`;
-    if (cacheKey in colorPickerCache) {
-        [pickr, trigger] = colorPickerCache[cacheKey];
+    const trigger = $(`<button></button>`);
 
-        pickr.setColor(defaultColor, true);
+    const pickr = new Pickr({
+        container: "#mTabAnalytics > div.b-tabs > section.tab-content",
+        el: trigger[0],
 
-        // The instance has callbacks from previous instantiation, clear them
-        (pickr as any)._eventListener.hide = [];
-        (pickr as any)._eventListener.save = [];
-        (pickr as any)._eventListener.change = [];
-    }
-    else {
-        trigger = makeColorPickerTrigger(target, overflow);
+        useAsButton: true,
+        position: "top-middle",
 
-        pickr = new Pickr({
-            container: "#mTabAnalytics",
-            el: trigger[0],
+        theme: "classic",
+        appClass: "color-picker",
 
-            useAsButton: true,
-            position: "top-middle",
+        lockOpacity: true,
 
-            theme: "classic",
-            appClass: "color-picker",
+        swatches: Object.values(colorScheme),
 
-            lockOpacity: true,
-            default: defaultColor,
-
-            swatches: Object.values(colorScheme),
-
-            components: {
-                palette: true,
-                hue: true,
-                interaction: {
-                    input: true,
-                    save: true
-                }
+        components: {
+            palette: true,
+            hue: true,
+            interaction: {
+                input: true,
+                save: true
             }
-        });
-
-        colorPickerCache[cacheKey] = [pickr, trigger];
-    }
+        }
+    });
 
     pickr.on("hide", (instance: Pickr) => {
-        if (instance.getColor().toHEXA().toString() !== callbacks.currentColor()) {
-            instance.setColor(defaultColor);
-            callbacks.onCancel();
+        if (instance.getColor().toHEXA().toString() !== vtable.currentColor()) {
+            instance.setColor(vtable.defaultColor);
+            vtable.onCancel();
         }
     });
 
     pickr.on("save", (value: Pickr.HSVaColor | null, instance: Pickr) => {
         const hex = value?.toHEXA().toString();
         if (hex !== undefined) {
-            callbacks.onSave(hex);
+            vtable.onSave(hex);
         }
         instance.hide();
     });
 
     pickr.on("change", (value: Pickr.HSVaColor) => {
-        callbacks.onChange(value.toHEXA().toString());
+        vtable.onChange(value.toHEXA().toString());
     });
 
-    attachColorPickerTrigger(trigger, target);
+    return colorPickerInstance = [pickr, trigger];
+}
+
+export function makeColorPicker(target: JQuery<HTMLElement>, overflow: number, defaultColor: string, instanceCallbacks: PickrVTable) {
+    const [pickr, trigger] = getPickrInstance();
+
+    const wrapper = makeColorPickerTrigger(target, overflow).on("click", function() {
+        Object.assign(vtable, { ...instanceCallbacks, defaultColor });
+        pickr.setColor(defaultColor, true);
+
+        trigger.prop("style", $(this).attr("style"));
+        trigger.insertAfter(target);
+
+        trigger.trigger("click");
+    });
+
+    target.parent().css("position", "relative");
+    wrapper.insertAfter(target);
 }
