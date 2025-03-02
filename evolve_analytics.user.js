@@ -1,22 +1,23 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.14.13
+// @version      0.15.0
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
 // @resource     PICKR_CSS https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/themes/classic.min.css
 // @require      https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/pickr.min.js
+// @require      https://cdn.jsdelivr.net/npm/fuzzysort@3.1.0/fuzzysort.min.js
+// @require      https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js
 // @require      https://cdn.jsdelivr.net/npm/d3@7
 // @require      https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6.17
 // @require      https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.min.js
 // @require      https://code.jquery.com/jquery-3.7.1.min.js
-// @require      https://code.jquery.com/ui/1.12.1/jquery-ui.min.js
 // @grant        GM_getResourceText
 // @grant        GM_addStyle
 // ==/UserScript==
 
-/*global $ Plot htmlToImage LZString Pickr Vue*/
+/*global $ Plot htmlToImage LZString Pickr Vue fuzzysort Sortable*/
 
 GM_addStyle(GM_getResourceText("PICKR_CSS"));
 
@@ -1230,12 +1231,6 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         inspired: "Inspired",
         motivated: "Motivated"
     };
-    const milestoneTypes = {
-        built: "Built",
-        tech: "Researched",
-        event: "Event",
-        effect: "Environment effect"
-    };
     const viewModes = {
         timestamp: "Timestamp",
         duration: "Duration",
@@ -1325,6 +1320,50 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
     }
     function compose(l, r) {
         return (...args) => l(...args) && r(...args);
+    }
+    function spy(obj, key, spy) {
+        let original = obj[key];
+        if (original instanceof Function) {
+            obj[key] = (...args) => {
+                spy(...args);
+                return original(...args);
+            };
+        }
+        else {
+            Object.defineProperty(obj, key, {
+                configurable: true,
+                get: () => original,
+                set: (value) => {
+                    original = value;
+                    spy();
+                }
+            });
+        }
+    }
+    function clone(obj) {
+        return JSON.parse(JSON.stringify(obj));
+    }
+    function waitFocus() {
+        return new Promise(resolve => {
+            if (!document.hidden) {
+                resolve();
+            }
+            else {
+                document.addEventListener("visibilitychange", function impl() {
+                    if (!document.hidden) {
+                        document.removeEventListener("visibilitychange", impl);
+                        resolve();
+                    }
+                });
+            }
+        });
+    }
+    function moveElement(list, from, to) {
+        if (to !== from) {
+            const item = list[from];
+            list.splice(from, 1);
+            list.splice(to, 0, item);
+        }
     }
 
     function makeCondition(description) {
@@ -2004,25 +2043,9 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         });
     }
 
-    class Subscribable {
-        callbacks = {};
-        on(event, callback) {
-            (this.callbacks[event] ??= []).push(callback);
-        }
-        emit(event, arg) {
-            this.invoke(event, arg);
-            this.invoke("*", arg);
-        }
-        invoke(event, arg) {
-            this.callbacks[event]?.forEach(cb => cb(arg));
-        }
-    }
-
-    class Game extends Subscribable {
+    class Game {
         evolve;
-        subscribed = false;
         constructor(evolve) {
-            super();
             this.evolve = evolve;
         }
         get runNumber() {
@@ -2044,6 +2067,20 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         }
         get finishedEvolution() {
             return this.evolve.global.race.species !== "protoplasm";
+        }
+        async waitEvolved() {
+            return new Promise(resolve => {
+                if (this.finishedEvolution) {
+                    resolve();
+                }
+                else {
+                    this.onGameTick(() => {
+                        if (this.finishedEvolution) {
+                            resolve();
+                        }
+                    });
+                }
+            });
         }
         get resetCounts() {
             return transformMap(resets, ([reset]) => [reset, this.evolve.global.stats[reset] ?? 0]);
@@ -2119,31 +2156,17 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             return this.evolve.global.stats.dkills ?? 0;
         }
         onGameDay(fn) {
-            this.on("newDay", fn);
-            if (!this.subscribed) {
-                this.subscribeToGameUpdates();
-                this.subscribed = true;
-            }
-        }
-        subscribeToGameUpdates() {
             let previousDay = null;
             this.onGameTick(() => {
                 const day = this.day;
                 if (previousDay !== day) {
-                    this.emit("newDay", this.day);
                     previousDay = day;
+                    fn(day);
                 }
             });
         }
         onGameTick(fn) {
-            let craftCost = this.evolve.craftCost;
-            Object.defineProperty(this.evolve, "craftCost", {
-                get: () => craftCost,
-                set: (value) => {
-                    craftCost = value;
-                    fn();
-                }
-            });
+            spy(this.evolve, "craftCost", fn);
         }
     }
 
@@ -2262,101 +2285,91 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         return Object.keys(view.milestones).sort((l, r) => view.milestones[l].index - view.milestones[r].index);
     }
 
-    class ViewUtils extends Subscribable {
+    class ViewUtils {
         view;
         config;
         static idGenerator = 0;
         _id = ++ViewUtils.idGenerator;
         constructor(view, config) {
-            super();
             this.view = view;
             this.config = config;
-            this.on("updated", () => {
-                this.config.emit("viewUpdated", this);
-            });
             const self = this;
             return new Proxy(view, {
                 get(obj, prop, receiver) {
                     return Reflect.get(self, prop, receiver)
-                        || Reflect.get(view, prop, receiver);
+                        ?? Reflect.get(view, prop, receiver);
                 },
                 set(obj, prop, value, receiver) {
-                    if (value === view[prop]) {
-                        return true;
-                    }
-                    const ret = Reflect.set(self, prop, value, receiver)
+                    return Reflect.set(self, prop, value, receiver)
                         || Reflect.set(view, prop, value, receiver);
-                    self.emit("updated", receiver);
-                    return ret;
                 }
             });
         }
-        get numRuns() {
-            return this.makeLimitWrapper("numRuns");
+        get raw() {
+            return this.view;
         }
-        get skipRuns() {
-            return this.makeLimitWrapper("skipRuns");
-        }
-        set resetType(value) {
-            const info = this.view.milestones[`reset:${this.view.resetType}`];
-            delete this.view.milestones[`reset:${this.view.resetType}`];
-            this.view.milestones[`reset:${value}`] = info;
-            this.view.resetType = value;
-        }
-        id() {
+        get id() {
             return this._id;
         }
-        index() {
+        get name() {
+            return this.view.name;
+        }
+        set name(value) {
+            this.view.name = value;
+        }
+        set resetType(value) {
+            const oldKey = `reset:${this.view.resetType}`;
+            const newKey = `reset:${value}`;
+            const info = this.view.milestones[oldKey];
+            Vue.delete(this.view.milestones, oldKey);
+            Vue.set(this.view.milestones, newKey, info);
+            this.view.resetType = value;
+        }
+        get active() {
+            return this.config.openViewIndex === this.index;
+        }
+        get index() {
             return this.config.views.indexOf(this);
         }
         addMilestone(milestone) {
-            const index = Object.entries(this.view.milestones).length;
-            const colors = Object.values(Observable10);
-            const color = effectColors[milestone] ?? colors[index % colors.length];
-            this.view.milestones[milestone] = { index, enabled: true, color };
-            this.emit("updated", this);
+            if (!(milestone in this.view.milestones)) {
+                const index = Object.entries(this.view.milestones).length;
+                const colors = Object.values(Observable10);
+                const color = effectColors[milestone] ?? colors[index % colors.length];
+                Vue.set(this.view.milestones, milestone, { index, enabled: true, color });
+            }
         }
         removeMilestone(milestone) {
             if (milestone in this.view.milestones) {
-                delete this.view.milestones[milestone];
+                Vue.delete(this.view.milestones, milestone);
                 this.updateMilestoneOrder(getSortedMilestones(this.view));
-                this.emit("updated", this);
             }
         }
         toggleMilestone(milestone) {
             const info = this.view.milestones[milestone];
             if (info !== undefined) {
                 info.enabled = !info.enabled;
-                this.emit("updated", this);
             }
         }
         setMilestoneColor(milestone, color) {
             const info = this.view.milestones[milestone];
             if (info !== undefined) {
                 info.color = color;
-                this.emit("updated", this);
             }
         }
-        moveMilestone(milestone, newIndex) {
-            const oldIndex = this.view.milestones[milestone]?.index;
-            if (oldIndex >= 0 && oldIndex !== newIndex) {
-                const milestones = getSortedMilestones(this.view);
-                milestones.splice(oldIndex, 1);
-                milestones.splice(newIndex, 0, milestone);
-                this.updateMilestoneOrder(milestones);
-                this.emit("updated", this);
-            }
+        moveMilestone(from, to) {
+            const milestones = getSortedMilestones(this.view);
+            moveElement(milestones, from, to);
+            this.updateMilestoneOrder(milestones);
         }
         sortMilestones(history) {
             sortMilestones(this, history);
-            this.emit("updated", this);
         }
         resetColors() {
             const colors = Object.values(Observable10);
             for (const [milestone, info] of Object.entries(this.view.milestones)) {
                 info.color = effectColors[milestone] ?? colors[info.index % colors.length];
             }
-            this.emit("updated", this);
         }
         toggleAdditionalInfo(key) {
             const idx = this.view.additionalInfo.indexOf(key);
@@ -2366,26 +2379,6 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             else {
                 this.view.additionalInfo.push(key);
             }
-            this.emit("updated", this);
-        }
-        makeLimitWrapper(prop) {
-            const self = this;
-            return {
-                get enabled() {
-                    return self.view[prop].enabled;
-                },
-                set enabled(value) {
-                    self.view[prop].enabled = value;
-                    self.emit("updated", self);
-                },
-                get value() {
-                    return self.view[prop].value;
-                },
-                set value(value) {
-                    self.view[prop].value = value;
-                    self.emit("updated", self);
-                }
-            };
         }
         updateMilestoneOrder(milestones) {
             for (let i = 0; i !== milestones.length; ++i) {
@@ -2396,21 +2389,27 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
     function makeViewProxy(config, view) {
         return new ViewUtils(view, config);
     }
-    class ConfigManager extends Subscribable {
+    class ConfigManager {
         game;
         config;
-        milestones;
-        views;
+        _views;
         constructor(game, config) {
-            super();
             this.game = game;
-            this.config = config;
-            this.milestones = this.collectMilestones();
-            this.views = this.config.views.map(v => makeViewProxy(this, v));
-            this.on("*", () => {
-                saveConfig(this.config);
-                this.milestones = this.collectMilestones();
-            });
+            this.config = Vue.reactive(config);
+            this.watch(() => saveConfig(this.config));
+            this._views = this.config.views.map(v => makeViewProxy(this, v));
+        }
+        watch(callback, immediate = false) {
+            Vue.watch(this.config, callback, { deep: true, immediate });
+        }
+        get active() {
+            return this.config.active ?? false;
+        }
+        set active(value) {
+            this.config.active = value;
+        }
+        get views() {
+            return this._views;
         }
         get recordRuns() {
             return this.config.recordRuns;
@@ -2418,7 +2417,6 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         set recordRuns(value) {
             if (value !== this.config.recordRuns) {
                 this.config.recordRuns = value;
-                this.emit("updated", this);
             }
         }
         get additionalInfoToTrack() {
@@ -2428,16 +2426,8 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         get openViewIndex() {
             return this.config.lastOpenViewIndex;
         }
-        get openView() {
-            if (this.openViewIndex !== undefined) {
-                return this.views[this.openViewIndex];
-            }
-        }
-        viewOpened(view) {
-            const idx = this.views.indexOf(view);
-            this.config.lastOpenViewIndex = idx === -1 ? undefined : idx;
-            // don't emit an event as this is purely a visual thing
-            saveConfig(this.config);
+        set openViewIndex(index) {
+            this.config.lastOpenViewIndex = index;
         }
         addView() {
             const colors = Object.values(Observable10);
@@ -2457,37 +2447,40 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
                 },
                 additionalInfo: []
             };
-            const proxy = makeViewProxy(this, view);
-            this.config.views.push(view);
-            this.views.push(proxy);
-            this.config.lastOpenViewIndex = this.views.length - 1;
-            this.emit("viewAdded", proxy);
-            return proxy;
+            return this.insertView(view);
+        }
+        cloneView(view) {
+            const idx = this.views.indexOf(view);
+            if (idx !== -1) {
+                return this.insertView(clone(view.raw), idx + 1);
+            }
         }
         removeView(view) {
             const idx = this.views.indexOf(view);
             if (idx !== -1) {
                 this.config.views.splice(idx, 1);
-                this.views.splice(idx, 1);
-                if (idx === this.config.lastOpenViewIndex) {
-                    if (this.views.length === 0) {
-                        this.config.lastOpenViewIndex = undefined;
-                    }
-                    else {
-                        // Open the view on the left or, if the leftmost one was deleted, on the right
-                        this.config.lastOpenViewIndex = Math.max(0, this.config.lastOpenViewIndex - 1);
-                    }
+                const removed = this.views.splice(idx, 1);
+                if (idx !== 0) {
+                    this.openViewIndex = idx - 1;
                 }
-                this.emit("viewRemoved", view);
+                else if (this.views.length === 0) {
+                    this.openViewIndex = undefined;
+                }
+                return removed[0];
             }
         }
-        collectMilestones() {
-            const uniqueMilestones = new Set(this.config.views.flatMap(v => {
-                return Object.entries(v.milestones)
-                    .filter(([milestone]) => !milestone.startsWith("reset:"))
-                    .map(([milestone]) => milestone);
-            }));
-            return Array.from(uniqueMilestones);
+        moveView(oldIndex, newIndex) {
+            moveElement(this.views, oldIndex, newIndex);
+            moveElement(this.config.views, oldIndex, newIndex);
+            this.openViewIndex = newIndex;
+        }
+        insertView(view, index) {
+            index ??= this.views.length;
+            const proxy = makeViewProxy(this, view);
+            this.config.views.splice(index, 0, view);
+            this.views.splice(index, 0, proxy);
+            this.openViewIndex = index;
+            return proxy;
         }
     }
     function getConfig(game) {
@@ -2509,32 +2502,6 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
     function isPreviousRun(runStats, game) {
         return runStats.run === game.runNumber - 1;
     }
-    function restoreToDay(run, day) {
-        run.milestones = filterMap(run.milestones, ([, timestamp]) => timestamp <= day);
-        run.activeEffects = filterMap(run.activeEffects, ([, startDay]) => startDay <= day);
-        run.effectsHistory = run.effectsHistory.filter(([, , endDay]) => endDay <= day);
-        run.totalDays = day;
-    }
-    function processLatestRun(game, config, history) {
-        const latestRun = loadLatestRun();
-        if (latestRun === null) {
-            return;
-        }
-        if (isCurrentRun(latestRun, game)) {
-            // If it is the current run, check if we loaded an earlier save - discard any milestones "from the future"
-            restoreToDay(latestRun, game.day);
-            saveCurrentRun(latestRun);
-        }
-        else {
-            // If it's not the current run, discard it so that we can start tracking from scratch
-            discardLatestRun();
-            // The game refreshes the page after a reset
-            // Thus, if the latest run is the previous one, it can be comitted to history
-            if (isPreviousRun(latestRun, game) && config.recordRuns) {
-                history.commitRun(latestRun);
-            }
-        }
-    }
     function makeNewRunStats(game) {
         return {
             run: game.runNumber,
@@ -2546,98 +2513,56 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             effectsHistory: []
         };
     }
-    function updateMilestones(runStats, checkers) {
-        for (const { milestone, reached } of checkers) {
-            // Don't check completed milestones
-            if (milestone in runStats.milestones) {
-                continue;
+    function restoreToDay(run, day) {
+        return {
+            ...run,
+            milestones: filterMap(run.milestones, ([, timestamp]) => timestamp <= day),
+            activeEffects: filterMap(run.activeEffects, ([, startDay]) => startDay <= day),
+            effectsHistory: run.effectsHistory.filter(([, , endDay]) => endDay <= day),
+            totalDays: day
+        };
+    }
+    function prepareCurrentRunImpl(game, config, history) {
+        const latestRun = loadLatestRun();
+        if (latestRun === null) {
+            // No pending run - creare a new one
+            return makeNewRunStats(game);
+        }
+        else if (isCurrentRun(latestRun, game)) {
+            // If it is the current run, check if we loaded an earlier save - discard any milestones "from the future"
+            return restoreToDay(latestRun, game.day);
+        }
+        else {
+            // The game refreshes the page after a reset
+            // Thus, if the latest run is the previous one, it can be comitted to history
+            if (isPreviousRun(latestRun, game) && config.recordRuns) {
+                history.commitRun(latestRun);
             }
-            if (isEffectMilestone(milestone)) {
-                const isActive = reached();
-                const startDay = runStats.activeEffects[milestone];
-                if (isActive && startDay === undefined) {
-                    runStats.activeEffects[milestone] = runStats.totalDays;
-                }
-                else if (!isActive && startDay !== undefined) {
-                    runStats.effectsHistory.push([milestone, startDay, runStats.totalDays - 1]);
-                    delete runStats.activeEffects[milestone];
-                }
-            }
-            else if (reached()) {
-                // Since this callback is invoked at the beginning of a day,
-                // the milestone was reached the previous day
-                runStats.milestones[milestone] = Math.max(0, runStats.totalDays - 1);
-            }
+            return makeNewRunStats(game);
         }
     }
-    function junkTraits(game) {
-        if (!game.finishedEvolution) {
-            return undefined;
-        }
-        const hasJunkGene = game.hasChallengeGene("no_crispr");
-        const hasBadGenes = game.hasChallengeGene("badgenes");
-        if (!hasJunkGene && !hasBadGenes) {
-            return {};
-        }
-        // All negative major traits that have different rank from this race's base number
-        let traits = game.majorTraits
-            .filter(t => game.traitValue(t) < 0)
-            .filter(t => game.currentTraitRank(t) !== game.baseTraitRank(t));
-        // The imitated negative trait is included - keep it only if it got upgraded
-        if (traits.length > (hasBadGenes ? 3 : 1)) {
-            traits = traits.filter(t => !game.imitatedTraits.includes(t));
-        }
-        return Object.fromEntries(traits.map(t => [t, game.currentTraitRank(t)]));
-    }
-    function updateAdditionalInfo(runStats, game) {
-        runStats.starLevel ??= game.starLevel;
-        runStats.universe ??= game.universe;
-        runStats.raceName ??= game.raceName;
-        runStats.junkTraits ??= junkTraits(game);
-        runStats.combatDeaths = game.combatDeaths;
-    }
-    function withEventConditions(milestones) {
-        const hasPrecondition = (event) => eventsInfo[event].conditionMet !== undefined;
-        const conditions = milestones
-            .map(patternMatcher([[/event:(.+)/, (id) => hasPrecondition(id) ? `event_condition:${id}` : undefined]]))
-            .filter(m => m !== undefined);
-        return [...conditions, ...milestones];
-    }
-    function makeMilestoneCheckers(game, config) {
-        return withEventConditions(config.milestones).map(m => makeMilestoneChecker(game, m));
-    }
-    function trackMilestones(game, config) {
-        const currentRunStats = loadLatestRun() ?? makeNewRunStats(game);
-        let checkers = makeMilestoneCheckers(game, config);
-        config.on("*", () => {
-            checkers = makeMilestoneCheckers(game, config);
-        });
-        game.onGameDay(day => {
-            if (!config.recordRuns) {
-                return;
-            }
-            currentRunStats.totalDays = day;
-            updateAdditionalInfo(currentRunStats, game);
-            updateMilestones(currentRunStats, checkers);
-            saveCurrentRun(currentRunStats);
-        });
-        return currentRunStats;
+    function prepareCurrentRun(game, config, history) {
+        const run = Vue.reactive(prepareCurrentRunImpl(game, config, history));
+        Vue.watch(run, () => saveCurrentRun(run), { deep: true });
+        return run;
     }
 
-    class HistoryManager extends Subscribable {
+    class HistoryManager {
         game;
         config;
         history;
         milestones;
+        length;
         constructor(game, config, history) {
-            super();
             this.game = game;
             this.config = config;
             this.history = history;
+            this.length = Vue.ref(history.runs.length);
+            this.watch(() => saveHistory(history));
             this.milestones = rotateMap(history.milestones);
-            this.on("*", () => {
-                saveHistory(this.history);
-            });
+        }
+        watch(callback) {
+            Vue.watch(this.length, callback);
         }
         get milestoneIDs() {
             return this.history.milestones;
@@ -2649,7 +2574,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             const idx = this.runs.indexOf(run);
             if (idx !== -1) {
                 this.history.runs.splice(idx, 1);
-                this.emit("updated", this);
+                this.length.value = this.runs.length;
             }
         }
         commitRun(runStats) {
@@ -2674,7 +2599,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             };
             this.augmentEntry(entry, runStats);
             this.history.runs.push(entry);
-            this.emit("updated", this);
+            this.length.value = this.runs.length;
         }
         getMilestone(id) {
             return this.milestones[id];
@@ -2706,6 +2631,88 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
     function initializeHistory(game, config) {
         const history = loadHistory() ?? blankHistory();
         return new HistoryManager(game, config, history);
+    }
+
+    function updateMilestones(runStats, checkers) {
+        for (const { milestone, reached } of checkers) {
+            // Don't check completed milestones
+            if (milestone in runStats.milestones) {
+                continue;
+            }
+            if (isEffectMilestone(milestone)) {
+                const isActive = reached();
+                const startDay = runStats.activeEffects[milestone];
+                if (isActive && startDay === undefined) {
+                    Vue.set(runStats.activeEffects, milestone, runStats.totalDays);
+                }
+                else if (!isActive && startDay !== undefined) {
+                    runStats.effectsHistory.push([milestone, startDay, runStats.totalDays - 1]);
+                    Vue.delete(runStats.activeEffects, milestone);
+                }
+            }
+            else if (reached()) {
+                // Since this callback is invoked at the beginning of a day,
+                // the milestone was reached the previous day
+                Vue.set(runStats.milestones, milestone, Math.max(0, runStats.totalDays - 1));
+            }
+        }
+    }
+    function junkTraits(game) {
+        if (!game.finishedEvolution) {
+            return undefined;
+        }
+        const hasJunkGene = game.hasChallengeGene("no_crispr");
+        const hasBadGenes = game.hasChallengeGene("badgenes");
+        if (!hasJunkGene && !hasBadGenes) {
+            return {};
+        }
+        // All negative major traits that have different rank from this race's base number
+        let traits = game.majorTraits
+            .filter(t => game.traitValue(t) < 0)
+            .filter(t => game.currentTraitRank(t) !== game.baseTraitRank(t));
+        // The imitated negative trait is included - keep it only if it got upgraded
+        if (traits.length > (hasBadGenes ? 3 : 1)) {
+            traits = traits.filter(t => !game.imitatedTraits.includes(t));
+        }
+        return Object.fromEntries(traits.map(t => [t, game.currentTraitRank(t)]));
+    }
+    function updateAdditionalInfo(runStats, game) {
+        Vue.set(runStats, "starLevel", game.starLevel);
+        Vue.set(runStats, "universe", game.universe);
+        Vue.set(runStats, "raceName", game.raceName);
+        Vue.set(runStats, "junkTraits", junkTraits(game));
+        Vue.set(runStats, "combatDeaths", game.combatDeaths);
+    }
+    function withEventConditions(milestones) {
+        const hasPrecondition = (event) => eventsInfo[event].conditionMet !== undefined;
+        const conditions = milestones
+            .map(patternMatcher([[/event:(.+)/, (id) => hasPrecondition(id) ? `event_condition:${id}` : undefined]]))
+            .filter(m => m !== undefined);
+        return [...conditions, ...milestones];
+    }
+    function collectMilestones(config) {
+        const uniqueMilestones = new Set(config.views.flatMap(v => {
+            return Object.entries(v.milestones)
+                .filter(([milestone]) => !milestone.startsWith("reset:"))
+                .map(([milestone]) => milestone);
+        }));
+        return Array.from(uniqueMilestones);
+    }
+    function makeMilestoneCheckers(game, config) {
+        const milestones = collectMilestones(config);
+        return withEventConditions(milestones).map(m => makeMilestoneChecker(game, m));
+    }
+    function trackMilestones(currentRun, game, config) {
+        let checkers = [];
+        config.watch(() => { checkers = makeMilestoneCheckers(game, config); }, true /*immediate*/);
+        game.onGameDay(day => {
+            if (!config.recordRuns) {
+                return;
+            }
+            currentRun.totalDays = day;
+            updateAdditionalInfo(currentRun, game);
+            updateMilestones(currentRun, checkers);
+        });
     }
 
     var styles = `
@@ -2845,14 +2852,44 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             width: 100%;
         }
 
-        .crossed {
-            text-decoration: line-through;
+        .flex {
+            display: flex;
         }
 
-        .flex-container {
-            display: flex;
+        .flex-row {
+            flex-direction: row;
+        }
+
+        .flex-col {
+            flex-direction: column;
+        }
+
+        .flex-wrap {
             flex-wrap: wrap;
-            gap: 8px;
+        }
+
+        .justify-between {
+            justify-content: space-between;
+        }
+
+        .justify-end {
+            justify-content: flex-end;
+        }
+
+        .self-center {
+            align-self: center;
+        }
+
+        .order-last {
+            order: calc(infinity);
+        }
+
+        .gap-s {
+            gap: 0.5em;
+        }
+
+        .gap-m {
+            gap: 1em;
         }
 
         .color-picker {
@@ -2874,38 +2911,512 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             }
         }
 
-        .sortable-placeholder {
-            position: relative;
-            height: 1rem;
-            width: 100px;
-            margin-right: 1.5em;
-            background: #1d2021;
+        #mTabAnalytics {
+            input::-webkit-outer-spin-button,
+            input::-webkit-inner-spin-button {
+                -webkit-appearance: none;
+                margin: 0;
+                text-align: center;
+            }
+
+            input[type=number] {
+                -moz-appearance: textfield;
+                text-align: center;
+                border-radius: 0;
+            }
+
+            input[type="text"] {
+                height: 1.5rem;
+            }
+
+            input[type="number"] {
+                height: 1.5rem;
+            }
+
+            .input {
+                vertical-align: bottom;
+            }
+
+            .theme {
+                margin-bottom: 0;
+            }
+
+            .slim {
+                height: 1.5rem;
+            }
+
+            .crossed {
+                text-decoration: line-through;
+            }
+
+            span.add {
+                line-height: normal;
+                width: 1.5rem;
+                height: 1.5rem;
+            }
+
+            span.sub {
+                line-height: normal;
+                width: 1.5rem;
+                height: 1.5rem;
+            }
+
+            div.b-slider {
+                width: 10rem;
+            }
+
+            .b-checkbox.checkbox .control-label {
+                padding-left: 0.5rem;
+            }
+
+            .b-checkbox.checkbox:not(.button) {
+                margin-right: 0;
+            }
+
+            .b-slider {
+                margin: 0 0 0 1rem;
+                align-self: center;
+            }
+
+            .b-slider-fill {
+                top: unset;
+                transform: unset;
+            }
+
+            .autocomplete.control {
+                flex-grow: 1;
+            }
+
+            .dropdown {
+                width: fit-content;
+
+                button {
+                    width: 9rem;
+                }
+            }
+
+            .dropdown-menu {
+                flex-grow: 1;
+                min-width: 9rem;
+            }
+
+            .dropdown-content {
+                scrollbar-width: thin;
+                flex-grow: 1;
+            }
+
+            div.dropdown-item {
+                color: unset;
+            }
+
+            .dropdown-item {
+                width: 100%;
+                padding-left: 1rem;
+                padding-right: 1rem;
+            }
+
+            .view-tab-header {
+                max-width: 15em;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+            }
+
+            .tabs li.has-text-warning a {
+                color: unset;
+            }
         }
 
         li[role="tab"].is-disabled {
             display: none !important;
         }
 
-        #settings.slide-prev-leave-to {
-            position: absolute !important;
-        }
+        #settings {
+            &.slide-prev-leave-to {
+                position: absolute !important;
+            }
 
-        #settings.slide-next-leave-to {
-            position: absolute !important;
-        }
+            &.slide-next-leave-to {
+                position: absolute !important;
+            }
 
-        #settings.slide-prev-enter {
-            position: absolute !important;
-        }
+            &.slide-prev-enter {
+                position: absolute !important;
+            }
 
-        #settings.slide-next-enter {
-            position: absolute !important;
+            &.slide-next-enter {
+                position: absolute !important;
+            }
         }
 
         #mainColumn {
             overflow: hidden;
         }
     `;
+
+    function waitFor(query) {
+        return new Promise(resolve => {
+            const node = $(query);
+            if (node.length !== 0) {
+                return resolve(node);
+            }
+            const observer = new MutationObserver(() => {
+                const node = $(query);
+                if (node.length !== 0) {
+                    observer.disconnect();
+                    resolve(node);
+                }
+            });
+            observer.observe(document.body, {
+                childList: true,
+                subtree: true
+            });
+        });
+    }
+
+    const scale = 2;
+    function context2d(width, height, canvasWidth, canvasHeight) {
+        canvasWidth ??= width;
+        canvasHeight ??= height;
+        const canvas = document.createElement("canvas");
+        canvas.width = width * scale;
+        canvas.height = height * scale;
+        canvas.style.width = canvasWidth + "px";
+        canvas.style.height = canvasHeight + "px";
+        const context = canvas.getContext("2d");
+        context.scale(scale, scale);
+        return context;
+    }
+    async function graphToCanvas(plot) {
+        const backgroundColor = $("html").css("background-color");
+        const color = $(plot).css("color");
+        const font = $(plot).css("font");
+        const style = `
+            <style>
+                svg {
+                    display: block;
+                    background: ${backgroundColor};
+                }
+
+                svg text {
+                    white-space: pre;
+                    color: ${color};
+                    font: ${font};
+                }
+
+                [stroke="currentColor"] {
+                    color: ${color};
+                }
+            </style>
+        `;
+        const canvasWidth = $(plot).width();
+        const canvasHeight = $(plot).height();
+        const { width, height } = plot.viewBox.baseVal;
+        const context = context2d(width, height, canvasWidth, canvasHeight);
+        const im = new Image();
+        im.width = width;
+        im.height = height;
+        $(plot).attr("xmlns", "http://www.w3.org/2000/svg");
+        const idx = -"</svg>".length;
+        im.src = "data:image/svg+xml," + encodeURIComponent(plot.outerHTML.slice(0, idx) + style + plot.outerHTML.slice(idx));
+        return new Promise((resolve) => {
+            im.onload = () => {
+                context.drawImage(im, 0, 0, width, height);
+                resolve(context.canvas);
+            };
+        });
+    }
+    async function legendToCanvas(legend) {
+        const backgroundColor = $("html").css("background-color");
+        const width = $(legend).width();
+        const height = $(legend).height();
+        legend.style.setProperty("max-width", `${width}px`);
+        legend.style.setProperty("max-height", `${height}px`);
+        const canvas = await htmlToImage.toCanvas(legend, {
+            backgroundColor,
+            width: width,
+            height: height,
+            pixelRatio: scale,
+            skipFonts: true,
+            filter: e => e.localName !== "button"
+        });
+        canvas.style.width = width + "px";
+        canvas.style.height = height + "px";
+        legend.style.removeProperty("max-width");
+        legend.style.removeProperty("max-height");
+        return canvas;
+    }
+    async function plotToCanvas(plot) {
+        const legendCanvas = await legendToCanvas($(plot).find("> div")[0]);
+        const graphCanvas = await graphToCanvas($(plot).find("> svg")[0]);
+        const legendHeight = parseFloat(legendCanvas.style.height);
+        const graphHeight = parseFloat(graphCanvas.style.height);
+        const height = legendHeight + graphHeight;
+        const width = parseFloat(legendCanvas.style.width);
+        const context = context2d(width, height);
+        context.drawImage(legendCanvas, 0, 0, width, legendHeight);
+        context.drawImage(graphCanvas, 0, legendHeight, width, graphHeight);
+        return context.canvas;
+    }
+
+    var EnumInput = {
+        props: ["value", "options", "label"],
+        template: `
+            <div class="flex gap-s">
+                <label class="self-center">
+                    <slot/>
+                </label>
+                <b-dropdown hoverable>
+                    <button class="button is-primary" slot="trigger">
+                        <span>{{ options[value] }}</span>
+                        <i class="fas fa-sort-down"></i>
+                    </button>
+                    <b-dropdown-item v-for="(label, key) in options" :key="key" @click="$emit('input', key)">{{ label }}</b-dropdown-item>
+                </b-dropdown>
+            </div>
+        `
+    };
+
+    var NumberInput = {
+        props: ["value", "placeholder", "min", "max", "disabled"],
+        methods: {
+            add() {
+                this.$refs.input.stepUp();
+                this.onChange(this.$refs.input.value);
+            },
+            subtract() {
+                this.$refs.input.stepDown();
+                this.onChange(this.$refs.input.value);
+            },
+            onChange(rawValue) {
+                if (rawValue === "") {
+                    this.$emit("input", undefined);
+                }
+                else {
+                    let value = Number(rawValue);
+                    if (this.min !== undefined) {
+                        value = Math.max(this.min, value);
+                    }
+                    if (this.max !== undefined) {
+                        value = Math.min(this.max, value);
+                    }
+                    if (value !== Number(rawValue)) {
+                        this.$refs.input.value = value;
+                    }
+                    this.$emit("input", value);
+                }
+            }
+        },
+        template: `
+            <div class="flex">
+                <label v-if="$slots.default" class="self-center" style="margin-right: 0.5rem">
+                    <slot/>
+                </label>
+
+                <span role="button" class="button has-text-danger sub" @click="subtract">-</span>
+                <input
+                    ref="input"
+                    type="number"
+                    class="input"
+                    :value="value"
+                    @change="event => onChange(event.target.value)"
+                    :placeholder="placeholder"
+                    :min="min"
+                    :max="max"
+                    style="width: 4em"
+                >
+                <span role="button" class="button has-text-success add" @click="add">+</span>
+            </div>
+        `
+    };
+
+    var ToggleableNumberInput = {
+        components: { NumberInput },
+        props: ["label", "value", "placeholder", "min", "max"],
+        template: `
+            <div class="flex flex-row">
+                <b-checkbox v-model="value.enabled" style="margin-right: 0.25em">{{ label }}</b-checkbox>
+                <number-input v-model="value.value" :placeholder="placeholder" :min="min" :max="max"/>
+            </div>
+        `
+    };
+
+    function optional(key) {
+        return {
+            get() {
+                return this.view[key];
+            },
+            set(value) {
+                Vue.set(this.view, key, value);
+            }
+        };
+    }
+    var ViewSettings = {
+        components: {
+            EnumInput,
+            NumberInput,
+            ToggleableNumberInput
+        },
+        props: ["view"],
+        data() {
+            return {
+                universes: { any: "Any", ...universes },
+                viewModes,
+                additionalInformation
+            };
+        },
+        computed: {
+            resets() {
+                if (this.view.universe === "magic") {
+                    return { ...resets, blackhole: "Vacuum Collapse" };
+                }
+                else {
+                    return resets;
+                }
+            },
+            universe: {
+                get() {
+                    return this.view.universe ?? "any";
+                },
+                set(value) {
+                    this.view.universe = value === "any" ? undefined : value;
+                }
+            },
+            starLevel: optional("starLevel"),
+            daysScale: optional("daysScale"),
+            includeCurrentRun: optional("includeCurrentRun"),
+        },
+        template: `
+            <div class="flex flex-col flex-wrap gap-m">
+                <div class="flex flex-row flex-wrap gap-m theme">
+                    <enum-input v-model="view.resetType" :options="resets">Reset type</enum-input>
+                    <enum-input v-model="universe" :options="universes">Universe</enum-input>
+                    <number-input v-model="starLevel" min="0" max="4" placeholder="Any">Star level</number-input>
+                </div>
+
+                <div class="flex flex-row flex-wrap gap-m theme">
+                    <number-input v-model="daysScale" min="1" placeholder="Auto">Days scale</number-input>
+                    <toggleable-number-input label="Skip first N runs" v-model="view.skipRuns" min="0" placeholder="None"/>
+                    <toggleable-number-input label="Show last N runs" v-model="view.numRuns" min="1" placeholder="All"/>
+                </div>
+
+                <div class="flex flex-row flex-wrap gap-m theme">
+                    <enum-input v-model="view.mode" :options="viewModes">Mode</enum-input>
+                    <template v-if="view.mode === 'timestamp'">
+                        <b-checkbox v-model="view.showBars">Bars</b-checkbox>
+                        <b-checkbox v-model="view.showLines">Lines</b-checkbox>
+                        <template v-if="view.showLines">
+                            <b-checkbox v-model="view.fillArea">Fill area</b-checkbox>
+                            <div class="flex flex-row self-center">
+                                <label style="vertical-align: middle">Smoothness</label>
+                                <b-slider v-model="view.smoothness" :tooltip="false"/>
+                            </div>
+                        </template>
+                    </template>
+                    <template v-else-if="view.mode === 'duration'">
+                        <div class="flex flex-row">
+                            <label>Smoothness</label>
+                            <b-slider v-model="view.smoothness" :tooltip="false"/>
+                        </div>
+                    </template>
+                </div>
+
+                <div class="flex flex-row flex-wrap gap-m">
+                    <span>Additional info:</span>
+                    <b-checkbox v-model="includeCurrentRun">Current run</b-checkbox>
+                    <template v-for="(label, key) in additionalInformation">
+                        <b-checkbox :checked="view.additionalInfo.includes(key)" @input="() => view.toggleAdditionalInfo(key)">{{ label }}</b-checkbox>
+                    </template>
+                </div>
+            </div>
+        `
+    };
+
+    function makeMilestoneGroup(name, type, options) {
+        return {
+            type: name,
+            options: Object.entries(options).map(([id, label]) => ({ type, id, label }))
+        };
+    }
+    var MilestoneController = {
+        components: {
+            NumberInput
+        },
+        inject: ["history"],
+        props: ["view"],
+        data() {
+            return {
+                input: "",
+                count: 1,
+                selected: null,
+                options: [
+                    makeMilestoneGroup("Building/Project", "built", buildings),
+                    makeMilestoneGroup("Research", "tech", techs),
+                    makeMilestoneGroup("Event", "event", events),
+                    makeMilestoneGroup("Effect", "effect", environmentEffects)
+                ]
+            };
+        },
+        computed: {
+            filteredOptions() {
+                return this.options
+                    .map(({ type, options }) => ({
+                    type,
+                    options: fuzzysort.go(this.input, options, { key: "label", all: true }).map(c => c.obj)
+                }))
+                    .filter(({ options }) => options.length !== 0);
+            },
+            milestone() {
+                if (this.selected === null) {
+                    return;
+                }
+                let milestone = `${this.selected.type}:${this.selected.id}`;
+                if (this.selected.type === "built") {
+                    milestone += `:${this.count}`;
+                }
+                return milestone;
+            }
+        },
+        methods: {
+            add() {
+                if (this.milestone !== undefined) {
+                    this.view.addMilestone(this.milestone);
+                }
+            },
+            remove() {
+                if (this.milestone !== undefined) {
+                    this.view.removeMilestone(this.milestone);
+                }
+            },
+            sort() {
+                this.view.sortMilestones(this.history);
+            },
+            resetColors() {
+                this.view.resetColors();
+            }
+        },
+        template: `
+            <div class="flex flex-row flex-wrap gap-s theme">
+                <label class="self-center">Track:</label>
+                <b-autocomplete
+                    v-model="input"
+                    :data="filteredOptions"
+                    group-field="type"
+                    group-options="options"
+                    field="label"
+                    @select="(option) => { selected = option }"
+                    open-on-focus
+                    placeholder="e.g. Launch Facility"
+                />
+                <number-input v-if="selected?.type === 'built'" v-model="count" min="1"/>
+
+                <button class="button slim" @click="add" :disabled="selected === null">Add</button>
+                <button class="button slim" @click="remove" :disabled="selected === null">Remove</button>
+                <button class="button slim" @click="sort">Auto sort</button>
+                <button class="button slim" @click="resetColors">Reset colors</button>
+            </div>
+        `
+    };
 
     function makeMilestoneNamesMapping(view) {
         const milestones = Object.keys(view.milestones);
@@ -3147,204 +3658,6 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         return entries;
     }
 
-    function makeFlexContainer(direction) {
-        return $(`<div class="flex-container" style="flex-direction: ${direction};"></div>`);
-    }
-
-    function waitFor(query) {
-        return new Promise(resolve => {
-            const node = $(query);
-            if (node.length !== 0) {
-                return resolve(node);
-            }
-            const observer = new MutationObserver(() => {
-                const node = $(query);
-                if (node.length !== 0) {
-                    observer.disconnect();
-                    resolve(node);
-                }
-            });
-            observer.observe(document.body, {
-                childList: true,
-                subtree: true
-            });
-        });
-    }
-    async function nextAnimationFrame() {
-        return new Promise((resolve) => {
-            requestAnimationFrame(() => {
-                requestAnimationFrame(resolve);
-            });
-        });
-    }
-    function lastChild(node) {
-        const children = node.children();
-        const length = children.length;
-        return children[length - 1];
-    }
-
-    async function addTab(name, factory) {
-        const tabID = `mTab${name}`;
-        const tabs = (await waitFor(`div#mainTabs`))[0].__vue__;
-        $("#mainTabs > .tab-content").append(`
-        <b-tab-item label="${name}">
-            <div id="${tabID}"></div>
-        </b-tab-item>
-    `);
-        const tab = new Vue({
-            el: "#mainTabs > .tab-content > :last-child",
-            provide() {
-                // BTabItem requires being compiled inside a BTabs component
-                // It verifies this by injecting the parent via the btab prop - mock this dependency manually
-                return { btab: tabs };
-            },
-            mounted() {
-                // Without this, the tabs component doesn't track the state properly
-                tabs.$slots.default.push(this.$children[0].$vnode);
-            }
-        });
-        // For some reason, pushing a vnode to tabs.$slots causes the template to be compiled and mounted twice
-        // Ignore consecutive inserts with of the same node
-        const original = tabs._registerItem;
-        tabs._registerItem = (item) => {
-            if (item.$options.propsData.label !== name) {
-                original(item);
-            }
-        };
-        // tab.$children[0].index is not initialized yet
-        Vue.nextTick(() => {
-            const tabIndex = tab.$children[0].index;
-            let initialized = false;
-            tabs.$on("input", (idx) => {
-                if (idx === tabIndex && !initialized) {
-                    $(`#${tabID}`).append(factory());
-                    initialized = true;
-                }
-            });
-        });
-        // Vanilla evolve does `global.settings.civTabs = $(`#mainTabs > nav ul li`).length - 1`
-        // Replace the button with the mock click handler that assigns the correct tab index
-        const observationButtons = await waitFor("button.observe");
-        const text = observationButtons.first().text();
-        const mockButton = $(`<button class="button observe right">${text}</button>`);
-        mockButton.on("click", () => {
-            $("#mainColumn div:first-child")[0].__vue__.s.civTabs = 8;
-        });
-        observationButtons.replaceWith(mockButton);
-    }
-
-    function makeSelect(options, defaultValue) {
-        const optionNodes = options.map(([value, label]) => {
-            return `<option value="${value}" ${value === defaultValue ? "selected" : ""}>${label}</option>`;
-        });
-        return $(`
-        <select style="width: auto">
-            ${optionNodes}
-        </select>
-    `);
-    }
-    function toAutocompleteOptions(map) {
-        return Object.entries(map).map(([id, name]) => ({ value: id, label: name }));
-    }
-    function makeAutocompleteInput(placeholder, options) {
-        const entries = toAutocompleteOptions(options);
-        function onChange(event, ui) {
-            // If it wasn't selected from list
-            if (ui.item === null) {
-                const item = entries.find(({ label }) => label === this.value);
-                if (item !== undefined) {
-                    ui.item = item;
-                }
-            }
-            if (ui.item !== null) {
-                // Replace the input contents with the label and keep the value somewhere
-                this.value = ui.item.label;
-                this._value = ui.item.value;
-            }
-            else {
-                // Keep the input contents as the user typed it and discard the previous value
-                this._value = undefined;
-            }
-            return false;
-        }
-        return $(`<input style="width: 200px" placeholder="${placeholder}"></input>`).autocomplete({
-            source: entries,
-            minLength: 2,
-            delay: 0,
-            select: onChange, // Dropdown list click
-            focus: onChange, // Arrow keys press
-            change: onChange, // Keyboard type
-            classes: {
-                "ui-autocomplete": "bg-dark w-fit"
-            }
-        });
-    }
-    function makeSlimButton(text) {
-        return $(`<button class="button" style="height: 22px">${text}</button>`);
-    }
-    function makeNumberInput(placeholder, defaultValue, range) {
-        const node = $(`<input style="width: 60px" type="number" placeholder="${placeholder}">`);
-        if (defaultValue !== undefined) {
-            node.attr("value", defaultValue);
-        }
-        if (range !== undefined) {
-            node.attr("min", range[0]);
-            node.attr("max", range[1]);
-        }
-        else {
-            node.attr("min", 1);
-        }
-        return node;
-    }
-    function makeCheckbox(label, initialState, onStateChange) {
-        const node = $(`
-        <label>
-            <input type="checkbox" ${initialState ? "checked" : ""}>
-            ${label}
-        </label>
-    `);
-        node.find("input").on("change", function () {
-            onStateChange(this.checked);
-        });
-        return node;
-    }
-    function makeToggle(label, initialState, onStateChange) {
-        const node = $(`
-        <label class="switch setting is-rounded">
-            <input type="checkbox" ${initialState ? "checked" : ""}>
-            <span class="check"></span>
-            <span class="control-label">
-                <span aria-label="${label}">${label}</span>
-            </span>
-        </label>
-    `);
-        node.find("input").on("change", function () {
-            onStateChange(this.checked);
-        });
-        return node;
-    }
-    function makeSlider([min, max], initialState, onStateChange) {
-        const node = $(`
-        <input type="range" min="${min}" max="${max}" value="${initialState}">
-    `);
-        node.on("input", function () {
-            onStateChange(Number(this.value));
-        });
-        return node;
-    }
-    function makeToggleableNumberInput(label, placeholder, state) {
-        const inputNode = makeNumberInput(placeholder, state.value)
-            .on("change", function () { state.value = this.value === "" ? undefined : Number(this.value); });
-        const toggleNode = makeCheckbox(label, state.enabled, value => {
-            inputNode.prop("disabled", !value);
-            state.enabled = value;
-        });
-        inputNode.prop("disabled", !state.enabled);
-        return $(`<div></div>`)
-            .append(toggleNode)
-            .append(inputNode);
-    }
-
     function makeColorPickerTrigger(target, overflow = 0) {
         const width = Number(target.attr("width"));
         const height = Number(target.attr("height"));
@@ -3360,65 +3673,61 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             .css("cursor", "pointer");
         return trigger;
     }
-    function attachColorPickerTrigger(trigger, target) {
-        target.parent().css("position", "relative");
-        trigger.insertAfter(target);
-    }
-    const colorPickerCache = {};
-    function makeColorPicker(target, overflow, defaultColor, callbacks) {
-        let pickr;
-        let trigger;
-        // The Pickr instances are not destroyd on redraws, which leads to memory leaks
-        // Reuse existing ones instead
-        const cacheKey = `${target.attr("data-view")}/${target.attr("data-milestone")}`;
-        if (cacheKey in colorPickerCache) {
-            [pickr, trigger] = colorPickerCache[cacheKey];
-            pickr.setColor(defaultColor, true);
-            // The instance has callbacks from previous instantiation, clear them
-            pickr._eventListener.hide = [];
-            pickr._eventListener.save = [];
-            pickr._eventListener.change = [];
+    // Reuse the same Pickr instance
+    let colorPickerInstance = null;
+    const vtable = {};
+    function getPickrInstance() {
+        if (colorPickerInstance !== null) {
+            return colorPickerInstance;
         }
-        else {
-            trigger = makeColorPickerTrigger(target, overflow);
-            pickr = new Pickr({
-                container: "#mTabAnalytics",
-                el: trigger[0],
-                useAsButton: true,
-                position: "top-middle",
-                theme: "classic",
-                appClass: "color-picker",
-                lockOpacity: true,
-                default: defaultColor,
-                swatches: Object.values(Observable10),
-                components: {
-                    palette: true,
-                    hue: true,
-                    interaction: {
-                        input: true,
-                        save: true
-                    }
+        const trigger = $(`<button></button>`);
+        const pickr = new Pickr({
+            container: "#mTabAnalytics > div.b-tabs > section.tab-content",
+            el: trigger[0],
+            useAsButton: true,
+            position: "top-middle",
+            theme: "classic",
+            appClass: "color-picker",
+            lockOpacity: true,
+            swatches: Object.values(Observable10),
+            components: {
+                palette: true,
+                hue: true,
+                interaction: {
+                    input: true,
+                    save: true
                 }
-            });
-            colorPickerCache[cacheKey] = [pickr, trigger];
-        }
+            }
+        });
         pickr.on("hide", (instance) => {
-            if (instance.getColor().toHEXA().toString() !== callbacks.currentColor()) {
-                instance.setColor(defaultColor);
-                callbacks.onCancel();
+            if (instance.getColor().toHEXA().toString() !== vtable.currentColor()) {
+                instance.setColor(vtable.defaultColor);
+                vtable.onCancel();
             }
         });
         pickr.on("save", (value, instance) => {
             const hex = value?.toHEXA().toString();
             if (hex !== undefined) {
-                callbacks.onSave(hex);
+                vtable.onSave(hex);
             }
             instance.hide();
         });
         pickr.on("change", (value) => {
-            callbacks.onChange(value.toHEXA().toString());
+            vtable.onChange(value.toHEXA().toString());
         });
-        attachColorPickerTrigger(trigger, target);
+        return colorPickerInstance = [pickr, trigger];
+    }
+    function makeColorPicker(target, overflow, defaultColor, instanceCallbacks) {
+        const [pickr, trigger] = getPickrInstance();
+        const wrapper = makeColorPickerTrigger(target, overflow).on("click", function () {
+            Object.assign(vtable, { ...instanceCallbacks, defaultColor });
+            pickr.setColor(defaultColor, true);
+            trigger.prop("style", $(this).attr("style"));
+            trigger.insertAfter(target);
+            trigger.trigger("click");
+        });
+        target.parent().css("position", "relative");
+        wrapper.insertAfter(target);
     }
 
     const topTextOffset = -27;
@@ -3897,7 +4206,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             const [{ top, left }, milestone] = pendingSelection.get(view);
             waitFor(plot).then(() => {
                 const target = $(plot).find(`[data-milestone="${milestone}"]`);
-                const container = $(`#analytics-view-${view.id()}`);
+                const container = $(`#mTabAnalytics > .b-tabs > section`);
                 function makePointerEvent(name) {
                     return new PointerEvent(name, {
                         pointerType: "mouse",
@@ -3913,7 +4222,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         }
         plot.addEventListener("mousedown", (event) => {
             if (plot.value && plot.value.run < filteredRuns.length) {
-                const container = $(`#analytics-view-${view.id()}`);
+                const container = $(`#mTabAnalytics > .b-tabs > section`);
                 const coordinates = {
                     top: event.clientY + container.scrollTop(),
                     left: event.clientX + container.scrollLeft()
@@ -3927,18 +4236,20 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             }
         });
         // Process legend
+        const legendNode = $(plot).find("> div");
         if (pendingDraggingLegend.has(view)) {
-            $(plot).find("> div").replaceWith(pendingDraggingLegend.get(view));
+            legendNode.replaceWith(pendingDraggingLegend.get(view));
         }
         else {
-            $(plot).find("> div > span").each(function () {
+            legendNode.css("justify-content", "center");
+            legendNode.find("> span").each(function () {
                 const svgNode = $(this).find("> svg");
                 const milestone = milestones[$(this).index() - 1];
                 const milestoneName = milestoneNames[$(this).index() - 1];
                 const defaultColor = svgNode.attr("fill");
                 // Metadata
                 svgNode
-                    .attr("data-view", view.index())
+                    .attr("data-view", view.index)
                     .attr("data-milestone", milestone);
                 // Styling
                 $(this).css("font-size", "1rem");
@@ -3992,15 +4303,16 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
                     currentColor: () => view.milestones[milestone].color
                 });
             });
-            $(plot).find("> div").sortable({
-                placeholder: "sortable-placeholder",
-                start: function () {
+            Sortable.create(legendNode[0], {
+                animation: 150,
+                onStart() {
                     pendingDraggingLegend.set(view, $(plot).find("> div"));
                 },
-                stop: function (_, { item }) {
+                onEnd({ oldIndex, newIndex }) {
                     pendingDraggingLegend.delete(view);
-                    const milestone = item.find("> svg").attr("data-milestone");
-                    view.moveMilestone(milestone, item.index() - 1);
+                    if (oldIndex !== newIndex) {
+                        view.moveMilestone(oldIndex - 1, newIndex - 1);
+                    }
                 }
             });
         }
@@ -4009,397 +4321,499 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         return plot;
     }
 
-    function makeSetting(label, inputNode) {
-        return $(`<div>`).append(`<span style="margin-right: 8px">${label}</span>`).append(inputNode);
-    }
-    function makeUniverseFilter(value) {
-        if (value === "any") {
-            return undefined;
-        }
-        else {
-            return value;
-        }
-    }
-    function makeViewSettings(view) {
-        const propertyListeners = {};
-        function onPropertyChange(props, handler) {
-            for (const prop of props) {
-                const handlers = propertyListeners[prop] ??= [];
-                handlers.push(handler);
+    var Plot$1 = {
+        inject: ["game", "config", "history", "currentRun"],
+        props: ["view"],
+        data() {
+            return {
+                selectedRun: null,
+                plot: null,
+                timestamp: null
+            };
+        },
+        computed: {
+            outdated() {
+                return this.timestamp === null || (this.supportsRealTimeUpdates && this.timestamp !== this.game.day);
+            },
+            supportsRealTimeUpdates() {
+                if (!this.config.recordRuns) {
+                    return false;
+                }
+                if (!this.config.active) {
+                    return false;
+                }
+                if (!this.view.active) {
+                    return false;
+                }
+                if (!this.view.includeCurrentRun) {
+                    return false;
+                }
+                if (this.view.mode === "records") {
+                    return false;
+                }
+                return true;
             }
-            handler();
-        }
-        function setValue(key, value) {
-            switch (key) {
-                case "universe":
-                    view.universe = makeUniverseFilter(value);
-                    break;
-                case "daysScale":
-                case "starLevel":
-                    view[key] = value === "" ? undefined : Number(value);
-                    break;
-                default:
-                    view[key] = value;
-                    break;
+        },
+        methods: {
+            redraw(force = false) {
+                if (this.view.active && (force || this.outdated)) {
+                    this.plot = this.makeGraph();
+                    this.timestamp = this.game.day;
+                }
+            },
+            makeGraph() {
+                return makeGraph(this.history, this.view, this.game, this.currentRun, (run) => { this.selectedRun = run; });
             }
-            propertyListeners[key]?.forEach(f => f());
-        }
-        const bindThis = (property) => {
-            return function () { setValue(property, this.value); };
-        };
-        const bind = (property) => {
-            return (value) => setValue(property, value);
-        };
-        const resetTypeInput = makeSelect(Object.entries(resets), view.resetType)
-            .on("change", bindThis("resetType"));
-        const universeInput = makeSelect([["any", "Any"], ...Object.entries(universes)], view.universe ?? "any")
-            .on("change", bindThis("universe"));
-        const starLevelInput = makeNumberInput("Any", view.starLevel, [0, 4])
-            .on("change", bindThis("starLevel"));
-        let skipRunsInput = $();
-        let numRunsInput = $();
-        const modeInput = makeSelect(Object.entries(viewModes), view.mode)
-            .on("change", bindThis("mode"));
-        const showBarsToggle = makeCheckbox("Bars", view.showBars, bind("showBars"));
-        const showLinesToggle = makeCheckbox("Lines", view.showLines, bind("showLines"));
-        const fillAreaToggle = makeCheckbox("Fill area", view.fillArea, bind("fillArea"));
-        const avgWindowSlider = makeSetting("Smoothness", makeSlider([0, 100], view.smoothness, bind("smoothness")));
-        const daysScaleInput = makeNumberInput("Auto", view.daysScale)
-            .on("change", bindThis("daysScale"));
-        onPropertyChange(["universe"], () => {
-            const resetName = view.universe === "magic" ? "Vacuum Collapse" : "Black Hole";
-            resetTypeInput.find(`> option[value="blackhole"]`).text(resetName);
-        });
-        onPropertyChange(["showLines", "mode"], () => {
-            showBarsToggle.toggle(view.mode === "timestamp");
-            showLinesToggle.toggle(view.mode === "timestamp");
-            fillAreaToggle.toggle(view.showLines && view.mode === "timestamp");
-            avgWindowSlider.toggle((view.showLines && view.mode === "timestamp") || view.mode === "duration");
-        });
-        const filterSettings = makeFlexContainer("row")
-            .append(makeSetting("Reset type", resetTypeInput))
-            .append(makeSetting("Universe", universeInput))
-            .append(makeSetting("Star level", starLevelInput));
-        const rangeSettings = makeFlexContainer("row")
-            .append(skipRunsInput)
-            .append(numRunsInput);
-        const selectionSettings = makeFlexContainer("row")
-            .append(filterSettings)
-            .append(rangeSettings);
-        const displaySettings = makeFlexContainer("row")
-            .append(makeSetting("Mode", modeInput))
-            .append(makeSetting("Days scale", daysScaleInput))
-            .append(showBarsToggle)
-            .append(showLinesToggle)
-            .append(fillAreaToggle)
-            .append(avgWindowSlider);
-        const container = makeFlexContainer("column")
-            .addClass("analytics-view-settings")
-            .css("margin-bottom", "1em");
-        container
-            .append(selectionSettings)
-            .append(displaySettings);
-        function replaceLimitInputs(view) {
-            skipRunsInput.remove();
-            numRunsInput.remove();
-            rangeSettings.append(skipRunsInput = makeToggleableNumberInput("Ignore first N runs", "None", view.skipRuns));
-            rangeSettings.append(numRunsInput = makeToggleableNumberInput("Show last N runs", "All", view.numRuns));
-        }
-        replaceLimitInputs(view);
-        view.on("updated", replaceLimitInputs);
-        return container;
-    }
-
-    function makeMilestoneSettings(view, history) {
-        const builtTargetOptions = makeAutocompleteInput("Building/Project", buildings);
-        const buildCountOption = makeNumberInput("Count", 1);
-        const researchedTargetOptions = makeAutocompleteInput("Tech", techs);
-        const eventTargetOptions = makeSelect(Object.entries(events));
-        const effectTargetOptions = makeSelect(Object.entries(environmentEffects));
-        function selectOptions(type) {
-            builtTargetOptions.toggle(type === "built");
-            buildCountOption.toggle(type === "built");
-            researchedTargetOptions.toggle(type === "tech");
-            eventTargetOptions.toggle(type === "event");
-            effectTargetOptions.toggle(type === "effect");
-        }
-        // Default form state
-        selectOptions("built");
-        const typeOptions = makeSelect(Object.entries(milestoneTypes))
-            .on("change", function () { selectOptions(this.value); });
-        function makeMilestone() {
-            switch (typeOptions.val()) {
-                case "built":
-                    if (builtTargetOptions[0]._value !== undefined) {
-                        return `built:${builtTargetOptions[0]._value}:${buildCountOption.val()}`;
+        },
+        watch: {
+            plot(newNode, oldNode) {
+                if (oldNode !== null) {
+                    $(oldNode).replaceWith(newNode);
+                }
+                else {
+                    this.redraw();
+                }
+            },
+            selectedRun() {
+                this.$emit("select", this.selectedRun);
+            },
+            "config.active"() {
+                this.redraw();
+            },
+            "config.openViewIndex"() {
+                this.redraw();
+            },
+            "config.views"() {
+                // The index doesn't always change when a view is removed
+                this.redraw();
+            },
+            "history.runs"() {
+                discardCachedState(this.view);
+                this.selectedRun = null;
+                this.redraw();
+            },
+            view: {
+                handler() {
+                    discardCachedState(this.view);
+                    this.selectedRun = null;
+                    this.redraw(true);
+                },
+                deep: true
+            },
+            currentRun: {
+                handler() {
+                    if (this.supportsRealTimeUpdates) {
+                        this.redraw();
                     }
-                    break;
-                case "tech":
-                    if (researchedTargetOptions[0]._value !== undefined) {
-                        return `tech:${researchedTargetOptions[0]._value}`;
-                    }
-                    break;
-                case "event":
-                    return `event:${eventTargetOptions.val()}`;
-                case "effect":
-                    return `effect:${effectTargetOptions.val()}`;
+                },
+                deep: true
             }
-        }
-        const addMilestoneNode = makeSlimButton("Add").on("click", () => {
-            const milestone = makeMilestone();
-            if (milestone !== undefined) {
-                view.addMilestone(milestone);
-            }
-        });
-        const removeMilestoneNode = makeSlimButton("Remove").on("click", () => {
-            const milestone = makeMilestone();
-            if (milestone !== undefined) {
-                view.removeMilestone(milestone);
-            }
-        });
-        const reorderMilestonesNode = makeSlimButton("Auto sort").on("click", () => {
-            view.sortMilestones(history);
-        });
-        const recolorMilestonesNode = makeSlimButton("Reset colors").on("click", () => {
-            view.resetColors();
-        });
-        const container = makeFlexContainer("row")
-            .css("margin-bottom", "1em");
-        container
-            .append(typeOptions)
-            .append(builtTargetOptions)
-            .append(buildCountOption)
-            .append(researchedTargetOptions)
-            .append(eventTargetOptions)
-            .append(effectTargetOptions)
-            .append(addMilestoneNode)
-            .append(removeMilestoneNode)
-            .append(reorderMilestonesNode)
-            .append(recolorMilestonesNode);
-        return container;
-    }
-
-    function makeAdditionalInfoSettings(view) {
-        const container = makeFlexContainer("row")
-            .css("margin-bottom", "1em");
-        container.append(`<span>Additional info:</span>`);
-        const showCurrentRunToggle = makeCheckbox("Current run", view.includeCurrentRun ?? false, (value) => {
-            view.includeCurrentRun = value;
-        });
-        container.append(showCurrentRunToggle);
-        for (const [key, value] of Object.entries(additionalInformation)) {
-            const enabled = view.additionalInfo.includes(key);
-            container.append(makeCheckbox(value, enabled, () => { view.toggleAdditionalInfo(key); }));
-        }
-        return container;
-    }
-
-    async function withCSSOverrides(overrides, callback) {
-        const overridesList = [];
-        for (const [query, props] of Object.entries(overrides)) {
-            const nodes = $(query);
-            for (const [rule, value] of Object.entries(props)) {
-                for (const node of nodes) {
-                    overridesList.push({ node, rule, original: node.style[rule], override: value });
+        },
+        directives: {
+            plot: {
+                inserted(element, _, vnode) {
+                    const self = vnode.context;
+                    self.plot = element;
                 }
             }
-        }
-        for (const { node, rule, override } of overridesList) {
-            $(node).css(rule, override);
-        }
-        const result = await callback();
-        for (const { node, rule, original } of overridesList) {
-            $(node).css(rule, original);
-        }
-        return result;
+        },
+        template: `
+            <div v-plot></div>
+        `
+    };
+
+    var Modal = {
+        props: ["title", "customClass"],
+        template: `
+            <div class="modalBox">
+                <p class="has-text-warning modalTitle">{{ title }}</p>
+                <div id="specialModal" :class="'modalBody ' + customClass ?? ''">
+                    <slot/>
+                </div>
+            </div>
+        `
+    };
+
+    const InputDialog = {
+        components: {
+            Modal
+        },
+        props: ["value", "placeholder", "title"],
+        data() {
+            return {
+                buffer: this.value
+            };
+        },
+        methods: {
+            apply() {
+                this.$emit("input", this.buffer === "" ? undefined : this.buffer);
+                this.$emit("close");
+            },
+            cancel() {
+                this.$emit("close");
+            }
+        },
+        async mounted() {
+            await Vue.nextTick();
+            this.$refs.input.focus();
+        },
+        template: `
+            <modal :title="title" customClass="flex flex-col gap-m">
+                <input
+                    ref="input"
+                    type="text"
+                    class="input"
+                    v-model="buffer"
+                    :placeholder="placeholder"
+                    @keyup.enter="apply"
+                >
+
+                <div class="flex flex-row gap-m justify-end">
+                    <button class="button" @click="cancel">Cancel</button>
+                    <button class="button" @click="apply">Apply</button>
+                </div>
+            </modal>
+        `
+    };
+    function resolvePath(obj, path) {
+        return path.reduce((self, key) => self && self[key], obj);
     }
-    async function copyToClipboard(node) {
-        const isParent = (element) => element.contains(node[0]);
-        const isChild = (element) => node[0].contains(element);
-        const width = Math.round(node.width() + 10);
-        const height = Math.round(node.height() + 10);
-        const cssOverrides = {
-            "html": { width: `${width}px`, height: `${height}px` },
-            "#mainColumn": { width: "100%" },
-            ".vscroll": { height: "100%" },
-            ".tab-item": { padding: "0" }
-        };
-        const blob = await withCSSOverrides(cssOverrides, () => {
-            return htmlToImage.toBlob($("html")[0], {
-                width,
-                height,
-                skipFonts: true,
-                filter: element => isParent(element) || isChild(element)
-            });
-        });
-        await navigator.clipboard.write([
-            new ClipboardItem({ "image/png": blob })
-        ]);
+    function getNested(obj, path) {
+        return resolvePath(obj, path.split('.'));
     }
-    function viewTitle(view) {
-        if (view.universe === "magic" && view.resetType === "blackhole") {
-            return "Vacuum Collapse";
-        }
-        else {
-            let title = resets[view.resetType];
-            if (view.universe !== undefined) {
-                title += ` (${universes[view.universe]})`;
-            }
-            return title;
-        }
+    function setNested(obj, path, value) {
+        const keys = path.split('.');
+        const lastKey = keys.pop();
+        Vue.set(resolvePath(obj, keys), lastKey, value);
     }
-    function makeViewTab(game, view, config, history, currentRun) {
-        const id = `analytics-view-${view.id()}`;
-        const controlNode = $(`<li><a href="#${id}">${viewTitle(view)}</a></li>`);
-        const contentNode = $(`<div id="${id}" class="vscroll" style="height: calc(100vh - 10rem)"></div>`);
-        const removeViewNode = $(`<button class="button">Delete view</button>`)
-            .on("click", () => { config.removeView(view); });
-        let selectedRun = null;
-        const ignoreRunsNode = $(`<button class="button">Ignore previous runs</button>`)
-            .on("click", () => {
-            const filteredRuns = applyFilters(history, view, { useLimits: false });
-            const idx = filteredRuns.indexOf(selectedRun);
-            view.skipRuns = { enabled: true, value: idx };
-        })
-            .attr("disabled", "");
-        const discardRunNode = $(`<button class="button">Discard run</button>`)
-            .on("click", () => { history.discardRun(selectedRun); })
-            .attr("disabled", "");
-        function onRunSelection(run) {
-            selectedRun = run;
-            if (selectedRun === null) {
-                discardRunNode.attr("disabled", "");
-                ignoreRunsNode.attr("disabled", "");
+    function openInputDialog(self, binding, title, placeholder) {
+        self.$buefy.modal.open({
+            parent: self,
+            component: InputDialog,
+            props: {
+                value: getNested(self, binding),
+                placeholder,
+                title
+            },
+            events: {
+                input: (value) => setNested(self, binding, value)
             }
-            else {
-                discardRunNode.attr("disabled", null);
-                ignoreRunsNode.attr("disabled", null);
-            }
-        }
-        function createGraph(view) {
-            return makeGraph(history, view, game, currentRun, onRunSelection);
-        }
-        const asImageNode = $(`<button class="button">Copy as PNG</button>`)
-            .on("click", async function () {
-            $(this).text("Rendering...");
-            // For some reason awaiting htmlToImage.toBlob prevents UI from updating
-            await nextAnimationFrame();
-            const figure = contentNode.find("> figure");
-            await copyToClipboard(figure);
-            $(this).text("Copy as PNG");
         });
-        const buttonsContainerNode = $(`<div style="display: flex; justify-content: space-between"></div>`)
-            .append(asImageNode)
-            .append(ignoreRunsNode)
-            .append(discardRunNode)
-            .append(removeViewNode);
-        contentNode
-            .append(makeViewSettings(view))
-            .append(makeAdditionalInfoSettings(view))
-            .append(makeMilestoneSettings(view, history))
-            .append(createGraph(view))
-            .append(buttonsContainerNode);
-        function redrawGraph(updatedView) {
-            contentNode.find("figure:last").replaceWith(createGraph(updatedView));
-        }
-        view.on("updated", (updatedView) => {
-            controlNode.find("> a").text(viewTitle(updatedView));
-            discardCachedState(updatedView);
-            redrawGraph(updatedView);
-            onRunSelection(null);
-        });
-        history.on("updated", () => {
-            discardCachedState(view);
-            redrawGraph(view);
-            onRunSelection(null);
-        });
-        game.onGameDay(() => {
-            if (!config.recordRuns) {
-                return;
-            }
-            if (!view.includeCurrentRun) {
-                return;
-            }
-            if (view !== config.openView) {
-                return;
-            }
-            if (view.mode === "records") {
-                return;
-            }
-            redrawGraph(view);
-        });
-        return [controlNode, contentNode];
     }
 
-    function makeAnalyticsTab(game, config, history, currentRun) {
-        const analyticsPanel = $(`
-        <div>
-            <nav class="tabs">
-                <ul role="tablist" class="hscroll" style="margin-left: 0; width: 100%">
-                    <li><a id="analytics-add-view" role="button">+ Add View</a></li>
-                </ul>
-            </nav>
-        </div>
-    `);
-        analyticsPanel.tabs({
-            classes: {
-                "ui-tabs-active": "is-active"
-            }
-        });
-        analyticsPanel.find("#analytics-add-view").on("click", function () {
-            config.addView();
-        });
-        function addViewTab(view) {
-            const [controlNode, contentNode] = makeViewTab(game, view, config, history, currentRun);
-            controlNode.on("click", () => {
-                config.viewOpened(view);
-            });
-            function refresh() {
-                analyticsPanel.tabs("refresh");
-                analyticsPanel.tabs({ active: config.openViewIndex ?? 0 });
-            }
-            controlNode.insertBefore(lastChild(analyticsPanel.find("> nav > ul")));
-            analyticsPanel.append(contentNode);
-            refresh();
-            config.on("viewRemoved", (removedView) => {
-                if (removedView !== view) {
-                    return;
+    var ViewTab = {
+        components: {
+            ViewSettings,
+            MilestoneController,
+            Plot: Plot$1
+        },
+        inject: ["config", "history"],
+        props: ["view"],
+        data() {
+            return {
+                selectedRun: null,
+                rendering: false
+            };
+        },
+        computed: {
+            id() {
+                return `analytics-view-tab-${this.view.id}`;
+            },
+            defaultName() {
+                if (this.view.universe === "magic" && this.view.resetType === "blackhole") {
+                    return "Vacuum Collapse";
                 }
-                controlNode.remove();
-                contentNode.remove();
-                refresh();
-            });
-        }
-        config.on("viewAdded", addViewTab);
-        for (const view of config.views) {
-            addViewTab(view);
-        }
-        analyticsPanel.tabs({
-            active: config.openViewIndex ?? 0
-        });
-        return analyticsPanel;
-    }
+                else {
+                    const resetType = resets[this.view.resetType];
+                    if (this.view.universe !== undefined) {
+                        return `${resetType} (${universes[this.view.universe]})`;
+                    }
+                    else {
+                        return resetType;
+                    }
+                }
+            },
+            name() {
+                return this.view.name ?? this.defaultName;
+            }
+        },
+        methods: {
+            deleteView() {
+                this.config.removeView(this.view);
+            },
+            cloneView() {
+                this.config.cloneView(this.view);
+            },
+            async asImage() {
+                this.rendering = true;
+                const canvas = await plotToCanvas(this.$refs.plot.plot);
+                canvas.toBlob((blob) => {
+                    navigator.clipboard.write([
+                        new ClipboardItem({ "image/png": blob })
+                    ]);
+                });
+                this.rendering = false;
+            },
+            ignoreBefore() {
+                if (this.selectedRun !== null) {
+                    const filteredRuns = applyFilters(this.history, this.view, { useLimits: false });
+                    const idx = filteredRuns.indexOf(this.selectedRun);
+                    this.view.skipRuns = { enabled: true, value: idx };
+                }
+            },
+            discardRun() {
+                if (this.selectedRun !== null) {
+                    this.history.discardRun(this.selectedRun);
+                }
+            },
+            renameView() {
+                openInputDialog(this, "view.name", "Rename", this.defaultName);
+            }
+        },
+        template: `
+            <b-tab-item :id="id">
+                <template slot="header">
+                    <span class="view-tab-header">{{ name }}</span>
+                </template>
 
+                <div class="flex flex-col gap-m">
+                    <view-settings :view="view"/>
+
+                    <milestone-controller :view="view"/>
+
+                    <plot ref="plot" :view="view" @select="(run) => { selectedRun = run }"/>
+
+                    <div class="flex flex-row flex-wrap justify-between">
+                        <div class="flex flex-row gap-m">
+                            <button class="button" @click="ignoreBefore" :disabled="selectedRun === null">Ignore previous runs</button>
+                            <button class="button" @click="discardRun" :disabled="selectedRun === null">Discard run</button>
+                        </div>
+
+                        <div class="flex flex-row gap-m">
+                            <button class="button" @click="asImage">
+                                <span v-if="rendering">
+                                    Rendering...
+                                </span>
+                                <span v-else>
+                                    Copy as PNG
+                                </span>
+                            </button>
+                            <button class="button" @click="renameView">Rename</button>
+                            <button class="button" @click="cloneView">Clone</button>
+                            <button class="button" @click="deleteView">Delete</button>
+                        </div>
+                    </div>
+                </div>
+            </b-tab-item>
+        `
+    };
+
+    var AnalyticsTab = {
+        components: {
+            ViewTab
+        },
+        inject: ["config"],
+        data() {
+            return {
+                index: this.config.openViewIndex,
+                views: this.config.views
+            };
+        },
+        watch: {
+            async "config.views"() {
+                // If the leftmost view got removed, the index doesn't change
+                // but we still need to update it in order for the UI to swap tabs
+                if (this.index === this.config.openViewIndex) {
+                    this.index = -1;
+                }
+                // Don't ask me why this works
+                await Vue.nextTick();
+                await Vue.nextTick();
+                this.index = this.config.openViewIndex;
+            }
+        },
+        methods: {
+            swapTabs(idx) {
+                this.config.openViewIndex = idx;
+                this.index = idx;
+            },
+            async refreshTabsList() {
+                this.views = [];
+                await Vue.nextTick();
+                this.views = this.config.views;
+                await Vue.nextTick();
+            }
+        },
+        async mounted() {
+            const tabsNode = $(this.$el).find(`> nav`);
+            const tabsListNode = tabsNode.find("> ul");
+            // The scrollbar is added to the <nav> element by default, which makes it appear under the line
+            // and scrolling makes the whole tab list shift
+            tabsNode.css("overflow-x", "hidden");
+            tabsListNode.addClass(["hscroll", "w-full"]);
+            // Scroll the tab list with the mouse wheel
+            tabsListNode.on("wheel", (event) => {
+                event.currentTarget.scrollLeft += event.originalEvent.deltaY;
+            });
+            // Add a "new tab" button as the last pseudo tab
+            const addViewButton = $(`<li role="tab" id="add-view-btn" class="order-last"><a>+ Add tab</a></li>`)
+                .on("click", () => this.config.addView())
+                .appendTo(tabsListNode);
+            // Make the tabs sortable
+            Sortable.create(tabsListNode[0], {
+                filter: "#add-view-btn",
+                ghostClass: "has-text-warning",
+                chosenClass: "has-text-warning",
+                dragClass: "has-text-warning",
+                animation: 150,
+                onStart() {
+                    addViewButton.hide();
+                },
+                onEnd: async ({ oldIndex, newIndex }) => {
+                    addViewButton.show();
+                    if (oldIndex !== newIndex) {
+                        this.config.moveView(oldIndex - 1, newIndex - 1);
+                        // Rearranging items in a list isn't properly handled by the b-tabs component - just remount it
+                        await this.refreshTabsList();
+                    }
+                }
+            });
+        },
+        template: `
+            <b-tabs :value="index" @input="swapTabs" class="resTabs">
+                <view-tab v-for="view in views" :key="view.id" :view="view"/>
+            </b-tabs>
+        `
+    };
+
+    function openTab(index) {
+        $("#mainColumn div:first-child")[0].__vue__.s.civTabs = index;
+    }
+    async function addAnalyticsTab(game, config, history, currentRun) {
+        const tabs = (await waitFor(`div#mainTabs`))[0].__vue__;
+        $("#mainTabs > .tab-content").append(`
+            <b-tab-item label="Analytics">
+                <analytics-tab-wrapper ref="tab"/>
+            </b-tab-item>
+        `);
+        const AnalyticsTabWrapper = {
+            components: {
+                AnalyticsTab
+            },
+            inject: {
+                config: { from: "config", default: null },
+            },
+            data() {
+                return {
+                    initialized: false
+                };
+            },
+            computed: {
+                // See below
+                duplicate() {
+                    return this.config === null;
+                },
+            },
+            methods: {
+                activate() {
+                    this.config.active = true;
+                    this.initialized = true;
+                },
+                deactivate() {
+                    this.config.active = false;
+                }
+            },
+            template: `
+                <div v-if="!duplicate" id="mTabAnalytics">
+                    <analytics-tab v-if="initialized"/>
+                </div>
+            `
+        };
+        new Vue({
+            el: "#mainTabs > .tab-content > :last-child",
+            components: {
+                AnalyticsTabWrapper
+            },
+            provide() {
+                return {
+                    // BTabItem requires being compiled inside a BTabs component
+                    // It verifies this by injecting the parent via the btab prop - mock this dependency manually
+                    btab: tabs,
+                    game,
+                    config,
+                    history,
+                    currentRun
+                };
+            },
+            mounted() {
+                const tab = this.$refs.tab;
+                spy(this.$children[0], "activate", () => tab.activate());
+                spy(this.$children[0], "deactivate", () => tab.deactivate());
+                // Without this, the tabs component doesn't track the state properly
+                tabs.$slots.default.push(this.$children[0].$vnode);
+                // If the analytics tab was opened before, restore it
+                if (config.active) {
+                    Vue.nextTick(() => openTab(9 /* EvolveTabs.Analytics */));
+                }
+            }
+        });
+        // For some reason, pushing a vnode to tabs.$slots causes the template to be compiled and mounted twice
+        // Ignore consecutive inserts with of the same node
+        const original = tabs._registerItem;
+        tabs._registerItem = (item) => {
+            if (item.label !== "Analytics") {
+                original(item);
+            }
+        };
+        // Because the observation button may not always exist,
+        // use then() instead of await to unblock bootstrapUIComponents() and allow logging in index.ts
+        waitFor("button.observe").then(observationButtons => {
+            // Vanilla evolve does `global.settings.civTabs = $(`#mainTabs > nav ul li`).length - 1`
+            // Replace the button with the mock click handler that assigns the correct tab index
+            const text = observationButtons.first().text();
+            const mockButton = $(`<button class="button observe right">${text}</button>`);
+            mockButton.on("click", () => {
+                openTab(8 /* EvolveTabs.HellObservations */);
+            });
+            observationButtons.replaceWith(mockButton);
+        });
+    }
     async function addMainToggle(config) {
-        await waitFor("#settings");
-        const toggleNode = makeToggle("Record Runs", config.recordRuns, (checked) => { config.recordRuns = checked; });
-        toggleNode.insertAfter("#settings > .switch.setting:last");
+        const lastToggle = await waitFor("#settings > .switch.setting:last");
+        lastToggle.after(`
+            <b-switch class="setting" id="analytics-master-toggle" v-model="config.recordRuns">
+                Record Runs
+            </b-switch>
+        `);
+        new Vue({
+            el: "#analytics-master-toggle",
+            data() {
+                return {
+                    config: Vue.ref(config)
+                };
+            }
+        });
     }
-    function bootstrapUIComponents(game, config, history, currentRun) {
+    function addStyles() {
         $("head").append(`<style type="text/css">${styles}</style>`);
-        addMainToggle(config);
-        addTab("Analytics", () => makeAnalyticsTab(game, config, history, currentRun));
+    }
+    async function bootstrapUIComponents(game, config, history, currentRun) {
+        addStyles();
+        await addMainToggle(config);
+        await addAnalyticsTab(game, config, history, currentRun);
     }
 
     migrate();
     const evolve = await( synchronize());
     const game = new Game(evolve);
-    if (game.finishedEvolution) {
-        const config = getConfig(game);
-        const history = initializeHistory(game, config);
-        processLatestRun(game, config, history);
-        const currentRun = trackMilestones(game, config);
-        bootstrapUIComponents(game, config, history, currentRun);
-    }
+    // The game may refresh after the evolution - wait until it is complete
+    await( game.waitEvolved());
+    const config = getConfig(game);
+    const history = initializeHistory(game, config);
+    const currentRun = prepareCurrentRun(game, config, history);
+    trackMilestones(currentRun, game, config);
+    // Do not touch DOM when the tab is in the background
+    await( waitFocus());
+    await( bootstrapUIComponents(game, config, history, currentRun));
 
 })();
