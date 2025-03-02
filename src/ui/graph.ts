@@ -627,14 +627,16 @@ export function makeGraph(history: HistoryManager, view: View, game: Game, curre
     });
 
     // Process legend
+    const legendNode = $(plot).find("> div");
+
     if (pendingDraggingLegend.has(view)) {
-        $(plot).find("> div").replaceWith(pendingDraggingLegend.get(view)!);
+        legendNode.replaceWith(pendingDraggingLegend.get(view)!);
     }
     else
     {
-        $(plot).find("> div").css("justify-content", "center");
+        legendNode.css("justify-content", "center");
 
-        $(plot).find("> div > span").each(function() {
+        legendNode.find("> span").each(function() {
             const svgNode = $(this).find("> svg");
 
             const milestone = milestones[$(this).index() - 1];
@@ -709,15 +711,17 @@ export function makeGraph(history: HistoryManager, view: View, game: Game, curre
             });
         });
 
-        Sortable.create($(plot).find("> div")[0], {
+        Sortable.create(legendNode[0], {
+            animation: 150,
             onStart() {
                 pendingDraggingLegend.set(view, $(plot).find("> div"));
             },
-            onEnd({ item, newIndex }) {
+            onEnd({ oldIndex, newIndex }) {
                 pendingDraggingLegend.delete(view);
 
-                const milestone = $(item).find("> svg").attr("data-milestone")!;
-                view.moveMilestone(milestone, newIndex! - 1);
+                if (oldIndex !== newIndex) {
+                    view.moveMilestone(oldIndex! - 1, newIndex! - 1);
+                }
             }
         });
     }

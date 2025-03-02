@@ -2,7 +2,7 @@ import { VERSION } from "./migration";
 import { saveConfig, loadConfig } from "./database";
 import colorScheme from "./enums/colorSchemes";
 import { effectColors } from "./effects";
-import { clone } from "./utils";
+import { clone, moveElement } from "./utils";
 import { getSortedMilestones, sortMilestones } from "./exports/utils";
 import type { resets, universes, viewModes, additionalInformation } from "./enums";
 import type { Game } from "./game";
@@ -120,15 +120,10 @@ class ViewUtils {
         }
     }
 
-    moveMilestone(milestone: string, newIndex: number) {
-        const oldIndex = this.view.milestones[milestone]?.index;
-        if (oldIndex >= 0 && oldIndex !== newIndex) {
-            const milestones = getSortedMilestones(this.view);
-            milestones.splice(oldIndex, 1);
-            milestones.splice(newIndex, 0, milestone);
-
-            this.updateMilestoneOrder(milestones);
-        }
+    moveMilestone(from: number, to: number) {
+        const milestones = getSortedMilestones(this.view);
+        moveElement(milestones, from, to);
+        this.updateMilestoneOrder(milestones);
     }
 
     sortMilestones(history: HistoryManager) {
@@ -175,13 +170,13 @@ export type Config = {
 
 export class ConfigManager {
     private config: Config;
-    views: View[];
+    private _views: View[];
 
     constructor(private game: Game, config: Config) {
         this.config = reactive(config);
         this.watch(() => saveConfig(this.config));
 
-        this.views = this.config.views.map(v => makeViewProxy(this, v));
+        this._views = this.config.views.map(v => makeViewProxy(this, v));
     }
 
     watch(callback: () => void, immediate = false) {
@@ -194,6 +189,10 @@ export class ConfigManager {
 
     set active(value: boolean) {
         this.config.active = value;
+    }
+
+    get views() {
+        return this._views;
     }
 
     get recordRuns() {
@@ -264,6 +263,13 @@ export class ConfigManager {
 
             return removed[0];
         }
+    }
+
+    moveView(oldIndex: number, newIndex: number) {
+        moveElement(this.views, oldIndex, newIndex);
+        moveElement(this.config.views, oldIndex, newIndex);
+
+        this.openViewIndex = newIndex;
     }
 
     private insertView(view: ViewConfig, index?: number) {

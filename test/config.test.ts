@@ -301,7 +301,7 @@ describe("Config", () => {
                     ]
                 });
 
-                config.views[0].moveMilestone("tech:wheel", 2);
+                config.views[0].moveMilestone(1, 2);
 
                 expect(config.views[0].milestones).toEqual({
                     "tech:club": { index: 0, enabled: true, color: colorScheme.blue },

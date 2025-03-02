@@ -82,3 +82,11 @@ export function waitFocus() {
         }
     });
 }
+
+export function moveElement<T>(list: T[], from: number, to: number) {
+    if (to !== from) {
+        const item = list[from];
+        list.splice(from, 1);
+        list.splice(to, 0, item);
+    }
+}

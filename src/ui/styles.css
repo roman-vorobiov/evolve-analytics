@@ -303,6 +303,10 @@ html.dracula {
         overflow: hidden;
         text-overflow: ellipsis;
     }
+
+    .tabs li.has-text-warning a {
+        color: unset;
+    }
 }
 
 li[role="tab"].is-disabled {
