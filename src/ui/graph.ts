@@ -11,6 +11,7 @@ import type { LatestRun } from "../pendingRun";
 import type { Game } from "../game";
 
 import * as Plot from "@observablehq/plot";
+import Sortable from "sortablejs";
 
 const topTextOffset = -27;
 const marginTop = 30;
@@ -708,16 +709,15 @@ export function makeGraph(history: HistoryManager, view: View, game: Game, curre
             });
         });
 
-        $(plot).find("> div").sortable({
-            placeholder: "sortable-placeholder",
-            start: function() {
+        Sortable.create($(plot).find("> div")[0], {
+            onStart() {
                 pendingDraggingLegend.set(view, $(plot).find("> div"));
             },
-            stop: function(_, { item }) {
+            onEnd({ item, newIndex }) {
                 pendingDraggingLegend.delete(view);
 
-                const milestone = item.find("> svg").attr("data-milestone")!;
-                view.moveMilestone(milestone, item.index() - 1);
+                const milestone = $(item).find("> svg").attr("data-milestone")!;
+                view.moveMilestone(milestone, newIndex! - 1);
             }
         });
     }

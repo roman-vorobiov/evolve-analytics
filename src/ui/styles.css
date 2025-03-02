@@ -193,14 +193,6 @@ html.dracula {
     }
 }
 
-.sortable-placeholder {
-    position: relative;
-    height: 1rem;
-    width: 100px;
-    margin-right: 1.5em;
-    background: #1d2021;
-}
-
 #mTabAnalytics {
     input::-webkit-outer-spin-button,
     input::-webkit-inner-spin-button {

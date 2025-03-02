@@ -73,7 +73,8 @@ export default {
             "lz-string": "LZString",
             "@simonwep/pickr": "Pickr",
             "fuzzysort": "fuzzysort",
-            "html2canvas": "html2canvas"
+            "html2canvas": "html2canvas",
+            "sortablejs": "Sortable"
         })
     ],
     watch: {
