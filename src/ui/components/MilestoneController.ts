@@ -50,11 +50,19 @@ export default {
     computed: {
         filteredOptions(this: This) {
             return this.options
-                .map(({ type, options }) => ({
-                    type,
-                    options: fuzzysort.go(this.input, options, { key: "label", all: true }).map(c => c.obj)
-                }))
-                .filter(({ options }) => options.length !== 0);
+                .map(({ type, options }) => {
+                    const candidates = fuzzysort.go(this.input, options, { key: "label", all: true });
+
+                    const score = candidates.reduce((acc, { score }) => Math.max(acc, score), 0);
+
+                    return {
+                        type,
+                        score,
+                        options: candidates.map(c => c.obj)
+                    }
+                })
+                .filter(({ options }) => options.length !== 0)
+                .sort((l, r) => r.score - l.score);
         },
         milestone(this: This) {
             if (this.selected === null) {
