@@ -41,7 +41,7 @@ type This = Vue & {
     timestamp: number | null,
     outdated: boolean,
     supportsRealTimeUpdates: boolean,
-    redraw(): void,
+    redraw(force?: boolean): void,
     copyAsImage(): void,
     makeGraph(): HTMLElement
 }
@@ -85,8 +85,8 @@ export default {
         }
     },
     methods: {
-        redraw(this: This) {
-            if (this.view.active && this.outdated) {
+        redraw(this: This, force = false) {
+            if (this.view.active && (force || this.outdated)) {
                 this.plot = this.makeGraph();
                 this.timestamp = this.game.day;
             }
@@ -129,7 +129,7 @@ export default {
             handler(this: This) {
                 discardCachedState(this.view);
                 this.selectedRun = null;
-                this.redraw();
+                this.redraw(true);
             },
             deep: true
         },
