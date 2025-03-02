@@ -61,7 +61,6 @@ export default {
             return banner + "\n" + prefix;
         }
     },
-    external: ["jqueryui"],
     plugins: [
         preserveIndentation(),
         typescript(),
