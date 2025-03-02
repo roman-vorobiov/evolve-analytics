@@ -7,6 +7,7 @@ import type { HistoryManager, HistoryEntry } from "../../history";
 import ViewSettings from "./ViewSettings";
 import MilestoneController from "./MilestoneController";
 import Plot from "./Plot";
+import { openInputDialog } from "./InputDialog";
 
 type This = {
     $refs: {
@@ -18,7 +19,9 @@ type This = {
     history: HistoryManager,
     view: View,
     selectedRun: HistoryEntry | null,
-    rendering: boolean
+    rendering: boolean,
+    defaultName: string,
+    name: string
 }
 
 export default {
@@ -39,7 +42,7 @@ export default {
         id(this: This) {
             return `analytics-view-tab-${this.view.id}`;
         },
-        title(this: This) {
+        defaultName(this: This) {
             if (this.view.universe === "magic" && this.view.resetType === "blackhole") {
                 return "Vacuum Collapse";
             }
@@ -53,6 +56,9 @@ export default {
                     return resetType;
                 }
             }
+        },
+        name(this: This) {
+            return this.view.name ?? this.defaultName;
         }
     },
     methods: {
@@ -82,10 +88,17 @@ export default {
             if (this.selectedRun !== null) {
                 this.history.discardRun(this.selectedRun);
             }
+        },
+        renameView(this: This) {
+            openInputDialog(this, "view.name", "Rename", this.defaultName);
         }
     },
     template: `
-        <b-tab-item :label="title" :id="id">
+        <b-tab-item :id="id">
+            <template slot="header">
+                <span class="view-tab-header">{{ name }}</span>
+            </template>
+
             <div class="flex flex-col gap-m">
                 <view-settings :view="view"/>
 
@@ -108,6 +121,7 @@ export default {
                                 Copy as PNG
                             </span>
                         </button>
+                        <button class="button" @click="renameView">Rename</button>
                         <button class="button" @click="cloneView">Clone</button>
                         <button class="button" @click="deleteView">Delete</button>
                     </div>

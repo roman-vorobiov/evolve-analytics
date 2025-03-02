@@ -20,6 +20,7 @@ export type ViewConfig = {
     resetType: keyof typeof resets,
     starLevel?: number,
     universe?: keyof typeof universes,
+    name?: string,
     mode: keyof typeof viewModes,
     includeCurrentRun?: boolean,
     smoothness: number,
@@ -60,10 +61,22 @@ class ViewUtils {
         return this._id;
     }
 
+    get name() {
+        return this.view.name;
+    }
+
+    set name(value: string | undefined) {
+        this.view.name = value;
+    }
+
     set resetType(value: keyof typeof resets) {
-        const info = this.view.milestones[`reset:${this.view.resetType}`];
-        delete this.view.milestones[`reset:${this.view.resetType}`];
-        this.view.milestones[`reset:${value}`] = info;
+        const oldKey = `reset:${this.view.resetType}`;
+        const newKey = `reset:${value}`;
+
+        const info = this.view.milestones[oldKey];
+
+        Vue.delete(this.view.milestones, oldKey);
+        Vue.set(this.view.milestones, newKey, info);
 
         this.view.resetType = value;
     }

@@ -154,12 +154,24 @@ html.dracula {
     justify-content: space-between;
 }
 
+.justify-end {
+    justify-content: flex-end;
+}
+
 .self-center {
     align-self: center;
 }
 
 .order-last {
     order: calc(infinity);
+}
+
+.gap-s {
+    gap: 0.5em;
+}
+
+.gap-m {
+    gap: 1em;
 }
 
 .color-picker {
@@ -221,14 +233,6 @@ html.dracula {
 
     .slim {
         height: 1.5rem;
-    }
-
-    .gap-s {
-        gap: 0.5em;
-    }
-
-    .gap-m {
-        gap: 1em;
     }
 
     .crossed {
@@ -299,6 +303,13 @@ html.dracula {
         width: 100%;
         padding-left: 1rem;
         padding-right: 1rem;
+    }
+
+    .view-tab-header {
+        max-width: 15em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
 }
 
