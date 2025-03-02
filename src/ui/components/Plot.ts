@@ -6,30 +6,6 @@ import type { LatestRun } from "../../pendingRun";
 
 import type { VNode } from "vue";
 
-import html2canvas from "html2canvas";
-
-async function copyToClipboard(node: HTMLElement) {
-    const backgroundColor = $("html").css("background-color");
-
-    const width = Math.round($(node).width()! + 10);
-    const height = Math.round($(node).height()! + 10);
-
-    const canvas = await html2canvas(node, {
-        width,
-        height,
-        x: -10,
-        y: -10,
-        backgroundColor,
-        logging: false
-    });
-
-    canvas.toBlob((blob) => {
-        navigator.clipboard.write([
-            new ClipboardItem({ "image/png": blob! })
-        ]);
-    });
-}
-
 type This = Vue & {
     game: Game,
     config: ConfigManager,
@@ -42,7 +18,6 @@ type This = Vue & {
     outdated: boolean,
     supportsRealTimeUpdates: boolean,
     redraw(force?: boolean): void,
-    copyAsImage(): void,
     makeGraph(): HTMLElement
 }
 
@@ -93,9 +68,6 @@ export default {
         },
         makeGraph(this: This) {
             return makeGraph(this.history, this.view, this.game, this.currentRun, (run) => { this.selectedRun = run; });
-        },
-        async copyAsImage(this: This) {
-            await copyToClipboard(this.plot);
         }
     },
     watch: {

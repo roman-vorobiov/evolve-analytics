@@ -1,6 +1,6 @@
 import { resets, universes } from "../../enums";
 import { applyFilters } from "../../exports/historyFiltering";
-import { nextAnimationFrame } from "../utils";
+import { plotToCanvas } from "../../exports/canvas";
 import type { ConfigManager, View } from "../../config";
 import type { HistoryManager, HistoryEntry } from "../../history";
 
@@ -12,7 +12,7 @@ import { openInputDialog } from "./InputDialog";
 type This = {
     $refs: {
         plot: {
-            copyAsImage(): Promise<void>
+            plot: HTMLElement
         }
     },
     config: ConfigManager,
@@ -71,9 +71,13 @@ export default {
         async asImage(this: This) {
             this.rendering = true;
 
-            // For some reason awaiting copyAsImage prevents UI from updating
-            await nextAnimationFrame();
-            await this.$refs.plot.copyAsImage();
+            const canvas = await plotToCanvas(this.$refs.plot.plot);
+
+            canvas.toBlob((blob) => {
+                navigator.clipboard.write([
+                    new ClipboardItem({ "image/png": blob! })
+                ]);
+            });
 
             this.rendering = false;
         },

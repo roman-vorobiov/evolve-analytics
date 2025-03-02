@@ -72,7 +72,7 @@ export default {
             "lz-string": "LZString",
             "@simonwep/pickr": "Pickr",
             "fuzzysort": "fuzzysort",
-            "html2canvas": "html2canvas",
+            "html-to-image": "htmlToImage",
             "sortablejs": "Sortable"
         })
     ],
