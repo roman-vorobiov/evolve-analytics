@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.15.0
+// @version      0.15.1
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -3360,11 +3360,17 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         computed: {
             filteredOptions() {
                 return this.options
-                    .map(({ type, options }) => ({
-                    type,
-                    options: fuzzysort.go(this.input, options, { key: "label", all: true }).map(c => c.obj)
-                }))
-                    .filter(({ options }) => options.length !== 0);
+                    .map(({ type, options }) => {
+                    const candidates = fuzzysort.go(this.input, options, { key: "label", all: true });
+                    const score = candidates.reduce((acc, { score }) => Math.max(acc, score), 0);
+                    return {
+                        type,
+                        score,
+                        options: candidates.map(c => c.obj)
+                    };
+                })
+                    .filter(({ options }) => options.length !== 0)
+                    .sort((l, r) => r.score - l.score);
             },
             milestone() {
                 if (this.selected === null) {
