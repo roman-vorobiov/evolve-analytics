@@ -82,7 +82,7 @@ class ViewUtils {
     }
 
     get active(): boolean {
-        return this.config.openViewIndex === this.index;
+        return !document.hidden && this.config.openViewIndex === this.index;
     }
 
     get index() {
