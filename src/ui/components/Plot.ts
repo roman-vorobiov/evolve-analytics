@@ -4,7 +4,7 @@ import type { Game } from "../../game";
 import type { HistoryEntry, HistoryManager } from "../../history";
 import type { LatestRun } from "../../pendingRun";
 
-import type { VNode } from "vue";
+import type { default as Vue, VNode } from "vue";
 
 type This = Vue & {
     game: Game,
@@ -15,6 +15,7 @@ type This = Vue & {
     selectedRun: HistoryEntry | null,
     plot: HTMLElement,
     timestamp: number | null,
+    active: boolean,
     outdated: boolean,
     supportsRealTimeUpdates: boolean,
     redraw(force?: boolean): void,
@@ -31,20 +32,28 @@ export default {
             timestamp: null
         };
     },
+    mounted(this: This) {
+        this.history.watch(() => {
+            discardCachedState(this.view);
+            this.selectedRun = null;
+            this.redraw(true);
+        });
+
+        document.addEventListener("visibilitychange", () => {
+            if (!document.hidden) {
+                this.redraw();
+            }
+        });
+    },
     computed: {
+        active(this: This) {
+            return this.config.active && this.view.active;
+        },
         outdated(this: This) {
             return this.timestamp === null || (this.supportsRealTimeUpdates && this.timestamp !== this.game.day);
         },
         supportsRealTimeUpdates(this: This) {
             if (!this.config.recordRuns) {
-                return false;
-            }
-
-            if (!this.config.active) {
-                return false;
-            }
-
-            if (!this.view.active) {
                 return false;
             }
 
@@ -61,7 +70,7 @@ export default {
     },
     methods: {
         redraw(this: This, force = false) {
-            if (this.view.active && (force || this.outdated)) {
+            if (!document.hidden && this.active && (force || this.outdated)) {
                 this.plot = this.makeGraph();
                 this.timestamp = this.game.day;
             }
@@ -92,11 +101,6 @@ export default {
             // The index doesn't always change when a view is removed
             this.redraw();
         },
-        "history.runs"(this: This) {
-            discardCachedState(this.view);
-            this.selectedRun = null;
-            this.redraw();
-        },
         view: {
             handler(this: This) {
                 discardCachedState(this.view);
@@ -107,9 +111,7 @@ export default {
         },
         currentRun: {
             handler(this: This) {
-                if (this.supportsRealTimeUpdates) {
-                    this.redraw();
-                }
+                this.redraw();
             },
             deep: true
         }
