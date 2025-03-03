@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.15.1
+// @version      0.15.2
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -2326,7 +2326,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             this.view.resetType = value;
         }
         get active() {
-            return this.config.openViewIndex === this.index;
+            return !document.hidden && this.config.openViewIndex === this.index;
         }
         get index() {
             return this.config.views.indexOf(this);
