@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.15.3
+// @version      0.15.4
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -3087,8 +3087,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         context.scale(scale, scale);
         return context;
     }
-    async function graphToCanvas(plot) {
-        const backgroundColor = $("html").css("background-color");
+    async function graphToCanvas(plot, backgroundColor) {
         const color = $(plot).css("color");
         const font = $(plot).css("font");
         const style = `
@@ -3126,8 +3125,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             };
         });
     }
-    async function legendToCanvas(legend) {
-        const backgroundColor = $("html").css("background-color");
+    async function legendToCanvas(legend, backgroundColor) {
         const width = $(legend).width();
         const height = $(legend).height();
         legend.style.setProperty("max-width", `${width}px`);
@@ -3147,15 +3145,20 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         return canvas;
     }
     async function plotToCanvas(plot) {
-        const legendCanvas = await legendToCanvas($(plot).find("> div")[0]);
-        const graphCanvas = await graphToCanvas($(plot).find("> svg")[0]);
+        const backgroundColor = $("html").css("background-color");
+        const legendCanvas = await legendToCanvas($(plot).find("> div")[0], backgroundColor);
+        const graphCanvas = await graphToCanvas($(plot).find("> svg")[0], backgroundColor);
+        const offsetX = 5;
+        const offsetY = 10;
         const legendHeight = parseFloat(legendCanvas.style.height);
         const graphHeight = parseFloat(graphCanvas.style.height);
-        const height = legendHeight + graphHeight;
-        const width = parseFloat(legendCanvas.style.width);
+        const height = legendHeight + graphHeight + offsetY;
+        const width = parseFloat(legendCanvas.style.width) + offsetX * 2;
         const context = context2d(width, height);
-        context.drawImage(legendCanvas, 0, 0, width, legendHeight);
-        context.drawImage(graphCanvas, 0, legendHeight, width, graphHeight);
+        context.fillStyle = backgroundColor;
+        context.fillRect(0, 0, width, height);
+        context.drawImage(legendCanvas, offsetX, offsetY, width, legendHeight);
+        context.drawImage(graphCanvas, offsetX, legendHeight + offsetY, width, graphHeight);
         return context.canvas;
     }
 
