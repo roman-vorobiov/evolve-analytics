@@ -18,8 +18,7 @@ function context2d(width: number, height: number, canvasWidth?: number, canvasHe
     return context!;
 }
 
-async function graphToCanvas(plot: SVGSVGElement): Promise<HTMLCanvasElement> {
-    const backgroundColor = $("html").css("background-color");
+async function graphToCanvas(plot: SVGSVGElement, backgroundColor: string): Promise<HTMLCanvasElement> {
     const color = $(plot).css("color");
     const font = $(plot).css("font");
 
@@ -65,9 +64,7 @@ async function graphToCanvas(plot: SVGSVGElement): Promise<HTMLCanvasElement> {
     });
 }
 
-async function legendToCanvas(legend: HTMLElement): Promise<HTMLCanvasElement> {
-    const backgroundColor = $("html").css("background-color");
-
+async function legendToCanvas(legend: HTMLElement, backgroundColor: string): Promise<HTMLCanvasElement> {
     const width = $(legend).width()!;
     const height = $(legend).height()!;
 
@@ -93,18 +90,26 @@ async function legendToCanvas(legend: HTMLElement): Promise<HTMLCanvasElement> {
 }
 
 export async function plotToCanvas(plot: HTMLElement): Promise<HTMLCanvasElement> {
-    const legendCanvas = await legendToCanvas($(plot).find("> div")[0]);
-    const graphCanvas = await graphToCanvas($(plot).find("> svg")[0] as any as SVGSVGElement);
+    const backgroundColor = $("html").css("background-color");
+
+    const legendCanvas = await legendToCanvas($(plot).find("> div")[0], backgroundColor);
+    const graphCanvas = await graphToCanvas($(plot).find("> svg")[0] as any as SVGSVGElement, backgroundColor);
+
+    const offsetX = 5;
+    const offsetY = 10;
 
     const legendHeight = parseFloat(legendCanvas.style.height);
     const graphHeight = parseFloat(graphCanvas.style.height);
-    const height = legendHeight + graphHeight;
-    const width = parseFloat(legendCanvas.style.width);
+    const height = legendHeight + graphHeight + offsetY;
+    const width = parseFloat(legendCanvas.style.width) + offsetX * 2;
 
     const context = context2d(width, height);
 
-    context.drawImage(legendCanvas, 0, 0, width, legendHeight);
-    context.drawImage(graphCanvas, 0, legendHeight, width, graphHeight);
+    context.fillStyle = backgroundColor;
+    context.fillRect(0, 0, width, height);
+
+    context.drawImage(legendCanvas, offsetX, offsetY, width, legendHeight);
+    context.drawImage(graphCanvas, offsetX, legendHeight + offsetY, width, graphHeight);
 
     return context.canvas;
 }
