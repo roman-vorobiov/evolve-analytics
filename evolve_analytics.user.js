@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.15.2
+// @version      0.15.3
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -2326,7 +2326,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             this.view.resetType = value;
         }
         get active() {
-            return !document.hidden && this.config.openViewIndex === this.index;
+            return this.config.openViewIndex === this.index;
         }
         get index() {
             return this.config.views.indexOf(this);
@@ -4337,18 +4337,27 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
                 timestamp: null
             };
         },
+        mounted() {
+            this.history.watch(() => {
+                discardCachedState(this.view);
+                this.selectedRun = null;
+                this.redraw(true);
+            });
+            document.addEventListener("visibilitychange", () => {
+                if (!document.hidden) {
+                    this.redraw();
+                }
+            });
+        },
         computed: {
+            active() {
+                return this.config.active && this.view.active;
+            },
             outdated() {
                 return this.timestamp === null || (this.supportsRealTimeUpdates && this.timestamp !== this.game.day);
             },
             supportsRealTimeUpdates() {
                 if (!this.config.recordRuns) {
-                    return false;
-                }
-                if (!this.config.active) {
-                    return false;
-                }
-                if (!this.view.active) {
                     return false;
                 }
                 if (!this.view.includeCurrentRun) {
@@ -4362,7 +4371,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         },
         methods: {
             redraw(force = false) {
-                if (this.view.active && (force || this.outdated)) {
+                if (!document.hidden && this.active && (force || this.outdated)) {
                     this.plot = this.makeGraph();
                     this.timestamp = this.game.day;
                 }
@@ -4393,11 +4402,6 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
                 // The index doesn't always change when a view is removed
                 this.redraw();
             },
-            "history.runs"() {
-                discardCachedState(this.view);
-                this.selectedRun = null;
-                this.redraw();
-            },
             view: {
                 handler() {
                     discardCachedState(this.view);
@@ -4408,9 +4412,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             },
             currentRun: {
                 handler() {
-                    if (this.supportsRealTimeUpdates) {
-                        this.redraw();
-                    }
+                    this.redraw();
                 },
                 deep: true
             }
