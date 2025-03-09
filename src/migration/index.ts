@@ -1,5 +1,4 @@
 import * as DB from "../database";
-import { migrate3 } from "./3";
 import { migrate4 } from "./4";
 import { migrate6 } from "./6";
 import { migrate7 } from "./7";
@@ -16,8 +15,6 @@ export const VERSION = 16;
 
 export function migrate() {
     let config: any = DB.loadConfig();
-    let history: any = DB.loadHistory();
-    let latestRun: any = DB.loadLatestRun();
 
     if (config === null) {
         return;
@@ -27,8 +24,14 @@ export function migrate() {
         return;
     }
 
+    let history: any = DB.loadHistory();
+    let latestRun: any = DB.loadLatestRun();
+
     if (config.version < 4) {
-        [config, history, latestRun] = migrate3(config, history, latestRun);
+        DB.discardConfig();
+        DB.discardHistory();
+        DB.discardLatestRun();
+        return;
     }
 
     if (config.version < 6) {

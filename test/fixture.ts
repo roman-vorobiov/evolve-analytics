@@ -61,6 +61,7 @@ export function makeGameStateFactory(prototypeOverrides: RecursivePartial<Evolve
                 interstellar: {},
                 galaxy: {},
                 portal: {},
+                eden: {},
                 tauceti: {},
                 arpa: {},
                 stats: {

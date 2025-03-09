@@ -35,8 +35,8 @@ function makeEncodedDatabaseFunctions<T>(key: string): [Saver<T>, Loader<T>, Rem
     ];
 }
 
-export const [saveConfig, loadConfig] = makeDatabaseFunctions<Config>("sneed.analytics.config");
+export const [saveConfig, loadConfig, discardConfig] = makeDatabaseFunctions<Config>("sneed.analytics.config");
 
-export const [saveHistory, loadHistory] = makeEncodedDatabaseFunctions<RunHistory>("sneed.analytics.history");
+export const [saveHistory, loadHistory, discardHistory] = makeEncodedDatabaseFunctions<RunHistory>("sneed.analytics.history");
 
 export const [saveCurrentRun, loadLatestRun, discardLatestRun] = makeDatabaseFunctions<LatestRun>("sneed.analytics.latest");

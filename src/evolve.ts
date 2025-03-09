@@ -3,7 +3,7 @@ import type { resets, universes } from "./enums";
 declare const unsafeWindow: any;
 
 export type BuildingInfoTabs = {
-    [tab in "city" | "space" | "starDock" | "interstellar" | "galaxy" | "portal" | "tauceti"]: Record<string, {
+    [tab in "city" | "space" | "starDock" | "interstellar" | "galaxy" | "portal" | "eden" | "tauceti"]: Record<string, {
         count: number;
     }>
 }

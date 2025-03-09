@@ -1,7 +1,7 @@
 import { resetName, buildings, buildingSegments, techs, events, environmentEffects } from "./enums";
 import eventsInfo from "./events";
 import { effectActive } from "./effects";
-import { patternMatch } from "./utils";
+import { filterMap, patternMatch } from "./utils";
 import type { resets, universes } from "./enums";
 import type { Game } from "./game";
 
@@ -25,50 +25,155 @@ export function makeMilestoneChecker(game: Game, milestone: string): MilestoneCh
     };
 }
 
+type ResearchInfo = {
+    type: "Research",
+    name: string,
+    baseName: string,
+    suffix?: string
+}
+
+type BuildingInfo = {
+    type: "Building",
+    name: string,
+    id: string,
+    baseName: string,
+    prefix?: string,
+    suffix?: string,
+    count: number
+}
+
+type OtherInfo = {
+    type: string,
+    name: string
+}
+
+type MilestoneNameInfo = OtherInfo | ResearchInfo | BuildingInfo;
+
 function techName(id: string) {
-    return patternMatch<[string, string]>(techs[id], [
-        [/(.+) \((.+)\)/, (name, descriminator) => [name, descriminator]],
-        [/(.+)/, (name) => [name, "Research"]]
+    return patternMatch<ResearchInfo>(techs[id], [
+        [/(.+) \((.+)\)/, (name, suffix) => ({ type: "Research", name, baseName: name, suffix })],
+        [/(.+)/, (name) => ({ type: "Research", name, baseName: name })]
     ])!;
 }
 
-export function milestoneName(milestone: string, universe?: keyof typeof universes): [string, string, boolean] {
-    const name = patternMatch<[string, string, boolean]>(milestone, [
-        [/built:(.+?):(\d+)/, (id, count) => [buildings[id], count, Number(count) !== (buildingSegments[id] ?? 1)]],
-        [/tech:(.+)/, (id) => [...techName(id), false]],
-        [/event:(.+)/, (id) => [events[id as keyof typeof events], "Event", false]],
-        [/event_condition:(.+)/, (id) => [events[id as keyof typeof events], "Event condition", false]],
-        [/effect:(.+)/, (id) => [environmentEffects[id as keyof typeof environmentEffects], "Effect", false]],
-        [/reset:(.+)/, (reset) => [resetName(reset as keyof typeof resets, universe), "Reset", false]],
+function buildingName(id: string, count: number): BuildingInfo {
+    const info = buildings[id];
+    return {
+        type: "Building",
+        name: info.name,
+        id,
+        baseName: info.name,
+        prefix: info.prefix,
+        suffix: info.suffix,
+        count
+    };
+}
+
+export function milestoneName(milestone: string, universe?: keyof typeof universes): MilestoneNameInfo {
+    const name = patternMatch<MilestoneNameInfo>(milestone, [
+        [/built:(.+?):(\d+)/, (id, count) => buildingName(id, Number(count))],
+        [/tech:(.+)/, (id) => techName(id)],
+        [/event:(.+)/, (id) => ({ type: "Event", "name": events[id as keyof typeof events] })],
+        [/event_condition:(.+)/, (id) => ({ type: "Event Condition", "name": events[id as keyof typeof events] })],
+        [/effect:(.+)/, (id) => ({ type: "Effect", name: environmentEffects[id as keyof typeof environmentEffects] })],
+        [/reset:(.+)/, (reset) => ({ type: "Reset", name: resetName(reset as keyof typeof resets, universe) })],
     ]);
 
-    return name ?? [milestone, "Unknown", false];
+    return name ?? { type: "unknown", name: milestone };
+}
+
+function getDuplicates(entries: MilestoneNameInfo[]): Record<string, MilestoneNameInfo[]> {
+    const grouped = Object.groupBy(entries, info => info.name) as Record<string, MilestoneNameInfo[]>;
+    return filterMap(grouped, ([, group]) => group!.length !== 1);
+}
+
+function buildingCount(id: string, count: number) {
+    if (id in buildingSegments) {
+        return `${count}/${buildingSegments[id]}`;
+    }
+    else {
+        return String(count);
+    }
+}
+
+function resolveDuplicateNames(entries: MilestoneNameInfo[]) {
+    const steps = [
+        // Step 1: Resolve non-buildings
+        (group: MilestoneNameInfo[]) => {
+            for (const entry of group) {
+                if (entry.type !== "Building") {
+                    const { type, name, suffix } = entry as any;
+                    entry.name = `${name} (${suffix ?? type})`;
+                }
+            }
+        },
+        // Step 2: Add building prefixes
+        (group: BuildingInfo[]) => {
+            // If all prefixes are the same, adding them won't resolve duplicate names
+            const regions = new Set(group.map(entry => entry.prefix));
+            if (regions.size === 1) {
+                return;
+            }
+
+            for (const entry of group) {
+                const { name, prefix } = entry;
+                if (prefix) {
+                    entry.name = `${prefix} ${name}`;
+                }
+            }
+        },
+        // Step 3: Add building suffixes
+        (group: BuildingInfo[]) => {
+            for (const entry of group) {
+                const { name, suffix } = entry;
+                if (suffix) {
+                    entry.name = `${name} (${suffix})`;
+                }
+            }
+        },
+        // Step 4: Add building counts
+        (group: BuildingInfo[]) => {
+            for (const entry of group) {
+                const { id, count } = entry;
+                entry.name = `${entry.name} (${buildingCount(id, count)})`;
+
+                // Don't add count twice - make equal to the default value
+                entry.count = buildingSegments[id] ?? 1;
+            }
+        }
+    ];
+
+    for (const step of steps) {
+        const duplicates = getDuplicates(entries);
+        if (Object.entries(duplicates).length === 0) {
+            return;
+        }
+
+        for (const group of Object.values(duplicates)) {
+            step(group);
+        }
+    }
 }
 
 export function generateMilestoneNames(milestones: string[], universe?: keyof typeof universes): string[] {
-    const candidates: Record<string, [number, string, boolean][]> = {};
+    const entries = milestones.map(m => milestoneName(m, universe));
 
-    for (let i = 0; i !== milestones.length; ++i) {
-        const [name, discriminator, force] = milestoneName(milestones[i], universe);
-        (candidates[name] ??= []).push([i, discriminator, force]);
-    }
+    resolveDuplicateNames(entries);
 
-    const names = new Array<string>(milestones.length);
-
-    for (const [name, discriminators] of Object.entries(candidates)) {
-        // Add a discriminator if there are multiple milestones with the same name
-        // Or if the count of a "built" milestone differs from the segment number of the building
-        if (discriminators.length > 1 || discriminators[0][2]) {
-            for (const [i, discriminator] of discriminators) {
-                names[i] = `${name} (${discriminator})`;
-            }
+    // Final step: Add building counts if needed
+    for (const entry of entries) {
+        if (entry.type !== "Building") {
+            continue;
         }
-        else {
-            names[discriminators[0][0]] = name;
+
+        const { id, count } = entry as BuildingInfo;
+
+        if (count !== (buildingSegments[id] ?? 1)) {
+            entry.name = `${entry.name} (${buildingCount(id, count)})`;
         }
     }
 
-    return names;
+    return entries.map(e => e.name);
 }
 
 export function isEventMilestone(milestone: string) {

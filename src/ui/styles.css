@@ -285,6 +285,7 @@ html.dracula {
     .dropdown-content {
         scrollbar-width: thin;
         flex-grow: 1;
+        max-height: 20rem;
     }
 
     div.dropdown-item {

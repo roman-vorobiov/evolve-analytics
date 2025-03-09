@@ -6,31 +6,31 @@ import { migrate } from "../../src/migration";
 describe("Migration", () => {
     it("should run all migrations", () => {
         localStorage.setItem("sneed.analytics.config", JSON.stringify({
-            version: 3,
+            version: 4,
             views: [
                 {
-                    mode: "Total (filled)",
-                    resetType: "Ascension",
+                    mode: "filled",
+                    resetType: "ascend",
                     universe: "heavy",
                     numRuns: 50,
-                    milestones: [
-                        ["Built", "arpa", "launch_facility", "Launch Facility", 123, true],
-                        ["Built", "space", "world_controller", "Dwarf World Collider (Complete)", 1, false],
-                        ["Researched", "metaphysics", "Metaphysics", true],
-                        ["Event", "Womlings arrival", true],
-                        ["Reset", "Ascension", true]
-                    ]
+                    milestones: {
+                        "built:arpa-launch_facility:123": true,
+                        "built:space-world_controller:1": false,
+                        "tech:metaphysics": true,
+                        "event:womlings": true,
+                        "reset:ascend": true
+                    }
                 }
             ]
         }));
 
         localStorage.setItem("sneed.analytics.history", JSON.stringify({
             milestones: {
-                "Launch Facility": 0,
-                "Dwarf World Collider (Complete)": 1,
-                "Metaphysics": 3,
-                "Ascension": 7,
-                "Womlings arrival": 8,
+                "built:arpa-launch_facility:123": 0,
+                "built:space-world_controller:1": 1,
+                "tech:metaphysics": 3,
+                "reset:ascend": 7,
+                "event:womlings": 8
             },
             runs: [
                 {
@@ -51,21 +51,21 @@ describe("Migration", () => {
             universe: "heavy",
             totalDays: 179,
             resets: {
-                "MAD": 234,
-                "Bioseed": 47,
-                "Cataclysm": 2,
-                "Black Hole": 17,
-                "Ascension": 317,
-                "Demonic Infusion": 3,
-                "AI Apocalypse": 1,
-                "Matrix": 1,
-                "Retirement": 1,
-                "Garden of Eden": 1,
-                "Terraform": 1
+                "mad": 234,
+                "bioseed": 47,
+                "cataclysm": 2,
+                "blackhole": 17,
+                "ascend": 317,
+                "descend": 3,
+                "aiappoc": 1,
+                "matrix": 1,
+                "retire": 1,
+                "eden": 1,
+                "terraform": 1
             },
             milestones: {
-                "Womlings arrival": 10,
-                "Launch Facility": 96
+                "event:womlings": 10,
+                "built:arpa-launch_facility:123": 96
             }
         }));
 
@@ -149,7 +149,7 @@ describe("Migration", () => {
         });
     });
 
-    it("should discard latest run if it can't be migrated", () => {
+    it("should clear storage if can't migrate", () => {
         localStorage.setItem("sneed.analytics.config", JSON.stringify({
             version: 3,
             views: []
@@ -173,17 +173,8 @@ describe("Migration", () => {
 
         migrate();
 
-        expect(loadConfig()).toEqual({
-            version: 16,
-            recordRuns: true,
-            views: []
-        });
-
-        expect(loadHistory()).toEqual({
-            milestones: {},
-            runs: []
-        });
-
+        expect(loadConfig()).toBeNull();
+        expect(loadHistory()).toBeNull();
         expect(loadLatestRun()).toBeNull();
     });
 });

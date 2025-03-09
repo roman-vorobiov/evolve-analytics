@@ -6,31 +6,27 @@ import type { universes } from "../src/enums";
 describe("Milestones", () => {
     describe("Names", () => {
         it("should generate a name for the 'built' milestones", () => {
-            const [name, discriminator] = milestoneName("built:interstellar-mining_droid:123");
+            const { name } = milestoneName("built:interstellar-mining_droid:123");
 
-            expect(name).toBe("Alpha Mining Droid");
-            expect(discriminator).toBe("123");
+            expect(name).toBe("Mining Droid");
         });
 
         it("should generate a name for the 'tech' milestones", () => {
-            const [name, discriminator] = milestoneName("tech:master_craftsman");
+            const { name } = milestoneName("tech:master_craftsman");
 
             expect(name).toBe("Master Crafter");
-            expect(discriminator).toBe("Research");
         });
 
         it("should generate a name for the 'event' milestones", () => {
-            const [name, discriminator] = milestoneName("event:womlings");
+            const { name } = milestoneName("event:womlings");
 
             expect(name).toBe("Womlings arrival");
-            expect(discriminator).toBe("Event");
         });
 
         it("should generate a name for the 'reset' milestones", () => {
-            const [name, discriminator] = milestoneName("reset:ascend");
+            const { name } = milestoneName("reset:ascend");
 
             expect(name).toBe("Ascension");
-            expect(discriminator).toBe("Reset");
         });
 
         it.each([
@@ -38,10 +34,9 @@ describe("Milestones", () => {
             { universe: "heavy", resetName: "Black Hole" },
             { universe: "magic", resetName: "Vacuum Collapse" }
         ])("should adjust the name of the 'blackhole' reset", ({ universe, resetName }) => {
-            const [name, discriminator] = milestoneName("reset:blackhole", universe as keyof typeof universes);
+            const { name } = milestoneName("reset:blackhole", universe as keyof typeof universes);
 
             expect(name).toBe(resetName);
-            expect(discriminator).toBe("Reset");
         });
 
         it("should not disambiguate if there are no conflicts", () => {
@@ -51,20 +46,22 @@ describe("Milestones", () => {
             ]);
 
             expect(names).toEqual([
-                "Alpha Mining Droid",
+                "Mining Droid",
                 "Master Crafter"
             ]);
         });
 
         it("should disambiguate if the same building has different counts", () => {
             const names = generateMilestoneNames([
+                "built:interstellar-mining_droid:1",
                 "built:interstellar-mining_droid:123",
                 "built:interstellar-mining_droid:456",
             ]);
 
             expect(names).toEqual([
-                "Alpha Mining Droid (123)",
-                "Alpha Mining Droid (456)"
+                "Mining Droid (1)",
+                "Mining Droid (123)",
+                "Mining Droid (456)"
             ]);
         });
 
@@ -90,11 +87,11 @@ describe("Milestones", () => {
             expect(names).toEqual([
                 "Apartment (123)",
                 "Supercollider (456)",
-                "Blackhole Stargate (100)"
+                "Stargate (100/200)"
             ]);
         });
 
-        it("should nto disambiguate if the count matches the number of segments", () => {
+        it("should not disambiguate if the count matches the number of segments", () => {
             const names = generateMilestoneNames([
                 "built:city-apartment:1",
                 "built:arpa-lhc:1",
@@ -104,7 +101,7 @@ describe("Milestones", () => {
             expect(names).toEqual([
                 "Apartment",
                 "Supercollider",
-                "Blackhole Stargate"
+                "Stargate"
             ]);
         });
     });

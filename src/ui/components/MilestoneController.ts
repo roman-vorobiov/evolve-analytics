@@ -15,6 +15,34 @@ function makeMilestoneGroup(name: string, type: string, options: Record<string, 
     }
 }
 
+function* makeBuildingGroups() {
+    const options = Object.entries(buildings).map(([id, { name, region, suffix }]) => ({
+        type: "built",
+        region,
+        id,
+        label: name,
+        suffix
+    }));
+
+    yield {
+        type: "Building/Project",
+        options
+    };
+
+    // for (const [region, group] of Object.entries(Object.groupBy(Object.entries(buildings), ([, entry]) => entry.region))) {
+    //     yield {
+    //         type: region,
+    //         options: group!.map(([id, { name, region, suffix }]) => ({
+    //             type: "built",
+    //             region,
+    //             id,
+    //             label: name,
+    //             suffix
+    //         }))
+    //     };
+    // }
+}
+
 type This = {
     view: View,
     history: HistoryManager,
@@ -40,7 +68,7 @@ export default {
             count: 1,
             selected: null,
             options: [
-                makeMilestoneGroup("Building/Project", "built", buildings),
+                ...makeBuildingGroups(),
                 makeMilestoneGroup("Research", "tech", techs),
                 makeMilestoneGroup("Event", "event", events),
                 makeMilestoneGroup("Effect", "effect", environmentEffects)
@@ -104,11 +132,15 @@ export default {
                 :data="filteredOptions"
                 group-field="type"
                 group-options="options"
-                field="label"
                 @select="(option) => { selected = option }"
                 open-on-focus
                 placeholder="e.g. Launch Facility"
-            />
+            >
+                <template slot-scope="props">
+                    <span v-if="props.option.region" style="opacity: 0.5">{{ props.option.region }}/</span><span>{{ props.option.label }}</span>
+                    <span v-if="props.option.suffix" style="opacity: 0.5"> ({{ props.option.suffix }})</span>
+                </template>
+            </b-autocomplete>
             <number-input v-if="selected?.type === 'built'" v-model="count" min="1"/>
 
             <button class="button slim" @click="add" :disabled="selected === null">Add</button>
