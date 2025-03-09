@@ -1,4 +1,5 @@
 import { buildings, techs, events, environmentEffects, milestoneTypes } from "../../enums";
+import { BuildingInfo } from "../../enums/buildings";
 import type { View } from "../../config";
 import type { HistoryManager } from "../../history";
 
@@ -15,18 +16,23 @@ function makeMilestoneGroup(name: string, type: string, options: Record<string, 
     }
 }
 
-function makeBuildingGroup() {
-    const options = Object.entries(buildings).map(([id, { name, region, suffix }]) => ({
+function* makeBuildingGroups() {
+    const makeGroup = ([id, { name, region, suffix }]: [string, BuildingInfo]) => ({
         type: "built",
         prefix: region,
         id,
         label: name,
         suffix
-    }));
+    });
 
-    return {
-        type: "Building/Project",
-        options
+    yield {
+        type: "Buildings",
+        options: Object.entries(buildings).filter(([id]) => !id.startsWith("arpa-")).map(makeGroup)
+    };
+
+    yield {
+        type: "Projects",
+        options: Object.entries(buildings).filter(([id]) => id.startsWith("arpa-")).map(makeGroup)
     };
 }
 
@@ -70,10 +76,10 @@ export default {
             count: 1,
             selected: null,
             options: [
-                makeBuildingGroup(),
+                ...makeBuildingGroups(),
                 makeResearchGroup(),
-                makeMilestoneGroup("Event", "event", events),
-                makeMilestoneGroup("Effect", "effect", environmentEffects)
+                makeMilestoneGroup("Events", "event", events),
+                makeMilestoneGroup("Effects", "effect", environmentEffects)
             ]
         }
     },
@@ -141,7 +147,7 @@ export default {
                 <template slot-scope="props">
                     <span v-if="props.option.prefix" style="opacity: 0.5">[{{ props.option.prefix }}]</span>
                     <span>{{ props.option.label }}</span>
-                    <span v-if="props.option.suffix" style="opacity: 0.5"> ({{ props.option.suffix }})</span>
+                    <span v-if="props.option.suffix" style="opacity: 0.5">({{ props.option.suffix }})</span>
                 </template>
             </b-autocomplete>
             <number-input v-if="selected?.type === 'built'" v-model="count" min="1"/>

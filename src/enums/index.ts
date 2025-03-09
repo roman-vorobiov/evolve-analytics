@@ -5,17 +5,17 @@ export { techs } from "./research";
 export type Temperature = "hot" | "cold" | "normal"
 
 export const events = {
-    womlings: "Womlings arrival",
-    steel: "Steel discovery",
-    elerium: "Elerium discovery",
-    oil: "Space Oil discovery",
-    pit: "Pit discovery",
-    alien: "Alien encounter",
-    piracy: "Piracy unlock",
-    alien_db: "Alien Database find",
-    corrupt_gem: "Corrupt Soul Gem creation",
-    vault: "Vault discovery",
-    syndicate: "Syndicate unlock"
+    womlings: "Servants Arrival",
+    steel: "Steel Discovery",
+    elerium: "Elerium Discovery",
+    oil: "Space Oil Discovery",
+    pit: "Pit Discovery",
+    alien: "Alien Encounter",
+    piracy: "Pirate Encounter",
+    alien_db: "Alien Database Find",
+    corrupt_gem: "Corrupt Soul Gem Find",
+    vault: "Vault Discovery",
+    syndicate: "Syndicate Encounter"
 };
 
 export const resets = {

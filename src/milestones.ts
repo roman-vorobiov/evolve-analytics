@@ -86,15 +86,6 @@ function getDuplicates(entries: MilestoneNameInfo[]): Record<string, MilestoneNa
     return filterMap(grouped, ([, group]) => group!.length !== 1);
 }
 
-function buildingCount(id: string, count: number) {
-    if (id in buildingSegments) {
-        return `${count}/${buildingSegments[id]}`;
-    }
-    else {
-        return String(count);
-    }
-}
-
 function resolveDuplicateNames(entries: MilestoneNameInfo[]) {
     const steps = [
         // Step 1: Resolve non-buildings
@@ -134,7 +125,7 @@ function resolveDuplicateNames(entries: MilestoneNameInfo[]) {
         (group: BuildingInfo[]) => {
             for (const entry of group) {
                 const { id, count } = entry;
-                entry.name = `${entry.name} (${buildingCount(id, count)})`;
+                entry.name = `${entry.name} (${count})`;
 
                 // Don't add count twice - make equal to the default value
                 entry.count = buildingSegments[id] ?? 1;
@@ -168,7 +159,7 @@ export function generateMilestoneNames(milestones: string[], universe?: keyof ty
         const { id, count } = entry as BuildingInfo;
 
         if (count !== (buildingSegments[id] ?? 1)) {
-            entry.name = `${entry.name} (${buildingCount(id, count)})`;
+            entry.name = `${entry.name} (${count})`;
         }
     }
 

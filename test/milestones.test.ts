@@ -20,7 +20,7 @@ describe("Milestones", () => {
         it("should generate a name for the 'event' milestones", () => {
             const { name } = milestoneName("event:womlings");
 
-            expect(name).toBe("Womlings arrival");
+            expect(name).toBe("Servants Arrival");
         });
 
         it("should generate a name for the 'reset' milestones", () => {
@@ -87,7 +87,7 @@ describe("Milestones", () => {
             expect(names).toEqual([
                 "Apartment (123)",
                 "Supercollider (456)",
-                "Stargate (100/200)"
+                "Stargate (100)"
             ]);
         });
 
