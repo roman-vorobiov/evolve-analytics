@@ -28,7 +28,6 @@ export function makeMilestoneChecker(game: Game, milestone: string): MilestoneCh
 type ResearchInfo = {
     type: "Research",
     name: string,
-    baseName: string,
     suffix?: string
 }
 
@@ -36,7 +35,6 @@ type BuildingInfo = {
     type: "Building",
     name: string,
     id: string,
-    baseName: string,
     prefix?: string,
     suffix?: string,
     count: number
@@ -49,11 +47,13 @@ type OtherInfo = {
 
 type MilestoneNameInfo = OtherInfo | ResearchInfo | BuildingInfo;
 
-function techName(id: string) {
-    return patternMatch<ResearchInfo>(techs[id], [
-        [/(.+) \((.+)\)/, (name, suffix) => ({ type: "Research", name, baseName: name, suffix })],
-        [/(.+)/, (name) => ({ type: "Research", name, baseName: name })]
-    ])!;
+function techName(id: string): ResearchInfo {
+    const info = techs[id];
+    return {
+        type: "Research",
+        name: info.name,
+        suffix: info.suffix
+    };
 }
 
 function buildingName(id: string, count: number): BuildingInfo {
@@ -62,7 +62,6 @@ function buildingName(id: string, count: number): BuildingInfo {
         type: "Building",
         name: info.name,
         id,
-        baseName: info.name,
         prefix: info.prefix,
         suffix: info.suffix,
         count

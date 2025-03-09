@@ -100,21 +100,21 @@ export const buildings = makeBuildingsInfo({
         }
     },
     space: {
-        "Space/Earth's Orbit": {
+        "Earth's Orbit": {
             test_launch: "Test Launch",
             satellite: "Satellite",
             gps: "GPS Satellite",
             propellant_depot: "Propellant Depot",
             nav_beacon: "Navigation Beacon"
         },
-        "Space/Moon": {
+        "Moon": {
             moon_mission: "Moon Launch",
             moon_base: "Moon Base",
             iridium_mine: "Iridium Mine",
             helium_mine: "Helium-3 Mine",
             observatory: "Observatory"
         },
-        "Space/Red Planet": {
+        "Red Planet": {
             red_mission: "Red Planet Mission",
             spaceport: "Spaceport",
             red_tower: "Space Control",
@@ -139,7 +139,7 @@ export const buildings = makeBuildingsInfo({
             wonder_statue: "Colossus",
             bonfire: { name: "Bonfire Pyre", prefix: "Space", suffix: "Cataclysm" }
         },
-        "Space/Hell Planet": {
+        "Hell Planet": {
             hell_mission: "Hell Planet Mission",
             geothermal: "Geothermal Plant",
             hell_smelter: "Smelter",
@@ -147,32 +147,32 @@ export const buildings = makeBuildingsInfo({
             swarm_plant: "Swarm Plant",
             firework: { name: "Firework Factory", prefix: "Space", suffix: "Cataclysm" }
         },
-        "Space/Sun": {
+        "Sun": {
             sun_mission: "Sun Mission",
             swarm_control: "Control Station",
             swarm_satellite: "Swarm Satellite",
             jump_gate: { name: "Jump Gate", prefix: "Space" }
         },
-        "Space/Gas Giant": {
+        "Gas Giant": {
             gas_mission: "Gas Giant Mission",
             gas_mining: "Helium-3 Collector",
             gas_storage: "Fuel Depot",
             star_dock: "Space Dock"
         },
-        "Space/Gas Giant's Moon": {
+        "Gas Giant's Moon": {
             gas_moon_mission: "Gas Giant's Moon Mission",
             outpost: "Mining Outpost",
             drone: "Mining Drone",
             oil_extractor: "Oil Extractor"
         },
-        "Space/Asteroid Belt": {
+        "Asteroid Belt": {
             belt_mission: "Asteroid Belt Mission",
             space_station: "Space Station",
             elerium_ship: "Elerium Mining Ship",
             iridium_ship: "Iridium Mining Ship",
             iron_ship: "Iron Mining Ship"
         },
-        "Space/Dwarf Planet": {
+        "Dwarf Planet": {
             dwarf_mission: "Dwarf Planet Mission",
             elerium_contain: "Elerium Storage",
             e_reactor: "Elerium Reactor",
@@ -182,7 +182,7 @@ export const buildings = makeBuildingsInfo({
             mass_relay: "Mass Relay",
             m_relay: { name: "Mass Relay", suffix: "Complete" }
         },
-        "Space/Titan": {
+        "Titan": {
             titan_mission: "Titan Mission",
             titan_spaceport: { name: "Spaceport", prefix: "Titan" },
             electrolysis: "Electrolysis Plant",
@@ -199,27 +199,27 @@ export const buildings = makeBuildingsInfo({
             ai_colonist: "Artificial Colonist",
             wonder_gardens: "Hanging Gardens of Titan"
         },
-        "Space/Enceladus": {
+        "Enceladus": {
             enceladus_mission: "Enceladus Mission",
             water_freighter: "Water Freighter",
             zero_g_lab: "Zero Gravity Lab",
             operating_base: "Operating Base",
             munitions_depot: "Munitions Depot"
         },
-        "Space/Triton": {
+        "Triton": {
             triton_mission: "Triton Mission",
             fob: "Forward Base",
             lander: "Troop Lander",
             crashed_ship: "Derelict Ship"
         },
-        "Space/Kuiper Belt": {
+        "Kuiper Belt": {
             kuiper_mission: "Kuiper Belt Mission",
             orichalcum_mine: "Orichalcum Mine",
             uranium_mine: "Uranium Mine",
             neutronium_mine: "Neutronium Mine",
             elerium_mine: "Elerium Mine"
         },
-        "Space/Eris": {
+        "Eris": {
             eris_mission: "Eris Mission",
             drone_control: "Titan Control Relay",
             shock_trooper: "Android Trooper",
@@ -228,7 +228,7 @@ export const buildings = makeBuildingsInfo({
         }
     },
     starDock: {
-        "Space/Star Dock": {
+        "Star Dock": {
             probes: "Space Probe",
             geck: "G.E.C.K.",
             seeder: "Bioseeder Ship",
@@ -237,7 +237,7 @@ export const buildings = makeBuildingsInfo({
         }
     },
     interstellar: {
-        "Interstellar/Alpha Centauri": {
+        "Alpha Centauri": {
             alpha_mission: "Alpha Centauri Mission",
             starport: "Starport",
             habitat: "Habitat",
@@ -253,7 +253,7 @@ export const buildings = makeBuildingsInfo({
             warehouse: { name: "Warehouse", prefix: "Space" },
             wonder_gardens: "Hanging Gardens"
         },
-        "Interstellar/Proxima Centauri": {
+        "Proxima Centauri": {
             proxima_mission: "Proxima Centauri Mission",
             xfer_station: "Transfer Station",
             cargo_yard: "Cargo Yard",
@@ -263,19 +263,19 @@ export const buildings = makeBuildingsInfo({
             orichalcum_sphere: { name: "Dyson Sphere", suffix: "Orichalcum" },
             elysanite_sphere: { name: "Dyson Sphere", suffix: "Elysanite" }
         },
-        "Interstellar/Helix Nebula": {
+        "Helix Nebula": {
             nebula_mission: "Helix Nebula Mission",
             nexus: "Nexus Station",
             harvester: "Gas Harvester",
             elerium_prospector: "Elerium Prospector"
         },
-        "Interstellar/Neutron Star": {
+        "Neutron Star": {
             neutron_mission: "Neutron Star Mission",
             neutron_miner: "Neutron Miner",
             citadel: "Citadel Station",
             stellar_forge: "Stellar Forge"
         },
-        "Interstellar/Black Hole": {
+        "Black Hole": {
             blackhole_mission: "Black Hole Mission",
             far_reach: "Farpoint",
             stellar_engine: "Stellar Engine",
@@ -285,7 +285,7 @@ export const buildings = makeBuildingsInfo({
             stargate: "Stargate",
             s_gate: { name: "Stargate", suffix: "Complete" }
         },
-        "Interstellar/Sirius": {
+        "Sirius": {
             sirius_mission: "Sirius Mission",
             sirius_b: "Sirius B Analysis",
             space_elevator: "Space Elevator",
@@ -297,7 +297,7 @@ export const buildings = makeBuildingsInfo({
         }
     },
     galaxy: {
-        "Andromeda/Gateway System": {
+        "Gateway System": {
             gateway_mission: "Gateway Mission",
             starbase: "Starbase",
             ship_dock: "Ship Dock",
@@ -308,33 +308,33 @@ export const buildings = makeBuildingsInfo({
             cruiser_ship: "Cruiser Ship",
             dreadnought: "Dreadnought"
         },
-        "Andromeda/Stargate Region": {
+        "Stargate Region": {
             gateway_station: "Gateway Station",
             telemetry_beacon: "Telemetry Beacon",
             gateway_depot: { name: "Depot", prefix: "Galaxy" },
             defense_platform: "Defense Platform"
         },
-        "Andromeda/Gorddon System": {
+        "Gorddon System": {
             gorddon_mission: "Second Contact",
             embassy: "Embassy",
             dormitory: "Dormitory",
             symposium: "Symposium",
             freighter: "Freighter"
         },
-        "Andromeda/Alien 1 System": {
+        "Alien 1 System": {
             consulate: "Consulate",
             resort: "Resort",
             vitreloy_plant: "Vitreloy Plant",
             super_freighter: "Super Freighter"
         },
-        "Andromeda/Alien 2 System": {
+        "Alien 2 System": {
             alien2_mission: "Alien 2 Assault Mission",
             foothold: "Foothold Station",
             armed_miner: "Armed Mining Ship",
             ore_processor: "Ore Processor",
             scavenger: "Tech Scavenger"
         },
-        "Andromeda/Chthonian System": {
+        "Chthonian System": {
             chthonian_mission: "Chthonian Assault Mission",
             minelayer: "Minelayer",
             excavator: "Excavator",
@@ -342,18 +342,18 @@ export const buildings = makeBuildingsInfo({
         }
     },
     portal: {
-        "Hell/Fortress": {
+        "Fortress": {
             turret: "Automated Turret",
             carport: "Surveyor Carport",
             war_droid: "War Droid",
             repair_droid: "Repair Droid"
         },
-        "Hell/Badlands": {
+        "Badlands": {
             war_drone: "Predator Drone",
             sensor_drone: "Sensor Drone",
             attractor: "Attractor Beacon"
         },
-        "Hell/The Pit": {
+        "The Pit": {
             pit_mission: "Scout the Pit",
             assault_forge: "Secure the Pit",
             soul_forge: "Soul Forge",
@@ -362,7 +362,7 @@ export const buildings = makeBuildingsInfo({
             soul_capacitor: "Soul Capacitor",
             absorption_chamber: "Absorption Chamber"
         },
-        "Hell/Ancient Ruins": {
+        "Ancient Ruins": {
             ruins_mission: "Survey Ruins",
             guard_post: "Guard Post",
             vault: "Vault",
@@ -372,14 +372,14 @@ export const buildings = makeBuildingsInfo({
             inferno_power: "Inferno Reactor",
             ancient_pillars: "Ancient Pillars"
         },
-        "Hell/Ancient Gate": {
+        "Ancient Gate": {
             gate_mission: "Gate Investigation",
             west_tower: "West Tower",
             east_tower: "East Tower",
             gate_turret: "Gate Turret",
             infernite_mine: "Infernite Mine"
         },
-        "Hell/Boiling Lake of Blood": {
+        "Boiling Lake of Blood": {
             lake_mission: "Scout the Lake Shore",
             harbor: "Harbor",
             cooling_tower: "Cooling Tower",
@@ -391,7 +391,7 @@ export const buildings = makeBuildingsInfo({
             dish_soul_steeper: "Soul Steeper",
             dish_life_infuser: "Life Infuser"
         },
-        "Hell/The Spire": {
+        "The Spire": {
             spire_mission: "Scout the Island",
             purifier: "Purifier",
             port: "Port",
@@ -413,7 +413,7 @@ export const buildings = makeBuildingsInfo({
             blue_pill: "Enter the Matrix",
             goe_facility: "Garden of Eden Facility"
         },
-        "Tau Ceti/New Home": {
+        "New Home": {
             home_mission: "Survey New Home",
             dismantle: "Dismantle Ship",
             orbital_station: "Orbital Station",
@@ -438,7 +438,7 @@ export const buildings = makeBuildingsInfo({
             tauceti_casino: { name: "Casino", prefix: "Tau Ceti" },
             tau_cultural_center: "Cultural Center"
         },
-        "Tau Ceti/Red Planet": {
+        "Red Planet": {
             red_mission: "Survey Red Planet",
             orbital_platform: "Orbital Platform",
             contact: "Contact the Womlings",
@@ -452,7 +452,7 @@ export const buildings = makeBuildingsInfo({
             womling_fun: "Tavern",
             womling_lab: "Laboratory"
         },
-        "Tau Ceti/Gas Giant": {
+        "Gas Giant": {
             gas_contest: "Gas Giant Naming Contest",
             refueling_station: "Refueling Station",
             ore_refinery: "Ore Refinery",
@@ -467,13 +467,13 @@ export const buildings = makeBuildingsInfo({
             "gas_contest-a7": "One Ball Barry",
             "gas_contest-a8": "Gas Giant"
         },
-        "Tau Ceti/Asteroid Belt": {
+        "Asteroid Belt": {
             roid_mission: "Asteroid Belt Mission",
             patrol_ship: "Patrol Ship",
             mining_ship: "Extractor Ship",
             whaling_ship: "Whaling Ship"
         },
-        "Tau Ceti/Gas Giant 2": {
+        "Gas Giant 2": {
             gas_contest2: "Gas Giant 2 Naming Contest",
             alien_station_survey: { name: "Alien Space Station", suffix: "Survey" },
             alien_station: "Alien Space Station",
@@ -492,7 +492,7 @@ export const buildings = makeBuildingsInfo({
         }
     },
     eden: {
-        "Eden/Asphodel Meadows": {
+        "Asphodel Meadows": {
             survery_meadows: "Survey Meadows",
             encampment: "Encampment",
             soul_engine: "Soul Engine",
@@ -508,7 +508,7 @@ export const buildings = makeBuildingsInfo({
             bliss_den: "Bliss Den",
             rectory: "Rectory"
         },
-        "Eden/Elysium Fields": {
+        "Elysium Fields": {
             survey_fields: "Survey Fields",
             fortress: "Celestial Fortress",
             siege_fortress: "Siege Fortress",
@@ -529,7 +529,7 @@ export const buildings = makeBuildingsInfo({
             reincarnation: "Reincarnation Machine",
             eden_cement: { name: "Cement Plant", prefix: "Eden" }
         },
-        "Eden/Isle of the Blessed": {
+        "Isle of the Blessed": {
             south_pier: "South Pier",
             west_tower: "West Rampart",
             isle_garrison: "Angelic Garrison",
@@ -538,7 +538,7 @@ export const buildings = makeBuildingsInfo({
             spirit_battery: "Spirit Battery",
             soul_compactor: "Soul Compactor"
         },
-        "Eden/Palace of Eternity": {
+        "Palace of Eternity": {
             scout_palace: "Scout Palace",
             throne: "Abandoned Throne",
             infuser: "Divinity Infuser",

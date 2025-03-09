@@ -15,32 +15,34 @@ function makeMilestoneGroup(name: string, type: string, options: Record<string, 
     }
 }
 
-function* makeBuildingGroups() {
+function makeBuildingGroup() {
     const options = Object.entries(buildings).map(([id, { name, region, suffix }]) => ({
         type: "built",
-        region,
+        prefix: region,
         id,
         label: name,
         suffix
     }));
 
-    yield {
+    return {
         type: "Building/Project",
         options
     };
+}
 
-    // for (const [region, group] of Object.entries(Object.groupBy(Object.entries(buildings), ([, entry]) => entry.region))) {
-    //     yield {
-    //         type: region,
-    //         options: group!.map(([id, { name, region, suffix }]) => ({
-    //             type: "built",
-    //             region,
-    //             id,
-    //             label: name,
-    //             suffix
-    //         }))
-    //     };
-    // }
+function makeResearchGroup() {
+    const options = Object.entries(techs).map(([id, { name, era, suffix }]) => ({
+        type: "tech",
+        prefix: era,
+        id,
+        label: name,
+        suffix
+    }));
+
+    return {
+        type: "Research",
+        options
+    };
 }
 
 type This = {
@@ -68,8 +70,8 @@ export default {
             count: 1,
             selected: null,
             options: [
-                ...makeBuildingGroups(),
-                makeMilestoneGroup("Research", "tech", techs),
+                makeBuildingGroup(),
+                makeResearchGroup(),
                 makeMilestoneGroup("Event", "event", events),
                 makeMilestoneGroup("Effect", "effect", environmentEffects)
             ]
@@ -137,7 +139,8 @@ export default {
                 placeholder="e.g. Launch Facility"
             >
                 <template slot-scope="props">
-                    <span v-if="props.option.region" style="opacity: 0.5">{{ props.option.region }}/</span><span>{{ props.option.label }}</span>
+                    <span v-if="props.option.prefix" style="opacity: 0.5">[{{ props.option.prefix }}]</span>
+                    <span>{{ props.option.label }}</span>
                     <span v-if="props.option.suffix" style="opacity: 0.5"> ({{ props.option.suffix }})</span>
                 </template>
             </b-autocomplete>
