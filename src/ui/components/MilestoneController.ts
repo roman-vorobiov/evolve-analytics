@@ -137,10 +137,11 @@ export default {
             <label class="self-center">Track:</label>
             <b-autocomplete
                 v-model="input"
+                @select="(option) => { selected = option }"
                 :data="filteredOptions"
+                field="label"
                 group-field="type"
                 group-options="options"
-                @select="(option) => { selected = option }"
                 open-on-focus
                 placeholder="e.g. Launch Facility"
             >
