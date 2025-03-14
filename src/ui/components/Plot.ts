@@ -1,4 +1,5 @@
-import { makeGraph, discardCachedState } from "../graph";
+import { applyFilters } from "../../exports/historyFiltering";
+import { makeGraph } from "../graph";
 import type { ConfigManager, View } from "../../config";
 import type { Game } from "../../game";
 import type { HistoryEntry, HistoryManager } from "../../history";
@@ -6,14 +7,48 @@ import type { LatestRun } from "../../pendingRun";
 
 import type { default as Vue, VNode } from "vue";
 
+type Selection = {
+    top: number,
+    left: number,
+    milestone: string
+}
+
+function serializeMouseEvent(event: MouseEvent, milestone: string) {
+    const container = $(`#mTabAnalytics > .b-tabs > section`);
+
+    return {
+        top: event.clientY + container.scrollTop()!,
+        left: event.clientX + container.scrollLeft()!,
+        milestone: milestone
+    };
+}
+
+function restoreSelection(plot: HTMLElement, { top, left, milestone }: Selection) {
+    const target = $(plot).find(`[data-milestone="${milestone}"]`);
+    const container = $(`#mTabAnalytics > .b-tabs > section`);
+
+    function makePointerEvent(name: string) {
+        return new PointerEvent(name, {
+            pointerType: "mouse",
+            bubbles: true,
+            composed: true,
+            clientX: left - container.scrollLeft()!,
+            clientY: top - container.scrollTop()!,
+        });
+    }
+
+    target[0].dispatchEvent(makePointerEvent("pointerenter"));
+    target[0].dispatchEvent(makePointerEvent("pointerdown"));
+}
+
 type This = Vue & {
     game: Game,
     config: ConfigManager,
     history: HistoryManager,
     currentRun: LatestRun,
     view: View,
+    pendingSelection: Selection | null,
     pendingColorChange: { milestone: string, label: string, color: string } | null,
-    selectedRun: HistoryEntry | null,
     plot: HTMLElement,
     timestamp: number | null,
     active: boolean,
@@ -28,15 +63,15 @@ export default {
     props: ["view", "pendingColorChange"],
     data() {
         return {
-            selectedRun: null,
             plot: null,
-            timestamp: null
+            timestamp: null,
+            pendingSelection: null
         };
     },
     mounted(this: This) {
         this.history.watch(() => {
-            discardCachedState(this.view);
-            this.selectedRun = null;
+            this.$emit("select", null);
+            this.pendingSelection = null;
             this.redraw(true);
         });
 
@@ -77,27 +112,43 @@ export default {
             }
         },
         makeGraph(this: This) {
-            return makeGraph(
+            const filteredRuns = applyFilters(this.history, this.view);
+
+            const plot = makeGraph(
                 this.history,
                 this.view,
                 this.game,
+                filteredRuns,
                 this.currentRun,
-                this.pendingColorChange,
-                (run) => { this.selectedRun = run; }
+                this.pendingColorChange
             );
+
+            plot.addEventListener("mousedown", (event: MouseEvent) => {
+                if (plot.value && plot.value.run < filteredRuns.length) {
+                    this.pendingSelection = serializeMouseEvent(event, plot.value.milestone);
+                    this.$emit("select", filteredRuns[plot.value.run]);
+                }
+                else {
+                    this.pendingSelection = null;
+                    this.$emit("select", null);
+                }
+            });
+
+            return plot;
         }
     },
     watch: {
         plot(this: This, newNode: HTMLElement, oldNode: HTMLElement | null) {
             if (oldNode !== null) {
                 $(oldNode).replaceWith(newNode);
+
+                if (this.pendingSelection) {
+                    restoreSelection(newNode, this.pendingSelection!);
+                }
             }
             else {
                 this.redraw();
             }
-        },
-        selectedRun(this: This) {
-            this.$emit("select", this.selectedRun)
         },
         "config.active"(this: This) {
             this.redraw();
@@ -111,8 +162,8 @@ export default {
         },
         view: {
             handler(this: This) {
-                discardCachedState(this.view);
-                this.selectedRun = null;
+                this.pendingSelection = null;
+                this.$emit("select", null);
                 this.redraw(true);
             },
             deep: true

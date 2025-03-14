@@ -1,9 +1,7 @@
-import { applyFilters } from "../exports/historyFiltering";
 import { findBestRun, runTime, getSortedMilestones } from "../exports/utils";
 import { asPlotPoints, runAsPlotPoints, type PlotPoint } from "../exports/plotPoints";
 import { generateMilestoneNames } from "../milestones";
 import { compose, filterMap } from "../utils";
-import { waitFor } from "./utils";
 import type { View } from "../config";
 import type { HistoryEntry, HistoryManager } from "../history";
 import type { LatestRun } from "../pendingRun";
@@ -13,14 +11,6 @@ import * as Plot from "@observablehq/plot";
 
 const topTextOffset = -27;
 const marginTop = 30;
-
-// If the graph gets redrawn while sorting is in progress or the color picker is open, the pending state is lost
-// Store it here and use it in the next redraw
-const pendingSelection = new WeakMap<View, [{ top: number, left: number }, string]>();
-
-export function discardCachedState(view: View) {
-    pendingSelection.delete(view);
-}
 
 function getType(point: PlotPoint) {
     if (point.event) {
@@ -542,11 +532,10 @@ export function makeGraph(
     history: HistoryManager,
     view: View,
     game: Game,
+    filteredRuns: HistoryEntry[],
     currentRun: LatestRun,
-    colorOverride: { milestone: string, color: string } | null,
-    onSelect: (run: HistoryEntry | null) => void
+    colorOverride: { milestone: string, color: string } | null
 ) {
-    const filteredRuns = applyFilters(history, view);
     const bestRun = findBestRun(history, view);
 
     const plotPoints = asPlotPoints(filteredRuns, history, view, game);
@@ -581,47 +570,6 @@ export function makeGraph(
             const milestone = title.text();
             $(this).attr("data-milestone", milestone);
             title.remove();
-        }
-    });
-
-    // Handle selection
-    if (pendingSelection.has(view)) {
-        const [{ top, left }, milestone] = pendingSelection.get(view)!;
-
-        waitFor(plot).then(() => {
-            const target = $(plot).find(`[data-milestone="${milestone}"]`);
-            const container = $(`#mTabAnalytics > .b-tabs > section`);
-
-            function makePointerEvent(name: string) {
-                return new PointerEvent(name, {
-                    pointerType: "mouse",
-                    bubbles: true,
-                    composed: true,
-                    clientX: left - container.scrollLeft()!,
-                    clientY: top - container.scrollTop()!,
-                });
-            }
-
-            target[0].dispatchEvent(makePointerEvent("pointerenter"));
-            target[0].dispatchEvent(makePointerEvent("pointerdown"));
-        });
-    }
-
-    plot.addEventListener("mousedown", (event: MouseEvent) => {
-        if (plot.value && plot.value.run < filteredRuns.length) {
-            const container = $(`#mTabAnalytics > .b-tabs > section`);
-            const coordinates = {
-                top: event.clientY + container.scrollTop()!,
-                left: event.clientX + container.scrollLeft()!
-            };
-            pendingSelection.set(view, [coordinates, plot.value.milestone]);
-
-            onSelect(filteredRuns[plot.value.run]);
-        }
-        else {
-            pendingSelection.delete(view);
-
-            onSelect(null);
         }
     });
 
