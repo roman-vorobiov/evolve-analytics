@@ -65,7 +65,7 @@ export default {
         }
     },
     template: `
-        <span class="plot-swatch">
+        <span class="plot-swatch" :data-milestone="milestone">
             <svg v-if="type === 'effect'" v-color-picker width="15" height="15" :stroke="color" fill-opacity="0">
                 <rect width="100%" height="100%"></rect>
             </svg>

@@ -31,11 +31,16 @@ export default {
     },
     mounted(this: This) {
         Sortable.create(this.$refs.container as HTMLElement, {
+            group: "milestones",
             animation: 150,
-            onEnd: ({ oldIndex, newIndex }) => {
-                if (oldIndex !== newIndex) {
-                    this.view.moveMilestone(oldIndex!, newIndex!);
-                }
+            onStart: () => {
+                this.$emit("drag", true);
+            },
+            onEnd: () => {
+                this.$emit("drag", false);
+            },
+            onUpdate: ({ oldIndex, newIndex }) => {
+                this.view.moveMilestone(oldIndex!, newIndex!);
             }
         });
     },

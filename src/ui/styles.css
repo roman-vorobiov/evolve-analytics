@@ -231,6 +231,10 @@ html.dracula {
         text-decoration: line-through;
     }
 
+    .hidden {
+        display: none;
+    }
+
     span.add {
         line-height: normal;
         width: 1.5rem;
@@ -330,6 +334,13 @@ html.dracula {
             margin-right: 0.5em;
             overflow: visible;
         }
+    }
+
+    .market-item.alt {
+        margin: 0;
+        align-items: center;
+        justify-content: center;
+        opacity: 0.5;
     }
 }
 

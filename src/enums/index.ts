@@ -60,6 +60,7 @@ export const environmentEffects = {
 };
 
 export const milestoneTypes = {
+    reset: "Reset",
     built: "Built",
     tech: "Researched",
     event: "Event",

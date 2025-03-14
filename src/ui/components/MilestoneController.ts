@@ -1,5 +1,6 @@
-import { buildings, techs, events, environmentEffects, milestoneTypes } from "../../enums";
+import { buildings, techs, events, environmentEffects } from "../../enums";
 import { BuildingInfo } from "../../enums/buildings";
+import type { milestoneTypes } from "../../enums";
 import type { View } from "../../config";
 import type { HistoryManager } from "../../history";
 
@@ -121,11 +122,6 @@ export default {
                 this.view.addMilestone(this.milestone);
             }
         },
-        remove(this: This) {
-            if (this.milestone !== undefined) {
-                this.view.removeMilestone(this.milestone);
-            }
-        },
         sort(this: This) {
             this.view.sortMilestones(this.history);
         },
@@ -156,7 +152,6 @@ export default {
             <number-input v-if="selected?.type === 'built'" v-model="count" min="1"/>
 
             <button class="button slim" @click="add" :disabled="selected === null">Add</button>
-            <button class="button slim" @click="remove" :disabled="selected === null">Remove</button>
             <button class="button slim" @click="sort">Auto sort</button>
             <button class="button slim" @click="resetColors">Reset colors</button>
         </div>

@@ -6,6 +6,7 @@ import type { HistoryManager, HistoryEntry } from "../../history";
 
 import ViewSettings from "./ViewSettings";
 import MilestoneController from "./MilestoneController";
+import MilestoneRemover from "./MilestoneRemover";
 import PlotLegend from "./PlotLegend";
 import Plot from "./Plot";
 import { openInputDialog } from "./InputDialog";
@@ -25,6 +26,7 @@ type This = {
     pendingColorChange: { milestone: string, label: string, color: string } | null,
     selectedRun: HistoryEntry | null,
     rendering: boolean,
+    dragging: boolean,
     defaultName: string,
     name: string
 }
@@ -33,6 +35,7 @@ export default {
     components: {
         ViewSettings,
         MilestoneController,
+        MilestoneRemover,
         PlotLegend,
         Plot
     },
@@ -42,7 +45,8 @@ export default {
         return {
             pendingColorChange: null,
             selectedRun: null,
-            rendering: false
+            rendering: false,
+            dragging: false
         }
     },
     computed: {
@@ -116,11 +120,12 @@ export default {
             <div class="flex flex-col gap-m">
                 <view-settings :view="view"/>
 
-                <milestone-controller :view="view" @colorReset="() => onColorPreview(null)"/>
+                <milestone-controller v-if="!dragging" :view="view" @colorReset="() => onColorPreview(null)"/>
+                <milestone-remover v-else :view="view"/>
 
-                <plot-legend ref="legend" :view="view" @colorPreview="onColorPreview"/>
+                <plot-legend ref="legend" :view="view" @colorPreview="onColorPreview" @drag="(value) => dragging = value"/>
 
-                <plot ref="plot" :view="view" :pendingColorChange="pendingColorChange" @select="(run) => { selectedRun = run }"/>
+                <plot ref="plot" :view="view" :pendingColorChange="pendingColorChange" @select="(run) => selectedRun = run"/>
 
                 <div class="flex flex-row flex-wrap justify-between">
                     <div class="flex flex-row gap-m">
