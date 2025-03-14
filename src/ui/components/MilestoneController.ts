@@ -6,6 +6,7 @@ import type { HistoryManager } from "../../history";
 import NumberInput from "./NumberInput";
 
 import fuzzysort from "fuzzysort";
+import type Vue from "vue";
 
 type MilestoneOption = { type: keyof typeof milestoneTypes, id: string, label: string }
 
@@ -51,7 +52,7 @@ function makeResearchGroup() {
     };
 }
 
-type This = {
+type This = Vue & {
     view: View,
     history: HistoryManager,
     input: string,
@@ -130,6 +131,7 @@ export default {
         },
         resetColors(this: This) {
             this.view.resetColors();
+            this.$emit("colorReset");
         }
     },
     template: `

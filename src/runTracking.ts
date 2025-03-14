@@ -1,5 +1,5 @@
 import eventsInfo from "./events";
-import { isEffectMilestone, makeMilestoneChecker } from "./milestones";
+import { makeMilestoneChecker, milestoneType } from "./milestones";
 import { patternMatcher } from "./utils";
 import type { Game } from "./game";
 import type { ConfigManager } from "./config";
@@ -15,7 +15,7 @@ function updateMilestones(runStats: LatestRun, checkers: MilestoneChecker[]) {
             continue;
         }
 
-        if (isEffectMilestone(milestone)) {
+        if (milestoneType(milestone) === "effect") {
             const isActive = reached();
             const startDay = runStats.activeEffects[milestone];
 

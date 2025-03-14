@@ -1,4 +1,4 @@
-import { generateMilestoneNames, isEffectMilestone, isEventMilestone } from "../milestones";
+import { generateMilestoneNames, milestoneType } from "../milestones";
 import eventsInfo from "../events";
 import { zip, rotateMap, lastValue, patternMatch, transformMap, objectSubset } from "../utils";
 import type { HistoryManager, HistoryEntry } from "../history";
@@ -49,7 +49,7 @@ class SegmentCounter {
         };
 
         if (options?.expected) {
-            if (!(isEventMilestone(milestone) || isEffectMilestone(milestone))) {
+            if (!["event", "effect"].includes(milestoneType(milestone))) {
                 saveTo(this.expectedMilestones);
             }
         }

@@ -6,18 +6,23 @@ import type { HistoryManager, HistoryEntry } from "../../history";
 
 import ViewSettings from "./ViewSettings";
 import MilestoneController from "./MilestoneController";
+import PlotLegend from "./PlotLegend";
 import Plot from "./Plot";
 import { openInputDialog } from "./InputDialog";
 
 type This = {
     $refs: {
         plot: {
-            plot: HTMLElement
+            plot: SVGSVGElement
+        },
+        legend: {
+            legend: HTMLElement
         }
     },
     config: ConfigManager,
     history: HistoryManager,
     view: View,
+    pendingColorChange: { milestone: string, label: string, color: string } | null,
     selectedRun: HistoryEntry | null,
     rendering: boolean,
     defaultName: string,
@@ -28,12 +33,14 @@ export default {
     components: {
         ViewSettings,
         MilestoneController,
+        PlotLegend,
         Plot
     },
     inject: ["config", "history"],
     props: ["view"],
     data(this: This) {
         return {
+            pendingColorChange: null,
             selectedRun: null,
             rendering: false
         }
@@ -71,7 +78,7 @@ export default {
         async asImage(this: This) {
             this.rendering = true;
 
-            const canvas = await plotToCanvas(this.$refs.plot.plot);
+            const canvas = await plotToCanvas(this.$refs.plot.plot, this.$refs.legend.legend);
 
             canvas.toBlob((blob) => {
                 navigator.clipboard.write([
@@ -95,6 +102,9 @@ export default {
         },
         renameView(this: This) {
             openInputDialog(this, "view.name", "Rename", this.defaultName);
+        },
+        onColorPreview(this: This, preview: This["pendingColorChange"]) {
+            this.pendingColorChange = preview;
         }
     },
     template: `
@@ -106,9 +116,11 @@ export default {
             <div class="flex flex-col gap-m">
                 <view-settings :view="view"/>
 
-                <milestone-controller :view="view"/>
+                <milestone-controller :view="view" @colorReset="() => onColorPreview(null)"/>
 
-                <plot ref="plot" :view="view" @select="(run) => { selectedRun = run }"/>
+                <plot-legend ref="legend" :view="view" @colorPreview="onColorPreview"/>
+
+                <plot ref="plot" :view="view" :pendingColorChange="pendingColorChange" @select="(run) => { selectedRun = run }"/>
 
                 <div class="flex flex-row flex-wrap justify-between">
                     <div class="flex flex-row gap-m">

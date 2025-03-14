@@ -308,6 +308,29 @@ html.dracula {
     .tabs li.has-text-warning a {
         color: unset;
     }
+
+    .plot-swatches {
+        font-family: system-ui, sans-serif;
+        font-size: 1rem;
+        align-items: center;
+
+        min-height: 33px;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        column-gap: 1em;
+
+        .plot-swatch {
+            display: inline-flex;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        svg {
+            margin-right: 0.5em;
+            overflow: visible;
+        }
+    }
 }
 
 li[role="tab"].is-disabled {

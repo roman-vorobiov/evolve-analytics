@@ -9,9 +9,10 @@ import type { default as Vue, VNode } from "vue";
 type This = Vue & {
     game: Game,
     config: ConfigManager,
-    view: View,
     history: HistoryManager,
     currentRun: LatestRun,
+    view: View,
+    pendingColorChange: { milestone: string, label: string, color: string } | null,
     selectedRun: HistoryEntry | null,
     plot: HTMLElement,
     timestamp: number | null,
@@ -24,7 +25,7 @@ type This = Vue & {
 
 export default {
     inject: ["game", "config", "history", "currentRun"],
-    props: ["view"],
+    props: ["view", "pendingColorChange"],
     data() {
         return {
             selectedRun: null,
@@ -76,7 +77,14 @@ export default {
             }
         },
         makeGraph(this: This) {
-            return makeGraph(this.history, this.view, this.game, this.currentRun, (run) => { this.selectedRun = run; });
+            return makeGraph(
+                this.history,
+                this.view,
+                this.game,
+                this.currentRun,
+                this.pendingColorChange,
+                (run) => { this.selectedRun = run; }
+            );
         }
     },
     watch: {
@@ -114,6 +122,23 @@ export default {
                 this.redraw();
             },
             deep: true
+        },
+        pendingColorChange(
+            this: This,
+            newValue: { label: string, color: string } | null,
+            oldValue: { milestone: string, label: string } | null
+        ) {
+            const label = newValue?.label ?? oldValue!.label;
+            const color = newValue?.color ?? this.view.milestones[oldValue!.milestone].color;
+
+            // It's faster than rerendering the whole graph
+            $(this.plot).find(`[data-milestone="${label}"]`).each(function() {
+                for (const attr of ["fill", "stroke"]) {
+                    if ($(this).attr(attr) !== undefined) {
+                        $(this).attr(attr, color);
+                    }
+                }
+            });
         }
     },
     directives: {

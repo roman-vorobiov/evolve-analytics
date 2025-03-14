@@ -1,9 +1,8 @@
 import { applyFilters } from "../exports/historyFiltering";
 import { findBestRun, runTime, getSortedMilestones } from "../exports/utils";
 import { asPlotPoints, runAsPlotPoints, type PlotPoint } from "../exports/plotPoints";
-import { generateMilestoneNames, isEffectMilestone, isEventMilestone } from "../milestones";
+import { generateMilestoneNames } from "../milestones";
 import { compose, filterMap } from "../utils";
-import { makeColorPicker } from "./components/colorPicker";
 import { waitFor } from "./utils";
 import type { View } from "../config";
 import type { HistoryEntry, HistoryManager } from "../history";
@@ -11,20 +10,15 @@ import type { LatestRun } from "../pendingRun";
 import type { Game } from "../game";
 
 import * as Plot from "@observablehq/plot";
-import Sortable from "sortablejs";
 
 const topTextOffset = -27;
 const marginTop = 30;
 
 // If the graph gets redrawn while sorting is in progress or the color picker is open, the pending state is lost
 // Store it here and use it in the next redraw
-const pendingColorPicks = new WeakMap<View, [string, string]>();
-const pendingDraggingLegend = new WeakMap<View, JQuery<HTMLElement>>();
 const pendingSelection = new WeakMap<View, [{ top: number, left: number }, string]>();
 
 export function discardCachedState(view: View) {
-    pendingColorPicks.delete(view);
-    pendingDraggingLegend.delete(view);
     pendingSelection.delete(view);
 }
 
@@ -544,7 +538,14 @@ function processCurrentRun(
     return runAsPlotPoints(currentRun, view, game, bestRunEntries, estimate, idx);
 }
 
-export function makeGraph(history: HistoryManager, view: View, game: Game, currentRun: LatestRun, onSelect: (run: HistoryEntry | null) => void) {
+export function makeGraph(
+    history: HistoryManager,
+    view: View,
+    game: Game,
+    currentRun: LatestRun,
+    colorOverride: { milestone: string, color: string } | null,
+    onSelect: (run: HistoryEntry | null) => void
+) {
     const filteredRuns = applyFilters(history, view);
     const bestRun = findBestRun(history, view);
 
@@ -557,11 +558,9 @@ export function makeGraph(history: HistoryManager, view: View, game: Game, curre
     const milestoneNames = generateMilestoneNames(milestones, view.universe);
     const milestoneColors = milestones.map(m => view.milestones[m].color);
 
-    const pendingPick = pendingColorPicks.get(view);
-    if (pendingPick !== undefined) {
-        const [milestone, value] = pendingPick;
-        const idx = milestones.indexOf(milestone);
-        milestoneColors[idx] = value;
+    if (colorOverride !== null) {
+        const idx = milestones.indexOf(colorOverride.milestone);
+        milestoneColors[idx] = colorOverride.color;
     }
 
     const plot = Plot.plot({
@@ -570,7 +569,7 @@ export function makeGraph(history: HistoryManager, view: View, game: Game, curre
         className: "analytics-plot",
         x: { axis: null },
         y: { grid: true, domain: calculateYScale(plotPoints, view) },
-        color: { legend: true, domain: milestoneNames, range: milestoneColors },
+        color: { domain: milestoneNames, range: milestoneColors },
         marks: generateMarks(plotPoints, filteredRuns, bestRun, view)
     });
 
@@ -626,109 +625,7 @@ export function makeGraph(history: HistoryManager, view: View, game: Game, curre
         }
     });
 
-    // Process legend
-    const legendNode = $(plot).find("> div");
-
-    if (pendingDraggingLegend.has(view)) {
-        legendNode.replaceWith(pendingDraggingLegend.get(view)!);
-    }
-    else
-    {
-        legendNode.css("justify-content", "center");
-
-        legendNode.find("> span").each(function() {
-            const svgNode = $(this).find("> svg");
-
-            const milestone = milestones[$(this).index() - 1];
-            const milestoneName = milestoneNames[$(this).index() - 1];
-
-            const defaultColor = svgNode.attr("fill")!;
-
-            // Metadata
-            svgNode
-                .attr("data-view", view.index)
-                .attr("data-milestone", milestone);
-
-            // Styling
-            $(this).css("font-size", "1rem");
-
-            if (isEffectMilestone(milestone)) {
-                svgNode
-                    .attr("fill", null)
-                    .attr("fill-opacity", "0")
-                    .attr("stroke", defaultColor);
-            }
-            else if (isEventMilestone(milestone)) {
-                svgNode.find("> rect").replaceWith(`<circle cx="50%" cy="50%" r="50%"></circle>`);
-                svgNode.html(svgNode.html());
-            }
-
-            // Toggle milestones on click
-            $(this).css("cursor", "pointer")
-
-            $(this).toggleClass("crossed", !view.milestones[milestone].enabled);
-
-            $(this).on("click", function(event) {
-                // Ignore clicks on the svg
-                if (event.target !== this) {
-                    return;
-                }
-
-                const milestone = milestones[$(this).index() - 1];
-                view.toggleMilestone(milestone);
-            });
-
-            // Set up color picker
-            const setMarksColor = (value: string) => {
-                function impl() {
-                    if ($(this).attr("fill") !== undefined) {
-                        $(this).attr("fill", value);
-                    }
-                    if ($(this).attr("stroke") !== undefined) {
-                        $(this).attr("stroke", value);
-                    }
-                }
-
-                svgNode.each(impl);
-
-                $(`figure [data-milestone="${milestoneName}"]`).each(impl);
-            };
-
-            makeColorPicker(svgNode, 3, defaultColor, {
-                onChange: (value) => {
-                    pendingColorPicks.set(view, [milestone, value]);
-                    setMarksColor(value);
-                },
-                onSave: (value) => {
-                    pendingColorPicks.delete(view);
-                    view.setMilestoneColor(milestone, value);
-                },
-                onCancel: () => {
-                    pendingColorPicks.delete(view);
-                    setMarksColor(defaultColor);
-                },
-                currentColor: () => view.milestones[milestone].color
-            });
-        });
-
-        Sortable.create(legendNode[0], {
-            animation: 150,
-            onStart() {
-                pendingDraggingLegend.set(view, $(plot).find("> div"));
-            },
-            onEnd({ oldIndex, newIndex }) {
-                pendingDraggingLegend.delete(view);
-
-                if (oldIndex !== newIndex) {
-                    view.moveMilestone(oldIndex! - 1, newIndex! - 1);
-                }
-            }
-        });
-    }
-
-    $(plot).find("> svg").attr("width", "100%");
-
-    $(plot).css("margin", "0");
+    $(plot).attr("width", "100%");
 
     return plot;
 }

@@ -21,8 +21,8 @@ function makeColorPickerTrigger(target: JQuery<HTMLElement>, overflow: number = 
 }
 
 type PickrVTable = {
-    onChange: (value: string) => void,
-    onSave: (value: string) => void,
+    onChange: (color: string) => void,
+    onSave: (color: string) => void,
     onCancel: () => void,
     currentColor: () => string
 }
@@ -62,17 +62,25 @@ function getPickrInstance(): [Pickr, JQuery<HTMLElement>] {
         }
     });
 
+    let pending = false;
+
+    pickr.on("show", () => {
+        pending = true;
+    });
+
     pickr.on("hide", (instance: Pickr) => {
-        if (instance.getColor().toHEXA().toString() !== vtable.currentColor()) {
+        if (pending) {
             instance.setColor(vtable.defaultColor);
             vtable.onCancel();
+            pending = false;
         }
     });
 
     pickr.on("save", (value: Pickr.HSVaColor | null, instance: Pickr) => {
-        const hex = value?.toHEXA().toString();
-        if (hex !== undefined) {
+        const hex = value?.toHEXA()?.toString();
+        if (hex) {
             vtable.onSave(hex);
+            pending = false;
         }
         instance.hide();
     });
@@ -84,10 +92,12 @@ function getPickrInstance(): [Pickr, JQuery<HTMLElement>] {
     return colorPickerInstance = [pickr, trigger];
 }
 
-export function makeColorPicker(target: JQuery<HTMLElement>, overflow: number, defaultColor: string, instanceCallbacks: PickrVTable) {
+export function makeColorPicker(target: JQuery<HTMLElement>, overflow: number, instanceCallbacks: PickrVTable) {
     const [pickr, trigger] = getPickrInstance();
 
     const wrapper = makeColorPickerTrigger(target, overflow).on("click", function() {
+        const defaultColor = instanceCallbacks.currentColor();
+
         Object.assign(vtable, { ...instanceCallbacks, defaultColor });
         pickr.setColor(defaultColor, true);
 

@@ -1,6 +1,6 @@
 
 import { shouldIncludeRun, findLastRun } from "./historyFiltering";
-import { isEffectMilestone } from "../milestones";
+import { milestoneType } from "../milestones";
 import type { HistoryManager, HistoryEntry } from "../history";
 import type { ViewConfig } from "../config";
 
@@ -50,12 +50,12 @@ export function sortMilestones(view: ViewConfig, history: HistoryManager) {
     const milestones = Object.keys(view.milestones);
 
     milestones.sort((l, r) => {
-        if (!isEffectMilestone(l) && !isEffectMilestone(r)) {
+        if (milestoneType(l) !== "effect" && milestoneType(r) !== "effect") {
             const lIdx = lastRun.milestones.findIndex(([id]) => id === history.getMilestoneID(l));
             const rIdx = lastRun.milestones.findIndex(([id]) => id === history.getMilestoneID(r));
             return rIdx - lIdx;
         }
-        else if (isEffectMilestone(l)) {
+        else if (milestoneType(l) === "effect") {
             return 1;
         }
         else {

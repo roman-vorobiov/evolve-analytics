@@ -2,7 +2,7 @@ import { resetName, buildings, buildingSegments, techs, events, environmentEffec
 import eventsInfo from "./events";
 import { effectActive } from "./effects";
 import { filterMap, patternMatch } from "./utils";
-import type { resets, universes } from "./enums";
+import type { milestoneTypes, resets, universes } from "./enums";
 import type { Game } from "./game";
 
 export type MilestoneChecker = {
@@ -166,10 +166,6 @@ export function generateMilestoneNames(milestones: string[], universe?: keyof ty
     return entries.map(e => e.name);
 }
 
-export function isEventMilestone(milestone: string) {
-    return milestone.startsWith("event:");
-}
-
-export function isEffectMilestone(milestone: string) {
-    return milestone.startsWith("effect:");
+export function milestoneType(milestone: string) {
+    return milestone.slice(0, milestone.indexOf(":")) as keyof typeof milestoneTypes;
 }
