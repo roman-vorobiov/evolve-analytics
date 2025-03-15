@@ -1,4 +1,4 @@
-import { buildings, techs, events, environmentEffects } from "../../enums";
+import { buildings, buildingSegments, techs, events, environmentEffects } from "../../enums";
 import { BuildingInfo } from "../../enums/buildings";
 import type { milestoneTypes } from "../../enums";
 import type { View } from "../../config";
@@ -114,6 +114,13 @@ export default {
             }
 
             return milestone;
+        }
+    },
+    watch: {
+        selected(this: This, value: MilestoneOption | null) {
+            if (value) {
+                this.count = buildingSegments[value.id] ?? 1;
+            }
         }
     },
     methods: {
