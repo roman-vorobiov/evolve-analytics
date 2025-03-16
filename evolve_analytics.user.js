@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.15.7
+// @version      0.15.8
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -3140,6 +3140,10 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         #mainColumn {
             overflow: hidden;
         }
+
+        #pausegame {
+            margin-left: 0 !important;
+        }
     `;
 
     function waitFor(query) {
@@ -5038,11 +5042,29 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             }
         });
     }
+    async function gropPauseButton() {
+        const icon = $(`<span id="pausegame" role="button" aria-label="Start the Game" class="atime pause"></span>`);
+        const button = await waitFor("#pausegame");
+        button
+            .removeClass("play")
+            .removeClass("pause")
+            .removeAttr("id")
+            .removeAttr("aria-label")
+            .css("padding", "0 0.5rem")
+            .css("margin-left", "0.5rem")
+            .css("width", `1rem`)
+            .css("height", `100%`)
+            .css("background", "transparent")
+            .css("border", "none")
+            .css("cursor", "pointer");
+        button.append(icon);
+    }
     function addStyles() {
         $("head").append(`<style type="text/css">${styles}</style>`);
     }
     async function bootstrapUIComponents(game, config, history, currentRun) {
         addStyles();
+        await gropPauseButton();
         await addMainToggle(config);
         await addAnalyticsTab(game, config, history, currentRun);
     }
