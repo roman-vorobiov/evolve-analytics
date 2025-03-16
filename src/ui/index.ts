@@ -117,7 +117,6 @@ async function addAnalyticsTab(game: Game, config: ConfigManager, history: Histo
         });
 
         button.replaceWith(mockButton);
-        console.log("replaced");
     });
 }
 
