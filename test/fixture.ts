@@ -50,6 +50,9 @@ export function makeGameStateFactory(prototypeOverrides: RecursivePartial<Evolve
                 custom: { name: "Oompa Loompa", traits: {} }
             },
             traits: {},
+            actions: {
+                tech: {}
+            },
             global: {
                 city: <Evolve["global"]["city"]> {
                     calendar: {

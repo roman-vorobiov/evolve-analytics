@@ -1,15 +1,8 @@
-import { describe, expect, it, jest } from "@jest/globals";
-import type { Mock } from "jest-mock";
+import { describe, expect, it } from "@jest/globals";
 import { makeGameState } from "./fixture";
 
 import { Game } from "../src/game";
 import type { Evolve } from "../src/evolve";
-
-function mockTechDOM(mock: Mock) {
-    (global as any).$ = mock;
-
-    return mock;
-}
 
 describe("Game queries", () => {
     it("should provide run number", () => {
@@ -111,18 +104,22 @@ describe("Game queries", () => {
     });
 
     it("should check if a tech is researched", () => {
-        const game = new Game(makeGameState({}));
+        const game = new Game(makeGameState({
+            actions: {
+                tech: {
+                    wooden_tools: { grant: ["primitive", 2] },
+                    sundial: { grant: ["primitive", 3] }
+                }
+            },
+            global: {
+                tech: {
+                    primitive: 2
+                }
+            }
+        }));
 
-        {
-            const mock = mockTechDOM(jest.fn(() => []));
-            expect(game.researched("sundial")).toBe(false);
-            expect(mock).toHaveBeenCalledWith("#tech-sundial .oldTech");
-        }
-        {
-            const mock = mockTechDOM(jest.fn(() => [{}]));
-            expect(game.researched("sundial")).toBe(true);
-            expect(mock).toHaveBeenCalledWith("#tech-sundial .oldTech");
-        }
+        expect(game.researched("wooden_tools")).toBe(true);
+        expect(game.researched("sundial")).toBe(false);
     });
 
     it("should check if womlings arrived", () => {

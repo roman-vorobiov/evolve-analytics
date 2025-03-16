@@ -1,3 +1,4 @@
+import * as polyfill from "./polyfill";
 import { resets, challengeGenes } from "./enums";
 import { spy, transformMap } from "./utils";
 import type { Temperature } from "./enums";
@@ -119,7 +120,7 @@ export class Game {
     }
 
     researched(tech: string) {
-        return $(`#tech-${tech} .oldTech`).length !== 0;
+        return polyfill.checkOldTech(this.evolve, tech);
     }
 
     womlingsArrived() {

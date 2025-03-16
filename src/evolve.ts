@@ -2,8 +2,10 @@ import type { resets, universes } from "./enums";
 
 declare const unsafeWindow: any;
 
+type Tabs = "city" | "space" | "starDock" | "interstellar" | "galaxy" | "portal" | "eden" | "tauceti";
+
 export type BuildingInfoTabs = {
-    [tab in "city" | "space" | "starDock" | "interstellar" | "galaxy" | "portal" | "eden" | "tauceti"]: Record<string, {
+    [tab in Tabs]: Record<string, {
         count: number;
     }>
 }
@@ -18,6 +20,11 @@ export type Evolve = {
     craftCost?: any,
     races: Record<string, { name: string, traits: Record<string, number> }>,
     traits: Record<string, { name: string, type: string, val: number }>,
+    actions: {
+        tech: Record<string, {
+            grant: [string, number]
+        }>
+    },
     global: BuildingInfoTabs & ArpaInfoTab & {
         stats: { [k in keyof typeof resets]: number } & {
             reset: number,
