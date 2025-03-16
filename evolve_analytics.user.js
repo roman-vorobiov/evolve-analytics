@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.15.8
+// @version      0.15.9
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -5043,8 +5043,8 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         });
     }
     async function gropPauseButton() {
-        const icon = $(`<span id="pausegame" role="button" aria-label="Start the Game" class="atime pause"></span>`);
         const button = await waitFor("#pausegame");
+        const icon = button.clone();
         button
             .removeClass("play")
             .removeClass("pause")
