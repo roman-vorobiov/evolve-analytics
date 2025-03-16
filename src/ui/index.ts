@@ -140,9 +140,9 @@ async function addMainToggle(config: ConfigManager) {
 }
 
 async function gropPauseButton() {
-    const icon = $(`<span id="pausegame" role="button" aria-label="Start the Game" class="atime pause"></span>`);
-
     const button = await waitFor("#pausegame");
+
+    const icon = button.clone();
 
     button
         .removeClass("play")
