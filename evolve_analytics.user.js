@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.15.5
+// @version      0.15.6
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -4989,7 +4989,6 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
                 openTab(8 /* EvolveTabs.HellObservations */);
             });
             button.replaceWith(mockButton);
-            console.log("replaced");
         });
     }
     async function addMainToggle(config) {
