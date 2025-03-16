@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.15.4
+// @version      0.15.5
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -12,7 +12,6 @@
 // @require      https://cdn.jsdelivr.net/npm/d3@7
 // @require      https://cdn.jsdelivr.net/npm/@observablehq/plot@0.6.17
 // @require      https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/dist/html-to-image.min.js
-// @require      https://code.jquery.com/jquery-3.7.1.min.js
 // @grant        GM_getResourceText
 // @grant        GM_addStyle
 // ==/UserScript==
@@ -49,1206 +48,76 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             () => localStorage.removeItem(key)
         ];
     }
-    const [saveConfig, loadConfig] = makeDatabaseFunctions("sneed.analytics.config");
-    const [saveHistory, loadHistory] = makeEncodedDatabaseFunctions("sneed.analytics.history");
+    const [saveConfig, loadConfig, discardConfig] = makeDatabaseFunctions("sneed.analytics.config");
+    const [saveHistory, loadHistory, discardHistory] = makeEncodedDatabaseFunctions("sneed.analytics.history");
     const [saveCurrentRun, loadLatestRun, discardLatestRun] = makeDatabaseFunctions("sneed.analytics.latest");
 
-    const buildings = {
-        "city-food": "Gather Food",
-        "city-lumber": "Gather Lumber",
-        "city-stone": "Gather Stone",
-        "city-chrysotile": "Gather Chrysotile",
-        "city-slaughter": "Slaughter the Weak",
-        "city-horseshoe": "Horseshoe",
-        "city-slave_market": "Slave Market",
-        "city-s_alter": "Sacrificial Altar",
-        "city-basic_housing": "Cabin",
-        "city-cottage": "Cottage",
-        "city-apartment": "Apartment",
-        "city-lodge": "Lodge",
-        "city-smokehouse": "Smokehouse",
-        "city-soul_well": "Soul Well",
-        "city-slave_pen": "Slave Pen",
-        "city-transmitter": "Transmitter",
-        "city-captive_housing": "Captive Housing",
-        "city-farm": "Farm",
-        "city-compost": "Compost Heap",
-        "city-mill": "Windmill",
-        "city-windmill": "Windmill (Evil)",
-        "city-silo": "Grain Silo",
-        "city-assembly": "Assembly",
-        "city-garrison": "Barracks",
-        "city-hospital": "Hospital",
-        "city-boot_camp": "Boot Camp",
-        "city-shed": "Shed",
-        "city-storage_yard": "Freight Yard",
-        "city-warehouse": "Container Port",
-        "city-bank": "Bank",
-        "city-pylon": "Pylon",
-        "city-graveyard": "Graveyard",
-        "city-conceal_ward": "Conceal Ward (Witch Hunting)",
-        "city-lumber_yard": "Lumber Yard",
-        "city-sawmill": "Sawmill",
-        "city-rock_quarry": "Rock Quarry",
-        "city-cement_plant": "Cement Plant",
-        "city-foundry": "Foundry",
-        "city-factory": "Factory",
-        "city-nanite_factory": "Nanite Factory",
-        "city-smelter": "Smelter",
-        "city-metal_refinery": "Metal Refinery",
-        "city-mine": "Mine",
-        "city-coal_mine": "Coal Mine",
-        "city-oil_well": "Oil Derrick",
-        "city-oil_depot": "Fuel Depot",
-        "city-trade": "Trade Post",
-        "city-wharf": "Wharf",
-        "city-tourist_center": "Tourist Center",
-        "city-amphitheatre": "Amphitheatre",
-        "city-casino": "Casino",
-        "city-temple": "Temple",
-        "city-shrine": "Shrine",
-        "city-meditation": "Meditation Chamber",
-        "city-banquet": "Banquet Hall",
-        "city-university": "University",
-        "city-library": "Library",
-        "city-wardenclyffe": "Wardenclyffe",
-        "city-biolab": "Bioscience Lab",
-        "city-coal_power": "Coal Powerplant",
-        "city-oil_power": "Oil Powerplant",
-        "city-fission_power": "Fission Reactor",
-        "city-mass_driver": "Mass Driver",
-        "space-test_launch": "Space Test Launch",
-        "space-satellite": "Space Satellite",
-        "space-gps": "Space Gps",
-        "space-propellant_depot": "Space Propellant Depot",
-        "space-nav_beacon": "Space Navigation Beacon",
-        "space-moon_mission": "Moon Mission",
-        "space-moon_base": "Moon Base",
-        "space-iridium_mine": "Moon Iridium Mine",
-        "space-helium_mine": "Moon Helium-3 Mine",
-        "space-observatory": "Moon Observatory",
-        "space-red_mission": "Red Mission",
-        "space-spaceport": "Red Spaceport",
-        "space-red_tower": "Red Space Control",
-        "space-captive_housing": "Red Captive Housing (Cataclysm)",
-        "space-terraformer": "Red Terraformer (Orbit Decay)",
-        "space-atmo_terraformer": "Red Terraformer (Orbit Decay, Complete)",
-        "space-terraform": "Red Terraform (Orbit Decay)",
-        "space-assembly": "Red Assembly (Cataclysm)",
-        "space-living_quarters": "Red Living Quarters",
-        "space-pylon": "Red Pylon (Cataclysm)",
-        "space-vr_center": "Red VR Center",
-        "space-garage": "Red Garage",
-        "space-red_mine": "Red Mine",
-        "space-fabrication": "Red Fabrication",
-        "space-red_factory": "Red Factory",
-        "space-nanite_factory": "Red Nanite Factory (Cataclysm)",
-        "space-biodome": "Red Biodome",
-        "space-red_university": "Red University (Orbit Decay)",
-        "space-exotic_lab": "Red Exotic Materials Lab",
-        "space-ziggurat": "Red Ziggurat",
-        "space-space_barracks": "Red Marine Barracks",
-        "space-horseshoe": "Red Horseshoe (Cataclysm)",
-        "space-hell_mission": "Hell Mission",
-        "space-geothermal": "Hell Geothermal Plant",
-        "space-hell_smelter": "Hell Smelter",
-        "space-spc_casino": "Hell Space Casino",
-        "space-swarm_plant": "Hell Swarm Plant",
-        "space-sun_mission": "Sun Mission",
-        "space-swarm_control": "Sun Control Station",
-        "space-swarm_satellite": "Sun Swarm Satellite",
-        "space-jump_gate": "Sun Jump Gate",
-        "space-gas_mission": "Gas Mission",
-        "space-gas_mining": "Gas Helium-3 Collector",
-        "space-gas_storage": "Gas Fuel Depot",
-        "space-star_dock": "Gas Space Dock",
-        "space-gas_moon_mission": "Gas Moon Mission",
-        "space-outpost": "Gas Moon Mining Outpost",
-        "space-drone": "Gas Moon Mining Drone",
-        "space-oil_extractor": "Gas Moon Oil Extractor",
-        "starDock-probes": "Space Dock Probe",
-        "starDock-geck": "Space Dock G.E.C.K.",
-        "starDock-seeder": "Space Dock Bioseeder Ship",
-        "starDock-prep_ship": "Space Dock Prep Ship",
-        "starDock-launch_ship": "Space Dock Launch Ship",
-        "space-belt_mission": "Belt Mission",
-        "space-space_station": "Belt Space Station",
-        "space-elerium_ship": "Belt Elerium Mining Ship",
-        "space-iridium_ship": "Belt Iridium Mining Ship",
-        "space-iron_ship": "Belt Iron Mining Ship",
-        "space-dwarf_mission": "Dwarf Mission",
-        "space-elerium_contain": "Dwarf Elerium Storage",
-        "space-e_reactor": "Dwarf Elerium Reactor",
-        "space-world_collider": "Dwarf World Collider",
-        "space-world_controller": "Dwarf World Collider (Complete)",
-        "space-shipyard": "Dwarf Ship Yard",
-        "space-mass_relay": "Dwarf Mass Relay",
-        "space-m_relay": "Dwarf Mass Relay (Complete)",
-        "space-titan_mission": "Titan Mission",
-        "space-titan_spaceport": "Titan Spaceport",
-        "space-electrolysis": "Titan Electrolysis",
-        "space-hydrogen_plant": "Titan Hydrogen Plant",
-        "space-titan_quarters": "Titan Habitat",
-        "space-titan_mine": "Titan Mine",
-        "space-storehouse": "Titan Storehouse",
-        "space-titan_bank": "Titan Bank",
-        "space-g_factory": "Titan Graphene Plant",
-        "space-sam": "Titan SAM Site",
-        "space-decoder": "Titan Decoder",
-        "space-ai_core": "Titan AI Core",
-        "space-ai_core2": "Titan AI Core (Complete)",
-        "space-ai_colonist": "Titan AI Colonist",
-        "space-enceladus_mission": "Enceladus Mission",
-        "space-water_freighter": "Enceladus Water Freighter",
-        "space-zero_g_lab": "Enceladus Zero Gravity Lab",
-        "space-operating_base": "Enceladus Operational Base",
-        "space-munitions_depot": "Enceladus Munitions Depot",
-        "space-triton_mission": "Triton Mission",
-        "space-fob": "Triton Forward Base",
-        "space-lander": "Triton Troop Lander",
-        "space-crashed_ship": "Triton Derelict Ship",
-        "space-kuiper_mission": "Kuiper Mission",
-        "space-orichalcum_mine": "Kuiper Orichalcum Mine",
-        "space-uranium_mine": "Kuiper Uranium Mine",
-        "space-neutronium_mine": "Kuiper Neutronium Mine",
-        "space-elerium_mine": "Kuiper Elerium Mine",
-        "space-eris_mission": "Eris Mission",
-        "space-drone_control": "Eris Control Relay",
-        "space-shock_trooper": "Eris Android Trooper",
-        "space-tank": "Eris Tank",
-        "space-digsite": "Eris Digsite",
-        "tauceti-ringworld": "Tau Star Ringworld",
-        "tauceti-matrix": "Tau Star Matrix",
-        "tauceti-blue_pill": "Tau Star Blue Pill",
-        "tauceti-goe_facility": "Tau Star Garden of Eden",
-        "tauceti-home_mission": "Tau Mission",
-        "tauceti-dismantle": "Tau Dismantle Ship",
-        "tauceti-orbital_station": "Tau Orbital Station",
-        "tauceti-colony": "Tau Colony",
-        "tauceti-tau_housing": "Tau Housing",
-        "tauceti-captive_housing": "Tau Captive Housing",
-        "tauceti-pylon": "Tau Pylon",
-        "tauceti-cloning_facility": "Tau Cloning",
-        "tauceti-horseshoe": "Tau Horseshoe",
-        "tauceti-assembly": "Tau Assembly",
-        "tauceti-nanite_factory": "Tau Nanite Factory",
-        "tauceti-tau_farm": "Tau High-Tech Farm",
-        "tauceti-mining_pit": "Tau Mining Pit",
-        "tauceti-excavate": "Tau Excavate",
-        "tauceti-alien_outpost": "Tau Alien Outpost",
-        "tauceti-jump_gate": "Tau Jump Gate",
-        "tauceti-fusion_generator": "Tau Fusion Generator",
-        "tauceti-repository": "Tau Repository",
-        "tauceti-tau_factory": "Tau High-Tech Factory",
-        "tauceti-infectious_disease_lab": "Tau Disease Lab",
-        "tauceti-tauceti_casino": "Tau Casino",
-        "tauceti-tau_cultural_center": "Tau Cultural Center",
-        "tauceti-red_mission": "Tau Red Mission",
-        "tauceti-orbital_platform": "Tau Red Orbital Platform",
-        "tauceti-contact": "Tau Red Contact",
-        "tauceti-introduce": "Tau Red Introduce",
-        "tauceti-subjugate": "Tau Red Subjugate",
-        "tauceti-jeff": "Tau Red Jeff",
-        "tauceti-overseer": "Tau Red Overseer",
-        "tauceti-womling_village": "Tau Red Womling Village",
-        "tauceti-womling_farm": "Tau Red Womling Farm",
-        "tauceti-womling_mine": "Tau Red Womling Mine",
-        "tauceti-womling_fun": "Tau Red Womling Theater",
-        "tauceti-womling_lab": "Tau Red Womling Lab",
-        "tauceti-gas_contest": "Tau Gas Naming Contest",
-        "tauceti-gas_contest-a1": "Tau Gas Name 1",
-        "tauceti-gas_contest-a2": "Tau Gas Name 2",
-        "tauceti-gas_contest-a3": "Tau Gas Name 3",
-        "tauceti-gas_contest-a4": "Tau Gas Name 4",
-        "tauceti-gas_contest-a5": "Tau Gas Name 5",
-        "tauceti-gas_contest-a6": "Tau Gas Name 6",
-        "tauceti-gas_contest-a7": "Tau Gas Name 7",
-        "tauceti-gas_contest-a8": "Tau Gas Name 8",
-        "tauceti-refueling_station": "Tau Gas Refueling Station",
-        "tauceti-ore_refinery": "Tau Gas Ore Refinery",
-        "tauceti-whaling_station": "Tau Gas Whale Processor",
-        "tauceti-womling_station": "Tau Gas Womling Station",
-        "tauceti-roid_mission": "Tau Belt Mission",
-        "tauceti-patrol_ship": "Tau Belt Patrol Ship",
-        "tauceti-mining_ship": "Tau Belt Extractor Ship",
-        "tauceti-whaling_ship": "Tau Belt Whaling Ship",
-        "tauceti-gas_contest2": "Tau Gas 2 Naming Contest",
-        "tauceti-gas_contest-b1": "Tau Gas 2 Name 1",
-        "tauceti-gas_contest-b2": "Tau Gas 2 Name 2",
-        "tauceti-gas_contest-b3": "Tau Gas 2 Name 3",
-        "tauceti-gas_contest-b4": "Tau Gas 2 Name 4",
-        "tauceti-gas_contest-b5": "Tau Gas 2 Name 5",
-        "tauceti-gas_contest-b6": "Tau Gas 2 Name 6",
-        "tauceti-gas_contest-b7": "Tau Gas 2 Name 7",
-        "tauceti-gas_contest-b8": "Tau Gas 2 Name 8",
-        "tauceti-alien_station_survey": "Tau Gas 2 Alien Station (Survey)",
-        "tauceti-alien_station": "Tau Gas 2 Alien Station",
-        "tauceti-alien_space_station": "Tau Gas 2 Alien Space Station",
-        "tauceti-matrioshka_brain": "Tau Gas 2 Matrioshka Brain",
-        "tauceti-ignition_device": "Tau Gas 2 Ignition Device",
-        "tauceti-ignite_gas_giant": "Tau Gas 2 Ignite Gas Giant",
-        "interstellar-alpha_mission": "Alpha Centauri Mission",
-        "interstellar-starport": "Alpha Starport",
-        "interstellar-habitat": "Alpha Habitat",
-        "interstellar-mining_droid": "Alpha Mining Droid",
-        "interstellar-processing": "Alpha Processing Facility",
-        "interstellar-fusion": "Alpha Fusion Reactor",
-        "interstellar-laboratory": "Alpha Laboratory",
-        "interstellar-exchange": "Alpha Exchange",
-        "interstellar-g_factory": "Alpha Graphene Plant",
-        "interstellar-warehouse": "Alpha Warehouse",
-        "interstellar-int_factory": "Alpha Mega Factory",
-        "interstellar-luxury_condo": "Alpha Luxury Condo",
-        "interstellar-zoo": "Alpha Exotic Zoo",
-        "interstellar-proxima_mission": "Proxima Mission",
-        "interstellar-xfer_station": "Proxima Transfer Station",
-        "interstellar-cargo_yard": "Proxima Cargo Yard",
-        "interstellar-cruiser": "Proxima Patrol Cruiser",
-        "interstellar-dyson": "Proxima Dyson Sphere (Adamantite)",
-        "interstellar-dyson_sphere": "Proxima Dyson Sphere (Bolognium)",
-        "interstellar-orichalcum_sphere": "Proxima Dyson Sphere (Orichalcum)",
-        "interstellar-elysanite_sphere": "Proxima Dyson Sphere (Elysanite)",
-        "interstellar-nebula_mission": "Nebula Mission",
-        "interstellar-nexus": "Nebula Nexus",
-        "interstellar-harvester": "Nebula Harvester",
-        "interstellar-elerium_prospector": "Nebula Elerium Prospector",
-        "interstellar-neutron_mission": "Neutron Mission",
-        "interstellar-neutron_miner": "Neutron Miner",
-        "interstellar-citadel": "Neutron Citadel Station",
-        "interstellar-stellar_forge": "Neutron Stellar Forge",
-        "interstellar-blackhole_mission": "Blackhole Mission",
-        "interstellar-far_reach": "Blackhole Farpoint",
-        "interstellar-stellar_engine": "Blackhole Stellar Engine",
-        "interstellar-mass_ejector": "Blackhole Mass Ejector",
-        "interstellar-jump_ship": "Blackhole Jump Ship",
-        "interstellar-wormhole_mission": "Blackhole Wormhole Mission",
-        "interstellar-stargate": "Blackhole Stargate",
-        "interstellar-s_gate": "Blackhole Stargate (Complete)",
-        "interstellar-sirius_mission": "Sirius Mission",
-        "interstellar-sirius_b": "Sirius B Analysis",
-        "interstellar-space_elevator": "Sirius Space Elevator",
-        "interstellar-gravity_dome": "Sirius Gravity Dome",
-        "interstellar-ascension_machine": "Sirius Ascension Machine",
-        "interstellar-ascension_trigger": "Sirius Ascension Machine (Complete)",
-        "interstellar-ascend": "Sirius Ascend",
-        "interstellar-thermal_collector": "Sirius Thermal Collector",
-        "galaxy-gateway_mission": "Gateway Mission",
-        "galaxy-starbase": "Gateway Starbase",
-        "galaxy-ship_dock": "Gateway Ship Dock",
-        "galaxy-bolognium_ship": "Gateway Bolognium Ship",
-        "galaxy-scout_ship": "Gateway Scout Ship",
-        "galaxy-corvette_ship": "Gateway Corvette Ship",
-        "galaxy-frigate_ship": "Gateway Frigate Ship",
-        "galaxy-cruiser_ship": "Gateway Cruiser Ship",
-        "galaxy-dreadnought": "Gateway Dreadnought",
-        "galaxy-gateway_station": "Stargate Station",
-        "galaxy-telemetry_beacon": "Stargate Telemetry Beacon",
-        "galaxy-gateway_depot": "Stargate Depot",
-        "galaxy-defense_platform": "Stargate Defense Platform",
-        "galaxy-gorddon_mission": "Gorddon Mission",
-        "galaxy-embassy": "Gorddon Embassy",
-        "galaxy-dormitory": "Gorddon Dormitory",
-        "galaxy-symposium": "Gorddon Symposium",
-        "galaxy-freighter": "Gorddon Freighter",
-        "galaxy-consulate": "Alien 1 Consulate",
-        "galaxy-resort": "Alien 1 Resort",
-        "galaxy-vitreloy_plant": "Alien 1 Vitreloy Plant",
-        "galaxy-super_freighter": "Alien 1 Super Freighter",
-        "galaxy-alien2_mission": "Alien 2 Mission",
-        "galaxy-foothold": "Alien 2 Foothold",
-        "galaxy-armed_miner": "Alien 2 Armed Miner",
-        "galaxy-ore_processor": "Alien 2 Ore Processor",
-        "galaxy-scavenger": "Alien 2 Scavenger",
-        "galaxy-chthonian_mission": "Chthonian Mission",
-        "galaxy-minelayer": "Chthonian Mine Layer",
-        "galaxy-excavator": "Chthonian Excavator",
-        "galaxy-raider": "Chthonian Corsair",
-        "portal-turret": "Portal Laser Turret",
-        "portal-carport": "Portal Surveyor Carport",
-        "portal-war_droid": "Portal War Droid",
-        "portal-repair_droid": "Portal Repair Droid",
-        "portal-war_drone": "Badlands Predator Drone",
-        "portal-sensor_drone": "Badlands Sensor Drone",
-        "portal-attractor": "Badlands Attractor Beacon",
-        "portal-pit_mission": "Pit Mission",
-        "portal-assault_forge": "Pit Assault Forge",
-        "portal-soul_forge": "Pit Soul Forge",
-        "portal-gun_emplacement": "Pit Gun Emplacement",
-        "portal-soul_attractor": "Pit Soul Attractor",
-        "portal-soul_capacitor": "Pit Soul Capacitor (Witch Hunting)",
-        "portal-absorption_chamber": "Pit Absorption Chamber (Witch Hunting)",
-        "portal-ruins_mission": "Ruins Mission",
-        "portal-guard_post": "Ruins Guard Post",
-        "portal-vault": "Ruins Vault",
-        "portal-archaeology": "Ruins Archaeology",
-        "portal-arcology": "Ruins Arcology",
-        "portal-hell_forge": "Ruins Infernal Forge",
-        "portal-inferno_power": "Ruins Inferno Reactor",
-        "portal-ancient_pillars": "Ruins Ancient Pillars",
-        "portal-gate_mission": "Gate Mission",
-        "portal-east_tower": "Gate East Tower",
-        "portal-west_tower": "Gate West Tower",
-        "portal-gate_turret": "Gate Turret",
-        "portal-infernite_mine": "Gate Infernite Mine",
-        "portal-lake_mission": "Lake Mission",
-        "portal-harbor": "Lake Harbor",
-        "portal-cooling_tower": "Lake Cooling Tower",
-        "portal-bireme": "Lake Bireme Warship",
-        "portal-transport": "Lake Transport",
-        "portal-oven": "Lake Cooker (Fasting)",
-        "portal-oven_complete": "Lake Cooker (Fasting, Complete)",
-        "portal-dish_soul_steeper": "Lake Soul Steeper (Fasting)",
-        "portal-dish_life_infuser": "Lake Life Infuser (Fasting)",
-        "portal-devilish_dish": "Lake Devilish Dish (Fasting)",
-        "portal-spire_mission": "Spire Mission",
-        "portal-purifier": "Spire Purifier",
-        "portal-port": "Spire Port",
-        "portal-base_camp": "Spire Base Camp",
-        "portal-bridge": "Spire Bridge",
-        "portal-sphinx": "Spire Sphinx",
-        "portal-bribe_sphinx": "Spire Bribe Sphinx",
-        "portal-spire_survey": "Spire Survey Tower",
-        "portal-mechbay": "Spire Mech Bay",
-        "portal-spire": "Spire Tower",
-        "portal-waygate": "Spire Waygate",
-        "portal-edenic_gate": "Spire Edenic Gate",
-        "eden-survery_meadows": "Asphodel Mission",
-        "eden-encampment": "Asphodel Encampment",
-        "eden-soul_engine": "Asphodel Soul Engine",
-        "eden-mech_station": "Asphodel Mech Station",
-        "eden-asphodel_harvester": "Asphodel Harvester",
-        "eden-ectoplasm_processor": "Asphodel Muon Processor",
-        "eden-research_station": "Asphodel Research Station",
-        "eden-warehouse": "Asphodel Warehouse",
-        "eden-stabilizer": "Asphodel Stabilizer",
-        "eden-rune_gate": "Asphodel Rune Gate",
-        "eden-rune_gate_open": "Asphodel Rune Gate (Complete)",
-        "eden-bunker": "Asphodel Bunker",
-        "eden-bliss_den": "Asphodel Bliss Den",
-        "eden-rectory": "Asphodel Rectory",
-        "eden-survey_fields": "Elysium Mission",
-        "eden-fortress": "Elysium Celestial Fortress",
-        "eden-siege_fortress": "Elysium Siege Fortress",
-        "eden-raid_supplies": "Elysium Raid Supplies",
-        "eden-ambush_patrol": "Elysium Ambush Patrol",
-        "eden-ruined_fortress": "Elysium Ruined Fortress",
-        "eden-scout_elysium": "Elysium Scout",
-        "eden-fire_support_base": "Elysium Fire Support Base",
-        "eden-elysanite_mine": "Elysium Mine",
-        "eden-sacred_smelter": "Elysium Sacred Smelter",
-        "eden-elerium_containment": "Elysium Elerium Containment",
-        "eden-pillbox": "Elysium Pillbox",
-        "eden-restaurant": "Elysium Restaurant",
-        "eden-eternal_bank": "Elysium Eternal Bank",
-        "eden-archive": "Elysium Archive",
-        "eden-north_pier": "Elysium North Pier",
-        "eden-rushmore": "Elysium Rushmore",
-        "eden-reincarnation": "Elysium Reincarnation",
-        "eden-eden_cement": "Elysium Cement",
-        "eden-south_pier": "Isle South Pier",
-        "eden-west_tower": "Isle West Tower",
-        "eden-isle_garrison": "Isle Garrison",
-        "eden-east_tower": "Isle East Tower",
-        "eden-spirit_vacuum": "Isle Spirit Vacuum",
-        "eden-spirit_battery": "Isle Spirit Battery",
-        "eden-soul_compactor": "Isle Soul Compactor",
-        "eden-scout_palace": "Palace Mission",
-        "eden-abandoned_throne": "Palace Throne",
-        "eden-infuser": "Palace Infuser",
-        "eden-apotheosis": "Palace Apotheosis",
-        "eden-conduit": "Palace Conduit",
-        "eden-tomb": "Palace Tomb",
-        "arpa-launch_facility": "Launch Facility",
-        "arpa-lhc": "Supercollider",
-        "arpa-stock_exchange": "Stock Exchange",
-        "arpa-monument": "Monument",
-        "arpa-railway": "Railway",
-        "arpa-nexus": "Nexus",
-        "arpa-roid_eject": "Asteroid Redirect",
-        "arpa-syphon": "Mana Syphon",
-        "arpa-tp_depot": "Depot",
-    };
+    function migrate4(config) {
+        return {
+            version: 6,
+            recordRuns: config.recordRuns ?? true,
+            lastOpenViewIndex: config.views.length !== 0 ? 0 : undefined,
+            views: config.views.map(view => {
+                return {
+                    additionalInfo: [],
+                    ...view
+                };
+            })
+        };
+    }
 
-    const segments = {
-        "space-terraformer": 100,
-        "space-jump_gate": 100,
-        "starDock-seeder": 100,
-        "space-world_collider": 1859,
-        "space-mass_relay": 100,
-        "space-ai_core": 100,
-        "tauceti-ringworld": 1000,
-        "tauceti-jump_gate": 100,
-        "tauceti-alien_station": 100,
-        "tauceti-matrioshka_brain": 1000,
-        "tauceti-ignition_device": 10,
-        "interstellar-dyson": 100,
-        "interstellar-dyson_sphere": 100,
-        "interstellar-orichalcum_sphere": 100,
-        "interstellar-stellar_engine": 100,
-        "interstellar-stargate": 200,
-        "interstellar-space_elevator": 100,
-        "interstellar-gravity_dome": 100,
-        "interstellar-ascension_machine": 100,
-        "portal-east_tower": 388,
-        "portal-west_tower": 388,
-        "eden-mech_station": 10,
-        "eden-rune_gate": 100,
-        "eden-fire_support_base": 100,
-        "eden-north_pier": 10,
-        "eden-south_pier": 10,
-        "eden-infuser": 25,
-        "eden-conduit": 25,
-        "eden-tomb": 10
-    };
-
-    const techs = {
-        "club": "Club",
-        "bone_tools": "Bone Tools",
-        "wooden_tools": "Wooden Tools",
-        "sundial": "Sundial",
-        "wheel": "Wheel",
-        "wagon": "Wagon",
-        "steam_engine": "Steam Engine",
-        "combustion_engine": "Combustion Engine",
-        "hover_cart": "Hover Cart",
-        "osha": "OSHA Regulations",
-        "blackmarket": "Blackmarket",
-        "pipelines": "Oil Pipelines",
-        "housing": "Housing",
-        "cottage": "Cottage",
-        "apartment": "Apartment",
-        "arcology": "Arcology",
-        "steel_beams": "Steel Beams",
-        "mythril_beams": "Mythril Beams",
-        "neutronium_walls": "Neutronium Walls",
-        "bolognium_alloy_beams": "Bolognium Alloy Beams",
-        "aphrodisiac": "Aphrodisiac",
-        "fertility_clinic": "Fertility Clinic",
-        "captive_housing": "Captive Housing",
-        "torture": "Torment",
-        "thrall_quarters": "Thrall Quarters",
-        "minor_wish": "Limited Wish",
-        "major_wish": "Greater Wish",
-        "psychic_energy": "Psychic Energy",
-        "psychic_attack": "Psychic Assault",
-        "psychic_finance": "Psychic Finance",
-        "psychic_channeling": "Psychic Channeling",
-        "psychic_efficiency": "Psychic Efficiency",
-        "mind_break": "Psychic Mind Break",
-        "psychic_stun": "Psychic Stun",
-        "spear": "Flint Spear",
-        "bronze_spear": "Bronze Spear",
-        "iron_spear": "Iron Spear",
-        "dowsing_rod": "Dowsing Rod",
-        "metal_detector": "Metal Detector",
-        "smokehouse": "Smokehouse",
-        "lodge": "Hunting Lodge",
-        "alt_lodge": "Lodge",
-        "soul_well": "Soul Well",
-        "compost": "Composting",
-        "hot_compost": "Hot Composting",
-        "mulching": "Mulching",
-        "adv_mulching": "Advanced Mulching",
-        "agriculture": "Agriculture",
-        "farm_house": "Farm Houses",
-        "irrigation": "Irrigation",
-        "silo": "Grain Silo",
-        "mill": "Grain Mill",
-        "windmill": "Windmill",
-        "windturbine": "Wind Turbine",
-        "wind_plant": "Windmill (Power)",
-        "gmfood": "GM Food",
-        "foundry": "Foundry",
-        "artisans": "Artisans",
-        "apprentices": "Apprentices",
-        "carpentry": "Carpentry",
-        "demonic_craftsman": "Master Crafter (Evil)",
-        "master_craftsman": "Master Crafter",
-        "brickworks": "Brickworks",
-        "machinery": "Machinery",
-        "cnc_machine": "CNC Machine",
-        "vocational_training": "Vocational Training",
-        "stellar_forge": "Stellar Forge",
-        "stellar_smelting": "Stellar Smelting",
-        "assembly_line": "Assembly Line",
-        "automation": "Factory Automation",
-        "laser_cutters": "Laser Cutters",
-        "high_tech_factories": "High-Tech Factory",
-        "banquet": "Banquet",
-        "theatre": "Theatre",
-        "playwright": "Playwright",
-        "magic": "Techno Wizards",
-        "superstars": "Super Stars",
-        "radio": "Radio",
-        "tv": "Television",
-        "vr_center": "VR Center",
-        "zoo": "Exotic Zoo",
-        "casino": "Casino",
-        "dazzle": "Extreme Dazzle",
-        "casino_vault": "Casino Vault",
-        "otb": "Off Track Betting",
-        "online_gambling": "Online Gambling",
-        "bolognium_vaults": "Bolognium Vault",
-        "mining": "Mining",
-        "bayer_process": "Bayer Process",
-        "elysis_process": "ELYSIS Process",
-        "smelting": "Smelting",
-        "steel": "Crucible Steel",
-        "blast_furnace": "Blast Furnace",
-        "bessemer_process": "Bessemer Process",
-        "oxygen_converter": "Oxygen Converter",
-        "electric_arc_furnace": "Electric Arc Furnace",
-        "hellfire_furnace": "Hellfire Furnace",
-        "infernium_fuel": "Infernium Fuel",
-        "iridium_smelting_perk": "Iridium Smelting",
-        "rotary_kiln": "Rotary Kiln",
-        "metal_working": "Metal Working",
-        "iron_mining": "Iron Mining",
-        "coal_mining": "Coal Mining",
-        "storage": "Basic Storage",
-        "reinforced_shed": "Reinforced Sheds",
-        "barns": "Barns",
-        "warehouse": "Warehouse",
-        "cameras": "Security Cameras",
-        "pocket_dimensions": "Pocket Dimensions",
-        "ai_logistics": "AI Shipping Logistics",
-        "containerization": "Containerization",
-        "reinforced_crates": "Reinforced Crates",
-        "cranes": "Cranes",
-        "titanium_crates": "Titanium-Banded Crates",
-        "mythril_crates": "Mythril-Plated Crates",
-        "infernite_crates": "Infernite Crates",
-        "graphene_crates": "Graphene Crates",
-        "bolognium_crates": "Bolognium Crates",
-        "elysanite_crates": "Elysanite Crates",
-        "steel_containers": "Steel Containers",
-        "gantry_crane": "Gantry Cranes",
-        "alloy_containers": "Alloy Containers",
-        "mythril_containers": "Mythril Containers",
-        "adamantite_containers": "Adamantite Containers",
-        "aerogel_containers": "Aerogel Containers",
-        "bolognium_containers": "Bolognium Containers",
-        "nanoweave_containers": "Nanoweave Liners",
-        "elysanite_containers": "Elysanite Containers",
-        "evil_planning": "Urban Planning (Evil)",
-        "urban_planning": "Urban Planning",
-        "zoning_permits": "Zoning Permits",
-        "urbanization": "Urbanization",
-        "assistant": "Personal Assistant",
-        "government": "Government",
-        "theocracy": "Theocracy",
-        "republic": "Republic",
-        "socialist": "Socialist",
-        "corpocracy": "Corpocracy",
-        "technocracy": "Technocracy",
-        "federation": "Federation",
-        "magocracy": "Magocracy",
-        "governor": "Governor",
-        "spy": "Spies",
-        "espionage": "Espionage",
-        "spy_training": "Spy Training Facility",
-        "spy_gadgets": "Spy Gadgets",
-        "code_breakers": "Code Breakers",
-        "currency": "Currency",
-        "market": "Marketplace",
-        "tax_rates": "Tax Rates",
-        "large_trades": "Large Volume Trading",
-        "corruption": "Corrupt Politicians",
-        "massive_trades": "Massive Volume Trading",
-        "trade": "Trade Routes",
-        "diplomacy": "Diplomacy",
-        "freight": "Freight Trains",
-        "wharf": "Wharves",
-        "banking": "Banking",
-        "investing": "Investing",
-        "vault": "Bank Vault",
-        "bonds": "Savings Bonds",
-        "steel_vault": "Steel Vault",
-        "eebonds": "Series EE Bonds",
-        "swiss_banking": "Cheese Banking",
-        "safety_deposit": "Safety Deposit Box",
-        "stock_market": "Stock Exchange",
-        "hedge_funds": "Hedge Funds",
-        "four_oh_one": "401K",
-        "exchange": "Galactic Exchange",
-        "foreign_investment": "Foreign Investment",
-        "crypto_currency": "Crypto Currency",
-        "mythril_vault": "Mythril Vault",
-        "neutronium_vault": "Neutronium Vault",
-        "adamantite_vault": "Adamantite Vault",
-        "graphene_vault": "Graphene Vault",
-        "home_safe": "House Safe",
-        "fire_proof_safe": "Fire Proof Safe",
-        "tamper_proof_safe": "Tamper Proof Safe",
-        "monument": "Monuments",
-        "tourism": "Tourism",
-        "xeno_tourism": "Xeno Tourism",
-        "science": "Scientific Method",
-        "library": "Dewey Decimal System",
-        "thesis": "Thesis Papers",
-        "research_grant": "Research Grants",
-        "scientific_journal": "Scientific Journal",
-        "adjunct_professor": "Adjunct Professors",
-        "tesla_coil": "Tesla Coil",
-        "internet": "Internet",
-        "observatory": "Space Observatory",
-        "world_collider": "World Collider",
-        "laboratory": "Laboratory",
-        "virtual_assistant": "Virtual Assistant",
-        "dimensional_readings": "Dimensional Readings",
-        "quantum_entanglement": "Quantum Entanglement",
-        "expedition": "Scientific Expeditions",
-        "subspace_sensors": "Subspace Sensors",
-        "alien_database": "Alien Database",
-        "orichalcum_capacitor": "Orichalcum Capacitor",
-        "advanced_biotech": "Advanced Biotech",
-        "codex_infinium": "Codex Infinium",
-        "spirit_box": "Spirit Box",
-        "spirit_researcher": "Occult Researcher",
-        "dimensional_tap": "Dimensional Tap",
-        "devilish_dish": "Devilish Dish",
-        "hell_oven": "Soul-Vide Cooker",
-        "preparation_methods": "Preparation Methods",
-        "final_ingredient": "Final Ingredient",
-        "bioscience": "Bioscience",
-        "genetics": "Genetics",
-        "crispr": "CRISPR-Cas9",
-        "shotgun_sequencing": "Shotgun Sequencing",
-        "de_novo_sequencing": "De Novo Sequencing",
-        "dna_sequencer": "DNA Sequencer",
-        "rapid_sequencing": "Rapid Gene Sequencing",
-        "mad_science": "Mad Science",
-        "electricity": "Electricity",
-        "matter_replicator": "Matter Replicator",
-        "industrialization": "Industrialization",
-        "electronics": "Electronics",
-        "fission": "Nuclear Fission",
-        "arpa": "A.R.P.A.",
-        "rocketry": "Rocketry",
-        "robotics": "Advanced Robotics",
-        "lasers": "Lasers",
-        "artifical_intelligence": "Artificial Intelligence",
-        "quantum_computing": "Quantum Computing",
-        "virtual_reality": "Virtual Reality",
-        "plasma": "Plasma Beams",
-        "shields": "Energy Shields",
-        "ai_core": "AI Supercore",
-        "metaphysics": "Metaphysics",
-        "orichalcum_analysis": "Orichalcum Analysis",
-        "cybernetics": "Cybernetics",
-        "divinity": "Divine Providence",
-        "blood_pact": "Blood Pact",
-        "purify": "Enhanced Air Filters",
-        "waygate": "Waygate",
-        "demonic_infusion": "Demonic Infusion",
-        "purify_essence": "Purify Essence",
-        "gate_key": "Gate Key",
-        "gate_turret": "Gate Turret",
-        "infernite_mine": "Infernite Survey",
-        "study_corrupt_gem": "Study Corrupt Gem",
-        "soul_binding": "Soul Binding",
-        "soul_capacitor": "Soul Capacitor",
-        "absorption_chamber": "Absorption Chamber",
-        "corrupt_gem_analysis": "Corrupt Gem Analysis",
-        "hell_search": "Search Hell Coordinates",
-        "codex_infernium": "Codex Infernium",
-        "lake_analysis": "Blood Lake Analysis",
-        "lake_threat": "Lake Threat",
-        "lake_transport": "Lake Transport",
-        "cooling_tower": "Cooling Tower",
-        "miasma": "Miasma",
-        "incorporeal": "Incorporeal Existence",
-        "tech_ascension": "Ascension",
-        "terraforming": "Terraforming",
-        "cement_processing": "Cement Processing",
-        "adamantite_processing_flier": "Adamantite Processing (Flier)",
-        "adamantite_processing": "Adamantite Processing",
-        "graphene_processing": "Graphene Processing",
-        "crypto_mining": "Crypto Mining",
-        "fusion_power": "Nuclear Fusion",
-        "infernium_power": "Inferno Power",
-        "thermomechanics": "Thermomechanics",
-        "quantum_manufacturing": "Quantum Manufacturing",
-        "worker_drone": "Mining Drones",
-        "uranium": "Uranium Extraction",
-        "uranium_storage": "Uranium Storage",
-        "uranium_ash": "Uranium Ash",
-        "breeder_reactor": "Breeder Reactor",
-        "mine_conveyor": "Mine Conveyor Belts",
-        "oil_well": "Oil Derrick",
-        "oil_depot": "Fuel Depot",
-        "oil_power": "Oil Powerplant",
-        "titanium_drills": "Titanium Drills",
-        "alloy_drills": "Alloy Drills",
-        "fracking": "Fracking",
-        "mythril_drills": "Mythril Drills",
-        "mass_driver": "Mass Driver",
-        "orichalcum_driver": "Orichalcum Mass Driver",
-        "polymer": "Polymer",
-        "fluidized_bed_reactor": "Fluidized Bed Reactor",
-        "synthetic_fur": "Synthetic Fur",
-        "nanoweave": "Nanoweave",
-        "stanene": "Stanene",
-        "nano_tubes": "Nano Tubes",
-        "scarletite": "Scarletite",
-        "pillars": "Pillars Research",
-        "reclaimer": "Reclaimers",
-        "shovel": "Shovel",
-        "iron_shovel": "Iron Shovel",
-        "steel_shovel": "Steel Shovel",
-        "titanium_shovel": "Titanium Shovel",
-        "alloy_shovel": "Alloy Shovel",
-        "mythril_shovel": "Mythril Shovel",
-        "adamantite_shovel": "Adamantite Shovel",
-        "stone_axe": "Primitive Axes",
-        "copper_axes": "Bronze Axe",
-        "iron_saw": "Sawmills",
-        "steel_saw": "Steel Saws",
-        "iron_axes": "Iron Axe",
-        "steel_axes": "Steel Axe",
-        "titanium_axes": "Titanium Axe",
-        "chainsaws": "Chainsaws",
-        "copper_sledgehammer": "Bronze Sledgehammer",
-        "iron_sledgehammer": "Iron Sledgehammer",
-        "steel_sledgehammer": "Steel Sledgehammer",
-        "titanium_sledgehammer": "Titanium Sledgehammer",
-        "copper_pickaxe": "Bronze Pickaxe",
-        "iron_pickaxe": "Iron Pickaxe",
-        "steel_pickaxe": "Steel Pickaxe",
-        "jackhammer": "Jackhammer",
-        "jackhammer_mk2": "Electric Jackhammer",
-        "adamantite_hammer": "Adamantite Jackhammer",
-        "elysanite_hammer": "Elysanite Jackhammer",
-        "copper_hoe": "Bronze Hoes",
-        "iron_hoe": "Iron Hoes",
-        "steel_hoe": "Steel Hoes",
-        "titanium_hoe": "Titanium Hoes",
-        "adamantite_hoe": "Adamantite Hoes",
-        "cyber_limbs": "Cybernetic Worker Limbs",
-        "slave_pens": "Slave Pen",
-        "slave_market": "Slave Market",
-        "ceremonial_dagger": "Ceremonial Dagger",
-        "last_rites": "Last Rites",
-        "ancient_infusion": "Ancient Infusion",
-        "garrison": "Garrison",
-        "mercs": "Mercenaries",
-        "signing_bonus": "Signing Bonus",
-        "hospital": "Hospital",
-        "bac_tanks": "BAC Tank",
-        "boot_camp": "Boot Camp",
-        "vr_training": "VR Training",
-        "bows": "Bows",
-        "flintlock_rifle": "Flintlock Rifle",
-        "machine_gun": "Machine Gun",
-        "bunk_beds": "Bunk Beds",
-        "rail_guns": "Rail Guns",
-        "laser_rifles": "Laser Rifles",
-        "plasma_rifles": "Plasma Rifles",
-        "disruptor_rifles": "Disruptor Rifles",
-        "gauss_rifles": "Gauss Rifles",
-        "cyborg_soldiers": "Cyborg Soldiers",
-        "ethereal_weapons": "Ethereal Weaponry",
-        "space_marines": "Space Marines",
-        "hammocks": "Nanoweave Hammocks",
-        "cruiser": "Patrol Cruiser",
-        "armor": "Leather Armor",
-        "plate_armor": "Plate Armor",
-        "kevlar": "Kevlar",
-        "nanoweave_vest": "Nanoweave Vest",
-        "laser_turret": "Laser Turret",
-        "plasma_turret": "Plasma Turret",
-        "black_powder": "Black Powder",
-        "dynamite": "Dynamite",
-        "anfo": "ANFO",
-        "super_tnt": "Super TNT",
-        "mad": "Mutual Destruction",
-        "cement": "Cement",
-        "rebar": "Rebar",
-        "steel_rebar": "Steel Rebar",
-        "portland_cement": "Portland Cement",
-        "screw_conveyor": "Screw Conveyor",
-        "adamantite_screws": "Adamantite Screws",
-        "otherworldly_binder": "Otherworldly Binder",
-        "hunter_process": "Hunter Process",
-        "kroll_process": "Kroll Process",
-        "cambridge_process": "Cambridge Process",
-        "pynn_partical": "Pynn Particles",
-        "matter_compression": "Matter Compression",
-        "higgs_boson": "Higgs Boson",
-        "dimensional_compression": "Dimension Compression",
-        "theology": "Theology",
-        "fanaticism": "Fanaticism",
-        "alt_fanaticism": "Fanaticism (Post-Transcendence)",
-        "ancient_theology": "Ancient Theology",
-        "study": "Study Ancients",
-        "study_alt": "Study Ancients (Post-Preeminence)",
-        "encoding": "Genetic Encoding",
-        "deify": "Deify Ancients",
-        "deify_alt": "Deify Ancients (Post-Preeminence)",
-        "infusion": "Genetic Infusion",
-        "indoctrination": "Indoctrination",
-        "missionary": "Missionary",
-        "zealotry": "Zealotry",
-        "anthropology": "Anthropology",
-        "alt_anthropology": "Anthropology (Post-Transcendence)",
-        "mythology": "Mythology",
-        "archaeology": "Archaeology",
-        "merchandising": "Merchandising",
-        "astrophysics": "Astrophysics",
-        "rover": "Rovers",
-        "probes": "Space Probes",
-        "starcharts": "Star Charts",
-        "colonization": "Colonization",
-        "red_tower": "Red Control Tower",
-        "space_manufacturing": "Space Manufacturing",
-        "exotic_lab": "Exotic Materials Lab",
-        "hydroponics": "Hydroponics Bays",
-        "dyson_sphere": "Dyson Sphere (Plans)",
-        "dyson_swarm": "Dyson Swarm",
-        "swarm_plant": "Swarm Plant",
-        "space_sourced": "Space Sourced",
-        "swarm_plant_ai": "Swarm Plant AI",
-        "swarm_control_ai": "Swarm Control AI",
-        "quantum_swarm": "Quantum Swarm",
-        "perovskite_cell": "Perovskite Cells",
-        "swarm_convection": "Swarm Convection",
-        "orichalcum_panels": "Orichalcum Panels",
-        "dyson_net": "Dyson Net",
-        "dyson_sphere2": "Dyson Sphere",
-        "orichalcum_sphere": "Orichalcum Dyson Plating",
-        "elysanite_sphere": "Elysanite Dyson Paneling",
-        "gps": "GPS Constellation",
-        "nav_beacon": "Navigation Beacon",
-        "subspace_signal": "Subspace Beacon",
-        "atmospheric_mining": "Atmospheric Mining",
-        "helium_attractor": "Helium Attractor",
-        "ram_scoops": "Ram Scoops",
-        "elerium_prospecting": "Elerium Prospecting",
-        "zero_g_mining": "Zero G Mining",
-        "elerium_mining": "Elerium Mining",
-        "laser_mining": "Laser Mining",
-        "plasma_mining": "Plasma Mining",
-        "elerium_tech": "Elerium Theory",
-        "elerium_reactor": "Elerium Reactor",
-        "neutronium_housing": "Neutronium Housing",
-        "unification": "Unification (Plans)",
-        "unification2": "Unification",
-        "unite": "Unite Country",
-        "genesis": "Genesis Project",
-        "star_dock": "Space Dock",
-        "interstellar": "Interstellar Probes",
-        "genesis_ship": "Genesis Ship",
-        "geck": "G.E.C.K.",
-        "genetic_decay": "Gene Therapy",
-        "stabilize_decay": "Stabilize Decay",
-        "tachyon": "Tachyon Particles",
-        "warp_drive": "Alcubierre Drive",
-        "habitat": "Habitat",
-        "graphene": "Graphene",
-        "aerogel": "Aerogel",
-        "mega_manufacturing": "Mega Manufacturing",
-        "luxury_condo": "Luxury Condo",
-        "stellar_engine": "Stellar Engine",
-        "mass_ejector": "Mass Ejector",
-        "asteroid_redirect": "Asteroid Redirect",
-        "exotic_infusion": "Exotic Infusion (1st Warning)",
-        "infusion_check": "Exotic Infusion (2nd Warning)",
-        "infusion_confirm": "Exotic Infusion",
-        "stabilize_blackhole": "Stabilize Black Hole",
-        "veil": "The Veil",
-        "mana_syphon": "Mana Syphon",
-        "gravitational_waves": "Gravitational Waves",
-        "gravity_convection": "Gravitational Convection",
-        "wormholes": "Wormholes",
-        "portal": "Portals",
-        "fortifications": "Fortifications",
-        "war_drones": "War Drones",
-        "demon_attractor": "Demonic Attractor",
-        "combat_droids": "Combat Droids",
-        "repair_droids": "Repair Droids",
-        "advanced_predators": "Advanced Drones",
-        "enhanced_droids": "Enhanced War Droids",
-        "sensor_drone": "Sensor Drones",
-        "map_terrain": "Map Terrain",
-        "calibrated_sensors": "Calibrated Sensors",
-        "shield_generator": "Shield Generator",
-        "enhanced_sensors": "Enhanced Sensors",
-        "xeno_linguistics": "Xeno Linguistics",
-        "xeno_culture": "Xeno Culture",
-        "cultural_exchange": "Cultural Exchange",
-        "shore_leave": "Shore Leave",
-        "xeno_gift": "Alien Gift",
-        "industrial_partnership": "Industrial Partnership",
-        "embassy_housing": "Embassy Housing",
-        "advanced_telemetry": "Advanced Telemetry",
-        "defense_platform": "Defense Platform",
-        "scout_ship": "Scout Ship",
-        "corvette_ship": "Corvette Ship",
-        "frigate_ship": "Frigate Ship",
-        "cruiser_ship": "Cruiser Ship",
-        "dreadnought": "Dreadnought",
-        "ship_dock": "Ship Dock",
-        "ore_processor": "Ore Processor",
-        "scavenger": "Tech Scavenger",
-        "coordinates": "Decrypt Coordinates",
-        "chthonian_survey": "Chthonian Survey",
-        "gateway_depot": "Depot",
-        "soul_forge": "Soul Forge",
-        "soul_attractor": "Soul Attractor",
-        "soul_absorption": "Soul Absorption",
-        "soul_link": "Soul Link",
-        "soul_bait": "Soul Bait",
-        "gun_emplacement": "Gun Emplacement",
-        "advanced_emplacement": "Advanced Gun Emplacement",
-        "dial_it_to_11": "Dial it up to 11",
-        "limit_collider": "Limit Collider",
-        "mana": "Mana",
-        "ley_lines": "Ley Lines",
-        "rituals": "Rituals",
-        "crafting_ritual": "Crafting Rituals",
-        "mana_nexus": "Mana Nexus",
-        "clerics": "Clerics",
-        "conjuring": "Conjuring",
-        "res_conjuring": "Resource Conjuring",
-        "alchemy": "Alchemy",
-        "transmutation": "Advanced Transmutation",
-        "secret_society": "Secret Society",
-        "cultists": "Cultists",
-        "conceal_ward": "Concealing Wards",
-        "subtle_rituals": "Subtle Rituals",
-        "pylon_camouflage": "Pylon Camouflage",
-        "fake_tech": "Fake Tech",
-        "concealment": "Empowered Concealment Wards",
-        "improved_concealment": "Improved Concealment Wards",
-        "outerplane_summon": "Outerplane Summon",
-        "dark_bomb": "Dark Energy Bomb",
-        "bribe_sphinx": "Bribe Sphinx",
-        "alien_biotech": "Alien Biotech",
-        "zero_g_lab": "Zero Gravity Lab",
-        "operating_base": "Operating Base",
-        "munitions_depot": "Munitions Depot",
-        "fob": "Forward Operating Base",
-        "bac_tanks_tp": "BAC Tank (True Path)",
-        "medkit": "Advanced Medkits",
-        "sam_site": "Planetary Defenses",
-        "data_cracker": "Data Cracker",
-        "ai_core_tp": "AI Supercore (True Path)",
-        "ai_optimizations": "AI Optimizations",
-        "synthetic_life": "Synthetic Life",
-        "protocol66": "Protocol 66 (Warning)",
-        "protocol66a": "Protocol 66",
-        "terraforming_tp": "Terraforming (True Path)",
-        "quantium": "Quantium",
-        "anitgrav_bunk": "Anti-Grav Bunks",
-        "higgs_boson_tp": "Higgs Boson (True Path)",
-        "long_range_probes": "Long Range Probes",
-        "strange_signal": "Strange Signal",
-        "data_analysis": "Encrypted Data Analysis",
-        "mass_relay": "Mass Relay",
-        "nav_data": "Navigation Data",
-        "sensor_logs": "Tau Ceti Data",
-        "dronewar": "Drone Warfare",
-        "drone_tank": "AI Drone Tanks",
-        "stanene_tp": "Stanene (True Path)",
-        "graphene_tp": "Graphene (True Path)",
-        "virtual_reality_tp": "Virtual Reality (True Path)",
-        "electrolysis": "Electrolysis",
-        "storehouse": "Titan Storage Facility",
-        "adamantite_vault_tp": "Adamantite Vault (True Path)",
-        "titan_bank": "Titan Banking",
-        "hydrogen_plant": "Hydrogen Power",
-        "water_mining": "Water Mining",
-        "mercury_smelting": "Solar Smelting",
-        "iridium_smelting": "Iridium Smelting (True Path)",
-        "adamantite_crates": "Adamantite Crates",
-        "bolognium_crates_tp": "Bolognium Crates (True Path)",
-        "adamantite_containers_tp": "Adamantite Containers (True Path)",
-        "quantium_containers": "Quantium Containers",
-        "unobtainium_containers": "Unobtainium Containers",
-        "reinforced_shelving": "Reinforced Shelving",
-        "garage_shelving": "Quantium Garage Shelving",
-        "warehouse_shelving": "Automated Warehousing System",
-        "elerium_extraction": "Elerium Extraction",
-        "orichalcum_panels_tp": "Orichalcum Panels (True Path)",
-        "shipyard": "Dwarf Ship Yard",
-        "ship_lasers": "Ship Lasers",
-        "pulse_lasers": "Ship Pulse Lasers",
-        "ship_plasma": "Ship Plasma Beams",
-        "ship_phaser": "Ship Phasers",
-        "ship_disruptor": "Ship Disruptor",
-        "destroyer_ship": "Destroyer",
-        "cruiser_ship_tp": "Cruiser",
-        "h_cruiser_ship": "Battlecruiser",
-        "dreadnought_ship": "Dreadnought (True Path)",
-        "pulse_engine": "Pulse Drive",
-        "photon_engine": "Photon Drive",
-        "vacuum_drive": "Vacuum Drive",
-        "ship_fusion": "Fusion Generator",
-        "ship_elerium": "Elerium Generator",
-        "quantum_signatures": "Quantum Signatures",
-        "interstellar_drive": "Interstellar Drive",
-        "alien_outpost": "Alien Outpost",
-        "jumpgates": "Jump Gates",
-        "system_survey": "Tau Survey",
-        "repository": "Repository",
-        "fusion_generator": "Nuclear Fusion (True Path)",
-        "tau_cultivation": "Tau Ceti Cultivation",
-        "tau_manufacturing": "Tau Ceti Manufacturing",
-        "weasels": "Weasels",
-        "jeff": "Contact Jeff",
-        "womling_fun": "Womling Entertainment",
-        "womling_lab": "Womling Science",
-        "womling_mining": "Womling Dirt Excavation",
-        "womling_firstaid": "Womling First Aid",
-        "womling_logistics": "Womling Logistics",
-        "womling_repulser": "Womling Repulser Pad",
-        "womling_farming": "Womling Farming",
-        "womling_housing": "Womling Housing",
-        "womling_support": "Womling Support",
-        "womling_recycling": "Womling Recycling",
-        "asteroid_analysis": "Asteroid Data Analysis",
-        "shark_repellent": "Shark Repellent",
-        "belt_mining": "Tau Ceti Belt Mining",
-        "adv_belt_mining": "Advanced Belt Mining",
-        "space_whaling": "Space Whaling",
-        "infectious_disease_lab": "Infectious Disease Lab",
-        "isolation_protocol": "Isolation Protocol",
-        "focus_cure": "Focus Cure",
-        "decode_virus": "Decode Virus",
-        "vaccine_campaign": "Vaccination Campaign",
-        "vax_strat1": "Propaganda Campaign",
-        "vax_strat2": "Force Vaccination",
-        "vax_strat3": "Show the Science",
-        "vax_strat4": "Secret Vaccination",
-        "cloning": "Cloning Facility",
-        "clone_degradation": "Clone Degradation",
-        "digital_paradise": "Digital Paradise",
-        "ringworld": "Design a Ringworld",
-        "iso_gambling": "Pit Bosses",
-        "outpost_boost": "Alien Outpost Device",
-        "cultural_center": "Cultural Center",
-        "outer_tau_survey": "Survey Outer Planet",
-        "alien_research": "Alien Research",
-        "womling_gene_therapy": "Womling Gene Therapy",
-        "food_culture": "Sell fruitcake",
-        "advanced_refinery": "Advanced Ore Refinery",
-        "advanced_pit_mining": "Advanced Pit Mining",
-        "useless_junk": "Useless Junk",
-        "advanced_asteroid_mining": "Advanced Asteroid Mining",
-        "advanced_material_synthesis": "Advanced Material Synthesis",
-        "matrioshka_brain": "Matrioshka Brain",
-        "ignition_device": "Ignition Device",
-        "replicator": "Matter Replicator (Lone Survivor)",
-        "womling_unlock": "Meet The Neighbors",
-        "garden_of_eden": "Garden of Eden",
-        "asphodel_flowers": "Ghostly Flowers",
-        "ghost_traps": "Ghost Traps",
-        "research_station": "Non-overlapping Magisteria",
-        "soul_engine": "Soul Power",
-        "railway_to_hell": "Railway to Hell",
-        "purification": "Purification",
-        "asphodel_mech": "Asphodel Mech Security",
-        "asphodel_storage": "Asphodel Storage",
-        "asphodel_stabilizer": "Asphodel Stabilizer",
-        "edenic_bunker": "Edenic Bunker",
-        "bliss_den": "Den of Bliss",
-        "hallowed_housing": "Hallowed Housing",
-        "outer_plane_study": "Outer Plane Study",
-        "camouflage": "Camouflage",
-        "celestial_tactics": "Celestial Tactics",
-        "active_camouflage": "Active Camouflage",
-        "special_ops_training": "Special Ops Training",
-        "spectral_training": "Spectral Training Ground",
-        "elysanite_mining": "Elysanite Mining",
-        "sacred_smelter": "Sacred Smelter",
-        "fire_support_base": "Fire Support Base",
-        "pillbox": "Pillbox",
-        "elerium_cannon": "Elerium Cannon",
-        "elerium_containment": "Elerium Containment",
-        "ambrosia": "Ambrosia",
-        "eternal_bank": "Eternal Wealth",
-        "wisdom": "Wisdom of the Ancients",
-        "rushmore": "Mount Rushmore",
-        "reincarnation": "Reincarnation Machine",
-        "otherworldly_cement": "Edenic Cement",
-        "ancient_crafters": "Ancient Crafters",
-        "spirit_syphon": "Spirit Syphon",
-        "spirit_capacitor": "Spirit Capacitor",
-        "suction_force": "Suction Force",
-        "soul_compactor": "Soul Compactor",
-        "tomb": "Tomb of the Dead God",
-        "energy_drain": "Energy Drain",
-        "divine_infuser": "Divine Infuser"
-    };
-
-    const events = {
-        womlings: "Womlings arrival",
-        steel: "Steel discovery",
-        elerium: "Elerium discovery",
-        oil: "Space Oil discovery",
-        pit: "Pit discovery",
-        alien: "Alien encounter",
-        piracy: "Piracy unlock",
-        alien_db: "Alien Database find",
-        corrupt_gem: "Corrupt Soul Gem creation",
-        vault: "Vault discovery",
-        syndicate: "Syndicate unlock"
-    };
-    const resets = {
-        mad: "MAD",
-        bioseed: "Bioseed",
-        cataclysm: "Cataclysm",
-        blackhole: "Black Hole",
-        ascend: "Ascension",
-        descend: "Demonic Infusion",
-        apotheosis: "Apotheosis",
-        aiappoc: "AI Apocalypse",
-        matrix: "Matrix",
-        retire: "Retirement",
-        eden: "Garden of Eden",
-        terraform: "Terraform"
-    };
-    const universes = {
-        standard: "Standard",
-        heavy: "Heavy Gravity",
-        antimatter: "Antimatter",
-        evil: "Evil",
-        micro: "Micro",
-        magic: "Magic"
-    };
-    const challengeGenes = {
-        no_plasmid: "No Starting Plasmids",
-        weak_mastery: "Weak Mastery",
-        nerfed: "Weak Genes",
-        no_crispr: "Junk Gene",
-        badgenes: "Bad Genes",
-        no_trade: "No Free Trade",
-        no_craft: "No Manual Crafting"
-    };
-    const environmentEffects = {
-        hot: "Hot days",
-        cold: "Cold days",
-        inspired: "Inspired",
-        motivated: "Motivated"
-    };
-    const viewModes = {
-        timestamp: "Timestamp",
-        duration: "Duration",
-        durationStacked: "Duration (stacked)",
-        records: "Records"
-    };
-    const additionalInformation = {
-        raceName: "Race name",
-        combatDeaths: "Combat deaths",
-        junkTraits: "Junk traits"
-    };
-    function resetName(reset, universe) {
-        if (reset === "blackhole" && universe === "magic") {
-            return "Vacuum Collapse";
+    function migrateLatestRun$3(latestRun) {
+        if (latestRun.universe === "bigbang") {
+            delete latestRun.universe;
         }
-        else {
-            return resets[reset];
+    }
+    function migrateHistory$3(history) {
+        for (let i = 0; i !== history.runs.length; ++i) {
+            const run = history.runs[i];
+            const nextRun = history.runs[i + 1];
+            // The runs after a t3 reset may have gotten the "bigbang" universe as the page is refreshed into the universe selection
+            if (run.universe === "bigbang") {
+                if (nextRun === undefined) {
+                    // The last run is broken - mark migration as failed and try after the next run
+                    return false;
+                }
+                else if (nextRun.universe !== "bigbang") {
+                    // If the next run has a valid universe, this means we stayed in the same universe
+                    run.universe = nextRun.universe;
+                }
+                else {
+                    // If there are multiple t3 runs in a row, assume DE farming, which is usually done in magic
+                    run.universe = "magic";
+                }
+            }
         }
+        return true;
+    }
+    function migrate6(config, history, latestRun) {
+        if (latestRun !== null) {
+            migrateLatestRun$3(latestRun);
+        }
+        if (migrateHistory$3(history)) {
+            config.version = 7;
+        }
+    }
+
+    function migrateView$4(view) {
+        return {
+            ...view,
+            mode: ["segmented", "barsSegmented"].includes(view.mode) ? "duration" : "timestamp",
+            smoothness: 0,
+            showBars: ["bars", "barsSegmented"].includes(view.mode),
+            showLines: ["total", "filled", "segmented"].includes(view.mode),
+            fillArea: view.mode === "filled"
+        };
+    }
+    function migrate7(config) {
+        return {
+            ...config,
+            version: 8,
+            views: config.views.map(migrateView$4)
+        };
     }
 
     function transformMap(obj, fn) {
@@ -1304,20 +173,6 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
     function patternMatch(value, cases) {
         return patternMatcher(cases)(value);
     }
-    function lazyLoad(fn) {
-        let value = undefined;
-        return new Proxy({}, {
-            get(obj, prop) {
-                value ??= fn();
-                return value[prop];
-            },
-            set(obj, prop, value) {
-                value ??= fn();
-                value[prop] = value;
-                return true;
-            }
-        });
-    }
     function compose(l, r) {
         return (...args) => l(...args) && r(...args);
     }
@@ -1363,427 +218,6 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             const item = list[from];
             list.splice(from, 1);
             list.splice(to, 0, item);
-        }
-    }
-
-    function makeCondition(description) {
-        let impl = (game) => true;
-        if (description.tech !== undefined) {
-            for (const [tech, level] of Object.entries(description.tech)) {
-                impl = compose(impl, (game) => game.techLevel(tech) >= level);
-            }
-        }
-        if (description.built !== undefined) {
-            for (const [tab, buildings] of Object.entries(description.built)) {
-                impl = compose(impl, (game) => buildings.some(b => game.built(tab, b, 1)));
-            }
-        }
-        if (description.demonKills !== undefined) {
-            impl = compose(impl, (game) => game.demonKills() >= description.demonKills);
-        }
-        if (description.womlingsArrived !== undefined) {
-            impl = compose(impl, (game) => game.womlingsArrived());
-        }
-        if (description.resourceUnlocked !== undefined) {
-            impl = compose(impl, (game) => game.resourceUnlocked(description.resourceUnlocked));
-        }
-        return impl;
-    }
-    function makeEventsInfo(descriptions) {
-        return transformMap(descriptions, ([event, { precondition, postcondition }]) => {
-            const triggered = makeCondition(postcondition);
-            const conditionMet = precondition !== undefined ? makeCondition(precondition) : undefined;
-            return [event, { conditionMet, triggered }];
-        });
-    }
-    var eventsInfo = makeEventsInfo({
-        womlings: {
-            postcondition: { womlingsArrived: true }
-        },
-        steel: {
-            postcondition: { resourceUnlocked: "Steel" }
-        },
-        elerium: {
-            precondition: { tech: { "asteroid": 3 }, built: { space: ["iron_ship", "iridium_ship"] } },
-            postcondition: { tech: { "asteroid": 4 } }
-        },
-        oil: {
-            precondition: { tech: { "gas_moon": 1 }, built: { space: ["outpost"] } },
-            postcondition: { tech: { "gas_moon": 2 } }
-        },
-        pit: {
-            precondition: { tech: { "gateway": 1 }, demonKills: 1000000 },
-            postcondition: { tech: { "hell_pit": 1 } }
-        },
-        alien: {
-            precondition: { built: { galaxy: ["scout_ship"] } },
-            postcondition: { tech: { "xeno": 1 } }
-        },
-        piracy: {
-            precondition: { tech: { "xeno": 5 } },
-            postcondition: { tech: { "piracy": 1 } }
-        },
-        alien_db: {
-            precondition: { tech: { "conflict": 4 }, built: { galaxy: ["scavenger"] } },
-            postcondition: { tech: { "conflict": 5 } }
-        },
-        corrupt_gem: {
-            precondition: { tech: { "high_tech": 16 } },
-            postcondition: { tech: { "corrupt": 1 } },
-        },
-        vault: {
-            precondition: { tech: { "hell_ruins": 2 }, built: { portal: ["archaeology"] } },
-            postcondition: { tech: { "hell_vault": 1 } }
-        },
-        syndicate: {
-            precondition: { tech: { "outer": 1 } },
-            postcondition: { tech: { "syndicate": 1 } }
-        }
-    });
-
-    const Observable10 = {
-        "blue": "#4269d0",
-        "orange": "#efb118",
-        "red": "#ff725c",
-        "cyan": "#6cc5b0",
-        "green": "#3ca951",
-        "pink": "#ff8ab7",
-        "purple": "#a463f2",
-        "lightBlue": "#97bbf5",
-        "brown": "#9c6b4e",
-        "gray": "#9498a0"
-    };
-
-    function effectActive(effect, game) {
-        switch (effect) {
-            case "hot":
-                return game.temperature === "hot";
-            case "cold":
-                return game.temperature === "cold";
-            case "inspired":
-                return game.inspired;
-            case "motivated":
-                return game.motivated;
-            default:
-                return false;
-        }
-    }
-    const effectColors = {
-        "effect:hot": Observable10.red,
-        "effect:cold": Observable10.blue,
-        "effect:inspired": Observable10.green,
-        "effect:motivated": Observable10.orange
-    };
-
-    function makeMilestoneChecker(game, milestone) {
-        const impl = patternMatch(milestone, [
-            [/built:(.+?)-(.+?):(\d+)/, (tab, id, count) => () => game.built(tab, id, Number(count))],
-            [/tech:(.+)/, (id) => () => game.researched(id)],
-            [/event:(.+)/, (id) => () => eventsInfo[id].triggered(game)],
-            [/event_condition:(.+)/, (id) => () => eventsInfo[id].conditionMet?.(game) ?? true],
-            [/effect:(.+)/, (id) => () => effectActive(id, game)],
-        ]);
-        return {
-            milestone,
-            reached: impl ?? (() => false)
-        };
-    }
-    function techName(id) {
-        return patternMatch(techs[id], [
-            [/(.+) \((.+)\)/, (name, descriminator) => [name, descriminator]],
-            [/(.+)/, (name) => [name, "Research"]]
-        ]);
-    }
-    function milestoneName(milestone, universe) {
-        const name = patternMatch(milestone, [
-            [/built:(.+?):(\d+)/, (id, count) => [buildings[id], count, Number(count) !== (segments[id] ?? 1)]],
-            [/tech:(.+)/, (id) => [...techName(id), false]],
-            [/event:(.+)/, (id) => [events[id], "Event", false]],
-            [/event_condition:(.+)/, (id) => [events[id], "Event condition", false]],
-            [/effect:(.+)/, (id) => [environmentEffects[id], "Effect", false]],
-            [/reset:(.+)/, (reset) => [resetName(reset, universe), "Reset", false]],
-        ]);
-        return name ?? [milestone, "Unknown", false];
-    }
-    function generateMilestoneNames(milestones, universe) {
-        const candidates = {};
-        for (let i = 0; i !== milestones.length; ++i) {
-            const [name, discriminator, force] = milestoneName(milestones[i], universe);
-            (candidates[name] ??= []).push([i, discriminator, force]);
-        }
-        const names = new Array(milestones.length);
-        for (const [name, discriminators] of Object.entries(candidates)) {
-            // Add a discriminator if there are multiple milestones with the same name
-            // Or if the count of a "built" milestone differs from the segment number of the building
-            if (discriminators.length > 1 || discriminators[0][2]) {
-                for (const [i, discriminator] of discriminators) {
-                    names[i] = `${name} (${discriminator})`;
-                }
-            }
-            else {
-                names[discriminators[0][0]] = name;
-            }
-        }
-        return names;
-    }
-    function isEventMilestone(milestone) {
-        return milestone.startsWith("event:");
-    }
-    function isEffectMilestone(milestone) {
-        return milestone.startsWith("effect:");
-    }
-
-    const viewModes7 = {
-        "total": "Total",
-        "filled": "Total (filled)",
-        "bars": "Total (bars)",
-        "segmented": "Segmented",
-        "barsSegmented": "Segmented (bars)"
-    };
-    function migrateView$4(view) {
-        return {
-            ...view,
-            mode: ["segmented", "barsSegmented"].includes(view.mode) ? "duration" : "timestamp",
-            smoothness: 0,
-            showBars: ["bars", "barsSegmented"].includes(view.mode),
-            showLines: ["total", "filled", "segmented"].includes(view.mode),
-            fillArea: view.mode === "filled"
-        };
-    }
-    function migrate7(config) {
-        return {
-            ...config,
-            version: 8,
-            views: config.views.map(migrateView$4)
-        };
-    }
-
-    function migrateConfig$3(config) {
-        const resetIDs = rotateMap(resets);
-        const viewModeIDs = rotateMap(viewModes7);
-        function convertReset(resetName) {
-            return resetName === "Vacuum Collapse" ? "blackhole" : resetIDs[resetName];
-        }
-        return {
-            version: 4,
-            views: config.views.map((view) => {
-                return {
-                    resetType: convertReset(view.resetType),
-                    universe: view.universe,
-                    mode: viewModeIDs[view.mode],
-                    daysScale: view.daysScale,
-                    numRuns: view.numRuns,
-                    milestones: Object.fromEntries(view.milestones.map((milestone) => {
-                        if (milestone[0] === "Built") {
-                            const [, tab, id, , count, enabled] = milestone;
-                            return [`built:${tab}-${id}:${count}`, enabled];
-                        }
-                        else if (milestone[0] === "Researched") {
-                            const [, id, , enabled] = milestone;
-                            return [`tech:${id}`, enabled];
-                        }
-                        else if (milestone[0] === "Event") {
-                            const [, , enabled] = milestone;
-                            return [`event:womlings`, enabled];
-                        }
-                        else if (milestone[0] === "Reset") {
-                            const [, resetName, enabled] = milestone;
-                            return [`reset:${convertReset(resetName)}`, enabled];
-                        }
-                        return ["unknown", true];
-                    }))
-                };
-            })
-        };
-    }
-    function migrateHistory$4(history, config) {
-        const oldNames = rotateMap(history.milestones);
-        const newNames = Object.fromEntries(config.views.flatMap(v => Object.keys(v.milestones).map(m => [m, milestoneName(m)[0]])));
-        function resetName(run) {
-            const [milestoneID] = run.milestones[run.milestones.length - 1];
-            return oldNames[milestoneID];
-        }
-        const numMilestones = Object.entries(history.milestones).length;
-        // Old milestone ID to new milestones (with run numbers)
-        const milestonesMapping = transformMap(history.milestones, ([, milestoneID]) => [milestoneID, {}]);
-        for (let runIdx = 0; runIdx != history.runs.length; ++runIdx) {
-            const run = history.runs[runIdx];
-            for (const view of config.views) {
-                if (resetName(run) !== resets[view.resetType]) {
-                    continue;
-                }
-                if (view.universe !== undefined && run.universe !== view.universe) {
-                    continue;
-                }
-                for (const [milestoneID] of run.milestones) {
-                    const map = milestonesMapping[milestoneID];
-                    for (const milestone of Object.keys(view.milestones)) {
-                        if (oldNames[milestoneID] === newNames[milestone]) {
-                            (map[milestone] ??= []).push(runIdx);
-                        }
-                    }
-                }
-            }
-        }
-        let id = numMilestones;
-        const resetIDs = lazyLoad(() => rotateMap(resets));
-        const buildingIDs = lazyLoad(() => rotateMap(buildings));
-        const researchIDs = lazyLoad(() => rotateMap(techs));
-        const runsToRemap = {};
-        const milestones = {};
-        for (const [oldMilestoneID, candidatesMap] of Object.entries(milestonesMapping)) {
-            const candidates = Object.entries(candidatesMap);
-            if (candidates.length === 0) {
-                // The old milestone is not present in any of the current views - guess
-                const oldName = oldNames[Number(oldMilestoneID)];
-                if (oldName === "Womlings arrival") {
-                    milestones["event:womlings"] = Number(oldMilestoneID);
-                }
-                else if (resetIDs[oldName] !== undefined) {
-                    milestones[`reset:${resetIDs[oldName]}`] = Number(oldMilestoneID);
-                }
-                else if (buildingIDs[oldName] !== undefined) {
-                    milestones[`built:${buildingIDs[oldName]}:1`] = Number(oldMilestoneID);
-                }
-                else if (researchIDs[oldName] !== undefined) {
-                    milestones[`tech:${researchIDs[oldName]}`] = Number(oldMilestoneID);
-                }
-            }
-            else if (candidates.length === 1) {
-                // The old milestone maps to exactly 1 new milestone - no remapping needed
-                const [milestone] = candidates[0];
-                milestones[milestone] = Number(oldMilestoneID);
-            }
-            else {
-                // The old milestone maps to more than 1 new milestones - remap affected runs
-                for (const [milestone, runs] of candidates) {
-                    const newMilestoneID = id++;
-                    milestones[milestone] = newMilestoneID;
-                    for (const run of runs) {
-                        (runsToRemap[run] ??= {})[Number(oldMilestoneID)] = newMilestoneID;
-                    }
-                }
-            }
-        }
-        for (const [runIdx, mapping] of Object.entries(runsToRemap)) {
-            const run = history.runs[Number(runIdx)];
-            for (const reference of run.milestones) {
-                reference[0] = mapping[reference[0]] ?? reference[0];
-            }
-        }
-        return {
-            milestones,
-            runs: history.runs
-        };
-    }
-    function migrateLatestRun$4(latestRun, config, history) {
-        const resetIDs = rotateMap(resets);
-        const newRun = {
-            run: latestRun.run,
-            universe: latestRun.universe,
-            resets: transformMap(latestRun.resets, ([name, count]) => [resetIDs[name], count]),
-            totalDays: latestRun.totalDays,
-            milestones: {}
-        };
-        if (Object.entries(latestRun.milestones).length === 0) {
-            return newRun;
-        }
-        const lastRecordedRun = history.runs[history.runs.length - 1];
-        if (lastRecordedRun === undefined) {
-            return null;
-        }
-        const milestones = rotateMap(history.milestones);
-        const lastRecordedRunResetMilestoneID = lastRecordedRun.milestones[lastRecordedRun.milestones.length - 1][0];
-        const lastRecordedRunResetMilestone = milestones[lastRecordedRunResetMilestoneID];
-        const lastRecordedRunReset = lastRecordedRunResetMilestone.slice(6); // strip away the leading "reset:"
-        // Find the views that match the latest run
-        const views = config.views.filter(view => {
-            if (view.resetType !== lastRecordedRunReset) {
-                return false;
-            }
-            if (view.universe !== undefined && view.universe !== lastRecordedRun.universe) {
-                return false;
-            }
-            return true;
-        });
-        if (views.length === 0) {
-            return null;
-        }
-        const milestonesByName = Object.fromEntries(views.flatMap(v => Object.keys(v.milestones).map(m => [milestoneName(m)[0], m])));
-        newRun.milestones = transformMap(latestRun.milestones, ([milestoneName, day]) => {
-            const milestone = milestonesByName[milestoneName];
-            if (milestone !== undefined) {
-                return [milestone, day];
-            }
-            else {
-                return ["", day];
-            }
-        });
-        if ("" in newRun.milestones) {
-            return null;
-        }
-        return newRun;
-    }
-    function migrate3(config, history, latestRun) {
-        const newConfig = migrateConfig$3(config);
-        let newHistory = null;
-        if (history !== null) {
-            newHistory = migrateHistory$4(history, newConfig);
-        }
-        let newLatestRun = null;
-        if (latestRun !== null && newHistory !== null) {
-            newLatestRun = migrateLatestRun$4(latestRun, newConfig, newHistory);
-        }
-        return [newConfig, newHistory, newLatestRun];
-    }
-
-    function migrate4(config) {
-        return {
-            version: 6,
-            recordRuns: config.recordRuns ?? true,
-            lastOpenViewIndex: config.views.length !== 0 ? 0 : undefined,
-            views: config.views.map(view => {
-                return {
-                    additionalInfo: [],
-                    ...view
-                };
-            })
-        };
-    }
-
-    function migrateLatestRun$3(latestRun) {
-        if (latestRun.universe === "bigbang") {
-            delete latestRun.universe;
-        }
-    }
-    function migrateHistory$3(history) {
-        for (let i = 0; i !== history.runs.length; ++i) {
-            const run = history.runs[i];
-            const nextRun = history.runs[i + 1];
-            // The runs after a t3 reset may have gotten the "bigbang" universe as the page is refreshed into the universe selection
-            if (run.universe === "bigbang") {
-                if (nextRun === undefined) {
-                    // The last run is broken - mark migration as failed and try after the next run
-                    return false;
-                }
-                else if (nextRun.universe !== "bigbang") {
-                    // If the next run has a valid universe, this means we stayed in the same universe
-                    run.universe = nextRun.universe;
-                }
-                else {
-                    // If there are multiple t3 runs in a row, assume DE farming, which is usually done in magic
-                    run.universe = "magic";
-                }
-            }
-        }
-        return true;
-    }
-    function migrate6(config, history, latestRun) {
-        if (latestRun !== null) {
-            migrateLatestRun$3(latestRun);
-        }
-        if (migrateHistory$3(history)) {
-            config.version = 7;
         }
     }
 
@@ -1929,6 +363,19 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         config.version = 13;
     }
 
+    const Observable10 = {
+        "blue": "#4269d0",
+        "orange": "#efb118",
+        "red": "#ff725c",
+        "cyan": "#6cc5b0",
+        "green": "#3ca951",
+        "pink": "#ff8ab7",
+        "purple": "#a463f2",
+        "lightBlue": "#97bbf5",
+        "brown": "#9c6b4e",
+        "gray": "#9498a0"
+    };
+
     function migrateView$1(view) {
         const colors = Object.values(Observable10);
         const presets = {
@@ -1979,16 +426,19 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
     const VERSION = 16;
     function migrate() {
         let config = loadConfig();
-        let history = loadHistory();
-        let latestRun = loadLatestRun();
         if (config === null) {
             return;
         }
         if (config.version >= VERSION) {
             return;
         }
+        let history = loadHistory();
+        let latestRun = loadLatestRun();
         if (config.version < 4) {
-            [config, history, latestRun] = migrate3(config, history, latestRun);
+            discardConfig();
+            discardHistory();
+            discardLatestRun();
+            return;
         }
         if (config.version < 6) {
             config = migrate4(config);
@@ -2041,6 +491,1362 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             }
             impl();
         });
+    }
+
+    function makeBuildingsInfo(data) {
+        const entries = {};
+        for (const [tab, regions] of Object.entries(data)) {
+            for (const [region, buildings] of Object.entries(regions)) {
+                for (const [id, entry] of Object.entries(buildings)) {
+                    entries[`${tab}-${id}`] = entry instanceof Object ? { region, ...entry } : { region, name: entry };
+                }
+            }
+        }
+        return entries;
+    }
+    const buildings = makeBuildingsInfo({
+        arpa: {
+            "A.R.P.A.": {
+                lhc: "Supercollider",
+                stock_exchange: "Stock Exchange",
+                tp_depot: "Depot",
+                launch_facility: "Launch Facility",
+                monument: "Monument",
+                railway: "Railway",
+                roid_eject: "Asteroid Redirect",
+                nexus: "Nexus",
+                syphon: "Mana Syphon"
+            }
+        },
+        city: {
+            "City": {
+                bonfire: "Bonfire Pyre",
+                firework: "Firework Factory",
+                basic_housing: "Shanty",
+                cottage: "Cottage",
+                apartment: "Apartment",
+                lodge: "Lodge",
+                smokehouse: "Smokehouse",
+                soul_well: "Soul Well",
+                slave_pen: "Slave Pen",
+                transmitter: "Transmitter",
+                captive_housing: "Captive Housing",
+                farm: "Farm",
+                compost: "Compost Heap",
+                mill: "Mill",
+                windmill: "Windmill",
+                silo: "Grain Silo",
+                assembly: "Assembly Plant",
+                garrison: "Barracks",
+                hospital: "Hospital",
+                boot_camp: "Boot Camp",
+                shed: "Warehouse",
+                storage_yard: "Freight Yard",
+                warehouse: "Container Port",
+                bank: "Bank",
+                pylon: "Pylon",
+                conceal_ward: "Concealing Ward",
+                graveyard: "Graveyard",
+                lumber_yard: "Lumber Yard",
+                sawmill: "Sawmill",
+                rock_quarry: "Rock Quarry",
+                cement_plant: "Cement Plant",
+                foundry: "Foundry",
+                factory: "Factory",
+                nanite_factory: "Nanite Factory",
+                smelter: "Smelter",
+                metal_refinery: "Metal Refinery",
+                mine: "Mine",
+                coal_mine: "Coal Mine",
+                oil_well: "Oil Derrick",
+                oil_depot: "Fuel Depot",
+                trade: "Trade Post",
+                wharf: "Wharf",
+                tourist_center: "Tourist Center",
+                amphitheatre: "Amphitheatre",
+                casino: "Casino",
+                temple: "Temple",
+                wonder_lighthouse: "Lighthouse",
+                wonder_pyramid: "Pyramid",
+                shrine: "Shrine",
+                meditation: "Meditation Chamber",
+                banquet: "Banquet Hall",
+                university: "University",
+                library: "Library",
+                wardenclyffe: "Wardenclyffe",
+                biolab: "Bioscience Lab",
+                coal_power: "Coal Powerplant",
+                oil_power: "Oil Powerplant",
+                fission_power: "Fission Reactor",
+                mass_driver: "Mass Driver",
+                replicator: "Matter Replicator"
+            }
+        },
+        space: {
+            "Earth's Orbit": {
+                test_launch: "Test Launch",
+                satellite: "Satellite",
+                gps: "GPS Satellite",
+                propellant_depot: "Propellant Depot",
+                nav_beacon: "Navigation Beacon"
+            },
+            "Moon": {
+                moon_mission: "Moon Launch",
+                moon_base: "Moon Base",
+                iridium_mine: "Iridium Mine",
+                helium_mine: "Helium-3 Mine",
+                observatory: "Observatory"
+            },
+            "Red Planet": {
+                red_mission: "Red Planet Mission",
+                spaceport: "Spaceport",
+                red_tower: "Space Control",
+                captive_housing: { name: "Captive Housing", prefix: "Space", suffix: "Cataclysm" },
+                terraformer: "Atmosphere Terraformer",
+                atmo_terraformer: { name: "Atmosphere Terraformer", suffix: "Complete" },
+                terraform: "Terraform",
+                assembly: { name: "Assembly Plant", prefix: "Space", suffix: "Cataclysm" },
+                living_quarters: "Living Quarters",
+                pylon: "Cracked Pylon",
+                vr_center: "VR Center",
+                garage: "Garage",
+                red_mine: { name: "Mine", prefix: "Space" },
+                fabrication: "Fabrication",
+                red_factory: { name: "Factory", prefix: "Space" },
+                nanite_factory: { name: "Nanite Factory", prefix: "Space", suffix: "Cataclysm" },
+                biodome: "Biodome",
+                red_university: { name: "University", prefix: "Space", suffix: "Orbital Decay" },
+                exotic_lab: "Exotic Materials Lab",
+                ziggurat: "Ziggurat",
+                space_barracks: "Marine Garrison",
+                wonder_statue: "Colossus",
+                bonfire: { name: "Bonfire Pyre", prefix: "Space", suffix: "Cataclysm" }
+            },
+            "Hell Planet": {
+                hell_mission: "Hell Planet Mission",
+                geothermal: "Geothermal Plant",
+                hell_smelter: "Smelter",
+                spc_casino: { name: "Casino", prefix: "Space" },
+                swarm_plant: "Swarm Plant",
+                firework: { name: "Firework Factory", prefix: "Space", suffix: "Cataclysm" }
+            },
+            "Sun": {
+                sun_mission: "Sun Mission",
+                swarm_control: "Control Station",
+                swarm_satellite: "Swarm Satellite",
+                jump_gate: { name: "Jump Gate", prefix: "Space" }
+            },
+            "Gas Giant": {
+                gas_mission: "Gas Giant Mission",
+                gas_mining: "Helium-3 Collector",
+                gas_storage: "Fuel Depot",
+                star_dock: "Space Dock"
+            },
+            "Gas Giant's Moon": {
+                gas_moon_mission: "Gas Giant's Moon Mission",
+                outpost: "Mining Outpost",
+                drone: "Mining Drone",
+                oil_extractor: "Oil Extractor"
+            },
+            "Asteroid Belt": {
+                belt_mission: "Asteroid Belt Mission",
+                space_station: "Space Station",
+                elerium_ship: "Elerium Mining Ship",
+                iridium_ship: "Iridium Mining Ship",
+                iron_ship: "Iron Mining Ship"
+            },
+            "Dwarf Planet": {
+                dwarf_mission: "Dwarf Planet Mission",
+                elerium_contain: "Elerium Storage",
+                e_reactor: "Elerium Reactor",
+                world_collider: "World Collider",
+                world_controller: { name: "World Collider", suffix: "Complete" },
+                shipyard: "Ship Yard",
+                mass_relay: "Mass Relay",
+                m_relay: { name: "Mass Relay", suffix: "Complete" }
+            },
+            "Titan": {
+                titan_mission: "Titan Mission",
+                titan_spaceport: { name: "Spaceport", prefix: "Titan" },
+                electrolysis: "Electrolysis Plant",
+                hydrogen_plant: "Hydrogen Plant",
+                titan_quarters: "Habitat",
+                titan_mine: { name: "Mine", prefix: "Titan" },
+                storehouse: "Storehouse",
+                titan_bank: { name: "Bank", prefix: "Space" },
+                g_factory: "Graphene Plant",
+                sam: "SAM Site",
+                decoder: "Decoder",
+                ai_core: "AI Super Core",
+                ai_core2: { name: "AI Super Core", suffix: "Complete" },
+                ai_colonist: "Artificial Colonist",
+                wonder_gardens: "Hanging Gardens of Titan"
+            },
+            "Enceladus": {
+                enceladus_mission: "Enceladus Mission",
+                water_freighter: "Water Freighter",
+                zero_g_lab: "Zero Gravity Lab",
+                operating_base: "Operating Base",
+                munitions_depot: "Munitions Depot"
+            },
+            "Triton": {
+                triton_mission: "Triton Mission",
+                fob: "Forward Base",
+                lander: "Troop Lander",
+                crashed_ship: "Derelict Ship"
+            },
+            "Kuiper Belt": {
+                kuiper_mission: "Kuiper Belt Mission",
+                orichalcum_mine: "Orichalcum Mine",
+                uranium_mine: "Uranium Mine",
+                neutronium_mine: "Neutronium Mine",
+                elerium_mine: "Elerium Mine"
+            },
+            "Eris": {
+                eris_mission: "Eris Mission",
+                drone_control: "Titan Control Relay",
+                shock_trooper: "Android Trooper",
+                tank: "Tank",
+                digsite: "Digsite"
+            }
+        },
+        starDock: {
+            "Star Dock": {
+                probes: "Space Probe",
+                geck: "G.E.C.K.",
+                seeder: "Bioseeder Ship",
+                prep_ship: "Prep Ship",
+                launch_ship: "Launch Ship"
+            }
+        },
+        interstellar: {
+            "Alpha Centauri": {
+                alpha_mission: "Alpha Centauri Mission",
+                starport: "Starport",
+                habitat: "Habitat",
+                mining_droid: "Mining Droid",
+                processing: "Processing Facility",
+                fusion: "Fusion Reactor",
+                laboratory: "Laboratory",
+                exchange: "Galactic Exchange",
+                g_factory: "Graphene Plant",
+                int_factory: "Mega Factory",
+                luxury_condo: "Luxury Condo",
+                zoo: "Exotic Zoo",
+                warehouse: { name: "Warehouse", prefix: "Space" },
+                wonder_gardens: "Hanging Gardens"
+            },
+            "Proxima Centauri": {
+                proxima_mission: "Proxima Centauri Mission",
+                xfer_station: "Transfer Station",
+                cargo_yard: "Cargo Yard",
+                cruiser: "Patrol Cruiser",
+                dyson: "Dyson Net",
+                dyson_sphere: { name: "Dyson Sphere", suffix: "Bolognium" },
+                orichalcum_sphere: { name: "Dyson Sphere", suffix: "Orichalcum" },
+                elysanite_sphere: { name: "Dyson Sphere", suffix: "Elysanite" }
+            },
+            "Helix Nebula": {
+                nebula_mission: "Helix Nebula Mission",
+                nexus: "Nexus Station",
+                harvester: "Gas Harvester",
+                elerium_prospector: "Elerium Prospector"
+            },
+            "Neutron Star": {
+                neutron_mission: "Neutron Star Mission",
+                neutron_miner: "Neutron Miner",
+                citadel: "Citadel Station",
+                stellar_forge: "Stellar Forge"
+            },
+            "Black Hole": {
+                blackhole_mission: "Black Hole Mission",
+                far_reach: "Farpoint",
+                stellar_engine: "Stellar Engine",
+                mass_ejector: "Mass Ejector",
+                jump_ship: "Jump Ship",
+                wormhole_mission: "Wormhole Mission",
+                stargate: "Stargate",
+                s_gate: { name: "Stargate", suffix: "Complete" }
+            },
+            "Sirius": {
+                sirius_mission: "Sirius Mission",
+                sirius_b: "Sirius B Analysis",
+                space_elevator: "Space Elevator",
+                gravity_dome: "Gravity Dome",
+                ascension_machine: "Ascension Machine",
+                ascension_trigger: { name: "Ascension Machine", suffix: "Complete" },
+                ascend: "Ascend",
+                thermal_collector: "Thermal Collector"
+            }
+        },
+        galaxy: {
+            "Gateway System": {
+                gateway_mission: "Gateway Mission",
+                starbase: "Starbase",
+                ship_dock: "Ship Dock",
+                bolognium_ship: "Bolognium Ship",
+                scout_ship: "Scout Ship",
+                corvette_ship: "Corvette Ship",
+                frigate_ship: "Frigate Ship",
+                cruiser_ship: "Cruiser Ship",
+                dreadnought: "Dreadnought"
+            },
+            "Stargate Region": {
+                gateway_station: "Gateway Station",
+                telemetry_beacon: "Telemetry Beacon",
+                gateway_depot: { name: "Depot", prefix: "Galaxy" },
+                defense_platform: "Defense Platform"
+            },
+            "Gorddon System": {
+                gorddon_mission: "Second Contact",
+                embassy: "Embassy",
+                dormitory: "Dormitory",
+                symposium: "Symposium",
+                freighter: "Freighter"
+            },
+            "Alien 1 System": {
+                consulate: "Consulate",
+                resort: "Resort",
+                vitreloy_plant: "Vitreloy Plant",
+                super_freighter: "Super Freighter"
+            },
+            "Alien 2 System": {
+                alien2_mission: "Alien 2 Assault Mission",
+                foothold: "Foothold Station",
+                armed_miner: "Armed Mining Ship",
+                ore_processor: "Ore Processor",
+                scavenger: "Tech Scavenger"
+            },
+            "Chthonian System": {
+                chthonian_mission: "Chthonian Assault Mission",
+                minelayer: "Minelayer",
+                excavator: "Excavator",
+                raider: "Corsair"
+            }
+        },
+        portal: {
+            "Fortress": {
+                turret: "Automated Turret",
+                carport: "Surveyor Carport",
+                war_droid: "War Droid",
+                repair_droid: "Repair Droid"
+            },
+            "Badlands": {
+                war_drone: "Predator Drone",
+                sensor_drone: "Sensor Drone",
+                attractor: "Attractor Beacon"
+            },
+            "The Pit": {
+                pit_mission: "Scout the Pit",
+                assault_forge: "Secure the Pit",
+                soul_forge: "Soul Forge",
+                gun_emplacement: "Gun Emplacement",
+                soul_attractor: "Soul Attractor",
+                soul_capacitor: "Soul Capacitor",
+                absorption_chamber: "Absorption Chamber"
+            },
+            "Ancient Ruins": {
+                ruins_mission: "Survey Ruins",
+                guard_post: "Guard Post",
+                vault: "Vault",
+                archaeology: "Archaeological Dig",
+                arcology: "Arcology",
+                hell_forge: "Infernal Forge",
+                inferno_power: "Inferno Reactor",
+                ancient_pillars: "Ancient Pillars"
+            },
+            "Ancient Gate": {
+                gate_mission: "Gate Investigation",
+                west_tower: "West Tower",
+                east_tower: "East Tower",
+                gate_turret: "Gate Turret",
+                infernite_mine: "Infernite Mine"
+            },
+            "Boiling Lake of Blood": {
+                lake_mission: "Scout the Lake Shore",
+                harbor: "Harbor",
+                cooling_tower: "Cooling Tower",
+                bireme: "Bireme Warship",
+                transport: "Transport",
+                oven: "Soul-Vide Cooker",
+                oven_complete: { name: "Soul-Vide Cooker", suffix: "Complete" },
+                devilish_dish: "Devilish Dish",
+                dish_soul_steeper: "Soul Steeper",
+                dish_life_infuser: "Life Infuser"
+            },
+            "The Spire": {
+                spire_mission: "Scout the Island",
+                purifier: "Purifier",
+                port: "Port",
+                base_camp: "Base Camp",
+                bridge: "Bridge",
+                sphinx: "Sphinx",
+                bribe_sphinx: "Bribe Sphinx",
+                spire_survey: "Survey the Tower",
+                mechbay: "Mech Bay",
+                spire: "The Spire",
+                waygate: "Waygate",
+                edenic_gate: "Edenic Waygate"
+            }
+        },
+        tauceti: {
+            "Tau Ceti": {
+                ringworld: "Ringworld",
+                matrix: "Matrix",
+                blue_pill: "Enter the Matrix",
+                goe_facility: "Garden of Eden Facility"
+            },
+            "New Home": {
+                home_mission: "Survey New Home",
+                dismantle: "Dismantle Ship",
+                orbital_station: "Orbital Station",
+                colony: "Colony",
+                tau_housing: { name: "Shanty", prefix: "Tau Ceti" },
+                captive_housing: { name: "Captive Housing", prefix: "Tau Ceti" },
+                pylon: "Tau Pylon",
+                cloning_facility: "Cloning Facility",
+                bonfire: { name: "Bonfire Pyre", prefix: "Tau Ceti" },
+                firework: { name: "Firework Factory", prefix: "Tau Ceti" },
+                assembly: { name: "Assembly Plant", prefix: "Tau Ceti" },
+                nanite_factory: { name: "Nanite Factory", prefix: "Tau Ceti" },
+                tau_farm: "High-Tech Farm",
+                mining_pit: "Mining Pit",
+                excavate: "Excavate Outpost",
+                alien_outpost: "Alien Outpost",
+                jump_gate: { name: "Jump Gate", prefix: "Tau Ceti" },
+                fusion_generator: "Fusion Generator",
+                repository: "Repository",
+                tau_factory: "High-Tech Factory",
+                infectious_disease_lab: "Infectious Disease Lab",
+                tauceti_casino: { name: "Casino", prefix: "Tau Ceti" },
+                tau_cultural_center: "Cultural Center"
+            },
+            "Red Planet": {
+                red_mission: "Survey Red Planet",
+                orbital_platform: "Orbital Platform",
+                contact: "Contact the Womlings",
+                introduce: "Get Introduction",
+                subjugate: "Subjugate the Womlings",
+                jeff: "Jeff",
+                overseer: "Emissary",
+                womling_village: "Womling Village",
+                womling_farm: "Womling Farm",
+                womling_mine: "Womling Mine",
+                womling_fun: "Tavern",
+                womling_lab: "Laboratory"
+            },
+            "Gas Giant": {
+                gas_contest: "Gas Giant Naming Contest",
+                refueling_station: "Refueling Station",
+                ore_refinery: "Ore Refinery",
+                whaling_station: "Whale Processor",
+                womling_station: "Womling Station",
+                "gas_contest-a1": "New Jupiter",
+                "gas_contest-a2": "Gas Marble",
+                "gas_contest-a3": "Billiard Ball",
+                "gas_contest-a4": "Fat Human",
+                "gas_contest-a5": "Q-Ball",
+                "gas_contest-a6": "Big Balloon",
+                "gas_contest-a7": "One Ball Barry",
+                "gas_contest-a8": "Gas Giant"
+            },
+            "Asteroid Belt": {
+                roid_mission: "Asteroid Belt Mission",
+                patrol_ship: "Patrol Ship",
+                mining_ship: "Extractor Ship",
+                whaling_ship: "Whaling Ship"
+            },
+            "Gas Giant 2": {
+                gas_contest2: "Gas Giant 2 Naming Contest",
+                alien_station_survey: { name: "Alien Space Station", suffix: "Survey" },
+                alien_station: "Alien Space Station",
+                alien_space_station: { name: "Alien Space Station", suffix: "Complete" },
+                matrioshka_brain: "Matrioshka Brain",
+                ignition_device: "Ignition Device",
+                ignite_gas_giant: "Ignite Gas Giant 2",
+                "gas_contest-b1": "Grand Jupiter",
+                "gas_contest-b2": "Urectum",
+                "gas_contest-b3": "GassyMcGasFace",
+                "gas_contest-b4": "Big Jupiter",
+                "gas_contest-b5": "Not Jupiter",
+                "gas_contest-b6": "Dust Devil",
+                "gas_contest-b7": "Ringless Saturn",
+                "gas_contest-b8": "Gas Giant 2"
+            }
+        },
+        eden: {
+            "Asphodel Meadows": {
+                survery_meadows: "Survey Meadows",
+                encampment: "Encampment",
+                soul_engine: "Soul Engine",
+                mech_station: "Mech Station",
+                asphodel_harvester: "Asphodel Harvester",
+                ectoplasm_processor: "Muon Processor",
+                research_station: "Magisterium",
+                warehouse: { name: "Warehouse", prefix: "Eden" },
+                stabilizer: "Stabilizer",
+                rune_gate: "Rune Gate",
+                rune_gate_open: { name: "Rune Gate", suffix: "Complete" },
+                bunker: "Bunker",
+                bliss_den: "Bliss Den",
+                rectory: "Rectory"
+            },
+            "Elysium Fields": {
+                survey_fields: "Survey Fields",
+                fortress: "Celestial Fortress",
+                siege_fortress: "Siege Fortress",
+                raid_supplies: "Raid Supplies",
+                ambush_patrol: "Ambush Patrol",
+                ruined_fortress: "Ruined Fortress",
+                scout_elysium: "Scout Elysium Fields",
+                fire_support_base: "Fire Support Base",
+                elysanite_mine: "Elysanite Mine",
+                sacred_smelter: "Sacred Smelter",
+                elerium_containment: "Elerium Containment",
+                pillbox: "Pillbox",
+                restaurant: "Restaurant of Eternity",
+                eternal_bank: "Eternal Bank",
+                archive: "Archive of the Ancients",
+                north_pier: "North Pier",
+                rushmore: "Mount Rushmore",
+                reincarnation: "Reincarnation Machine",
+                eden_cement: { name: "Cement Plant", prefix: "Eden" }
+            },
+            "Isle of the Blessed": {
+                south_pier: "South Pier",
+                west_tower: "West Rampart",
+                isle_garrison: "Angelic Garrison",
+                east_tower: "East Rampart",
+                spirit_vacuum: "Spirit Vacuum",
+                spirit_battery: "Spirit Battery",
+                soul_compactor: "Soul Compactor"
+            },
+            "Palace of Eternity": {
+                scout_palace: "Scout Palace",
+                throne: "Abandoned Throne",
+                infuser: "Divinity Infuser",
+                apotheosis: "Start Infusion",
+                conduit: "Energy Conduit",
+                tomb: "Tomb of the Dead God"
+            }
+        }
+    });
+
+    const segments = {
+        "space-terraformer": 100,
+        "space-jump_gate": 100,
+        "starDock-seeder": 100,
+        "space-world_collider": 1859,
+        "space-mass_relay": 100,
+        "space-ai_core": 100,
+        "tauceti-ringworld": 1000,
+        "tauceti-jump_gate": 100,
+        "tauceti-alien_station": 100,
+        "tauceti-matrioshka_brain": 1000,
+        "tauceti-ignition_device": 10,
+        "interstellar-dyson": 100,
+        "interstellar-dyson_sphere": 100,
+        "interstellar-orichalcum_sphere": 100,
+        "interstellar-stellar_engine": 100,
+        "interstellar-stargate": 200,
+        "interstellar-space_elevator": 100,
+        "interstellar-gravity_dome": 100,
+        "interstellar-ascension_machine": 100,
+        "portal-east_tower": 388,
+        "portal-west_tower": 388,
+        "eden-mech_station": 10,
+        "eden-rune_gate": 100,
+        "eden-fire_support_base": 100,
+        "eden-north_pier": 10,
+        "eden-south_pier": 10,
+        "eden-infuser": 25,
+        "eden-conduit": 25,
+        "eden-tomb": 10
+    };
+
+    function makeTechInfo(data) {
+        const entries = {};
+        for (const [era, techs] of Object.entries(data)) {
+            for (const [id, entry] of Object.entries(techs)) {
+                entries[id] = entry instanceof Object ? { era, ...entry } : { era, name: entry };
+            }
+        }
+        return entries;
+    }
+    const techs = makeTechInfo({
+        "Primitive": {
+            club: "Club",
+            bone_tools: { name: "Bone Tools", suffix: "Evil" },
+            wooden_tools: "Wooden Tools",
+            sundial: "Sundial",
+            wheel: { name: "Wheel", suffix: "Gravity Well" }
+        },
+        "Civilized": {
+            wagon: { name: "Wagon", suffix: "Gravity Well" },
+            housing: "Housing",
+            cottage: "Cottage",
+            aphrodisiac: "Aphrodisiac",
+            captive_housing: { name: "Captive Housing", suffix: "Unfathomable" },
+            torture: { name: "Torment", suffix: "Unfathomable" },
+            thrall_quarters: { name: "Thrall Quarters", suffix: "Unfathomable" },
+            minor_wish: { name: "Limited Wish", suffix: "Wish" },
+            major_wish: { name: "Greater Wish", suffix: "Wish" },
+            psychic_energy: { name: "Psychic Energy", suffix: "Psychic" },
+            psychic_attack: { name: "Psychic Assault", suffix: "Psychic" },
+            psychic_finance: { name: "Psychic Finance", suffix: "Psychic" },
+            mind_break: { name: "Psychic Mind Break", suffix: "Psychic" },
+            psychic_stun: { name: "Psychic Stun", suffix: "Psychic" },
+            spear: { name: "Flint Spear", suffix: "Forager" },
+            bronze_spear: { name: "Bronze Spear", suffix: "Forager" },
+            iron_spear: { name: "Iron Spear", suffix: "Forager" },
+            dowsing_rod: { name: "Dowsing Rod", suffix: "Forager" },
+            metal_detector: { name: "Metal Detector", suffix: "Forager" },
+            smokehouse: { name: "Smokehouse", suffix: "Carnivore" },
+            lodge: { name: "Hunting Lodge", suffix: "Carnivore" },
+            alt_lodge: "Lodge",
+            soul_well: { name: "Soul Well", suffix: "Soul Eater" },
+            compost: { name: "Composting", suffix: "Detritivore" },
+            hot_compost: { name: "Hot Composting", suffix: "Detritivore" },
+            mulching: { name: "Mulching", suffix: "Detritivore" },
+            agriculture: "Agriculture",
+            farm_house: "Farm Houses",
+            irrigation: "Irrigation",
+            silo: "Grain Silo",
+            mill: "Grain Mill",
+            foundry: "Foundry",
+            artisans: "Artisans",
+            apprentices: "Apprentices",
+            carpentry: "Carpentry",
+            theatre: "Theatre",
+            playwright: "Playwright",
+            mining: "Mining",
+            bayer_process: "Bayer Process",
+            smelting: "Smelting",
+            steel: "Crucible Steel",
+            metal_working: "Metal Working",
+            iron_mining: "Iron Mining",
+            coal_mining: "Coal Mining",
+            storage: "Basic Storage",
+            reinforced_shed: "Reinforced Sheds",
+            containerization: "Containerization",
+            reinforced_crates: "Reinforced Crates",
+            evil_planning: { name: "Urban Planning", suffix: "Terrifying" },
+            urban_planning: "Urban Planning",
+            assistant: "Personal Assistant",
+            government: "Government",
+            theocracy: "Theocracy",
+            governor: "Governor",
+            spy: "Spies",
+            currency: "Currency",
+            market: "Marketplace",
+            tax_rates: "Tax Rates",
+            large_trades: "Large Volume Trading",
+            trade: "Trade Routes",
+            banking: "Banking",
+            investing: "Investing",
+            vault: "Bank Vault",
+            bonds: "Savings Bonds",
+            steel_vault: "Steel Vault",
+            science: "Scientific Method",
+            library: "Dewey Decimal System",
+            thesis: "Thesis Papers",
+            research_grant: "Research Grants",
+            reclaimer: { name: "Reclaimers", suffix: "Evil" },
+            shovel: { name: "Shovel", suffix: "Evil" },
+            iron_shovel: { name: "Iron Shovel", suffix: "Evil" },
+            stone_axe: "Primitive Axes",
+            copper_axes: "Bronze Axe",
+            iron_saw: "Sawmills",
+            iron_axes: "Iron Axe",
+            copper_sledgehammer: "Bronze Sledgehammer",
+            iron_sledgehammer: "Iron Sledgehammer",
+            copper_pickaxe: "Bronze Pickaxe",
+            iron_pickaxe: "Iron Pickaxe",
+            copper_hoe: "Bronze Hoes",
+            iron_hoe: "Iron Hoes",
+            slave_pens: { name: "Slave Pen", suffix: "Slaver" },
+            ceremonial_dagger: { name: "Ceremonial Dagger", suffix: "Cannibalize" },
+            last_rites: { name: "Last Rites", suffix: "Cannibalize" },
+            garrison: "Garrison",
+            mercs: "Mercenaries",
+            hospital: "Hospital",
+            bows: "Bows",
+            flintlock_rifle: "Flintlock Rifle",
+            armor: "Leather Armor",
+            plate_armor: "Plate Armor",
+            black_powder: "Black Powder",
+            dynamite: "Dynamite",
+            cement: "Cement",
+            rebar: "Rebar",
+            steel_rebar: "Steel Rebar",
+            theology: "Theology",
+            fanaticism: "Fanaticism",
+            alt_fanaticism: { name: "Fanaticism", suffix: "Post-Transcendence" },
+            indoctrination: "Indoctrination",
+            anthropology: "Anthropology",
+            alt_anthropology: { name: "Anthropology", suffix: "Post-Transcendence" },
+            mythology: "Mythology",
+            mana: "Mana",
+            ley_lines: "Ley Lines",
+            rituals: "Rituals",
+            clerics: "Clerics",
+            conjuring: "Conjuring",
+            res_conjuring: "Resource Conjuring",
+            secret_society: "Secret Society",
+            cultists: { name: "Cultists", suffix: "Witch Hunter" }
+        },
+        "Discovery": {
+            steam_engine: { name: "Steam Engine", suffix: "Gravity Well" },
+            apartment: "Apartment",
+            steel_beams: "Steel Beams",
+            adv_mulching: { name: "Advanced Mulching", suffix: "Detritivore" },
+            windmill: "Windmill",
+            demonic_craftsman: { name: "Master Crafter", suffix: "Evil" },
+            master_craftsman: "Master Crafter",
+            brickworks: "Brickworks",
+            banquet: "Banquet",
+            magic: "Techno Wizards",
+            radio: "Radio",
+            blast_furnace: "Blast Furnace",
+            bessemer_process: "Bessemer Process",
+            barns: "Barns",
+            cranes: "Cranes",
+            steel_containers: "Steel Containers",
+            gantry_crane: "Gantry Cranes",
+            republic: "Republic",
+            socialist: "Socialist",
+            espionage: "Espionage",
+            spy_training: "Spy Training Facility",
+            spy_gadgets: "Spy Gadgets",
+            diplomacy: "Diplomacy",
+            eebonds: "Series EE Bonds",
+            home_safe: "House Safe",
+            mad_science: "Mad Science",
+            electricity: "Electricity",
+            matter_replicator: "Matter Replicator",
+            mine_conveyor: "Mine Conveyor Belts",
+            steel_shovel: { name: "Steel Shovel", suffix: "Evil" },
+            steel_saw: "Steel Saws",
+            steel_axes: "Steel Axe",
+            steel_sledgehammer: "Steel Sledgehammer",
+            steel_pickaxe: "Steel Pickaxe",
+            jackhammer: "Jackhammer",
+            steel_hoe: "Steel Hoes",
+            slave_market: { name: "Slave Market", suffix: "Slaver" },
+            boot_camp: "Boot Camp",
+            missionary: "Missionary",
+            zealotry: "Zealotry",
+            archaeology: "Archaeology",
+            merchandising: "Merchandising",
+            crafting_ritual: "Crafting Rituals",
+            alchemy: "Alchemy",
+            conceal_ward: { name: "Concealing Wards", suffix: "Witch Hunter" },
+            subtle_rituals: { name: "Subtle Rituals", suffix: "Witch Hunter" }
+        },
+        "Industrialized": {
+            combustion_engine: { name: "Combustion Engine", suffix: "Gravity Well" },
+            osha: { name: "OSHA Regulations", suffix: "Gravity Well" },
+            blackmarket: { name: "Blackmarket", suffix: "Gravity Well" },
+            vocational_training: "Vocational Training",
+            oxygen_converter: "Oxygen Converter",
+            rotary_kiln: "Rotary Kiln",
+            warehouse: "Warehouse",
+            alloy_containers: "Alloy Containers",
+            zoning_permits: "Zoning Permits",
+            corpocracy: "Corpocracy",
+            technocracy: "Technocracy",
+            magocracy: "Magocracy",
+            code_breakers: "Code Breakers",
+            corruption: "Corrupt Politicians",
+            freight: "Freight Trains",
+            wharf: "Wharves",
+            swiss_banking: "Kashkaval Banking",
+            scientific_journal: "Scientific Journal",
+            adjunct_professor: "Adjunct Professors",
+            tesla_coil: "Tesla Coil",
+            industrialization: "Industrialization",
+            electronics: "Electronics",
+            thermomechanics: "Thermomechanics",
+            oil_well: "Oil Derrick",
+            oil_depot: "Fuel Depot",
+            oil_power: "Oil Powerplant",
+            titanium_drills: "Titanium Drills",
+            titanium_shovel: { name: "Titanium Shovel", suffix: "Evil" },
+            titanium_axes: "Titanium Axe",
+            titanium_sledgehammer: "Titanium Sledgehammer",
+            titanium_hoe: "Titanium Hoes",
+            signing_bonus: "Signing Bonus",
+            machine_gun: "Machine Gun",
+            anfo: "ANFO",
+            portland_cement: "Portland Cement",
+            hunter_process: "Hunter Process",
+            pylon_camouflage: { name: "Pylon Camouflage", suffix: "Witch Hunter" },
+            fake_tech: { name: "Fake Tech", suffix: "Witch Hunter" }
+        },
+        "Deep Space": {
+            hover_cart: { name: "Hover Cart", suffix: "Gravity Well" },
+            neutronium_walls: "Neutronium Walls",
+            psychic_channeling: { name: "Psychic Channeling", suffix: "Psychic" },
+            laser_cutters: "Laser Cutters",
+            otb: "Off Track Betting",
+            neutronium_vault: "Neutronium Vault",
+            world_collider: "World Collider",
+            dna_sequencer: "DNA Sequencer",
+            lasers: "Lasers",
+            artifical_intelligence: "Artificial Intelligence",
+            quantum_computing: "Quantum Computing",
+            quantum_manufacturing: "Quantum Manufacturing",
+            worker_drone: "Mining Drones",
+            nano_tubes: "Nano Tubes",
+            laser_rifles: "Laser Rifles",
+            encoding: "Genetic Encoding",
+            infusion: "Genetic Infusion",
+            exotic_lab: "Exotic Materials Lab",
+            swarm_plant: "Swarm Plant",
+            space_sourced: "Space Sourced",
+            swarm_plant_ai: "Swarm Plant AI",
+            swarm_control_ai: "Swarm Control AI",
+            quantum_swarm: "Quantum Swarm",
+            helium_attractor: "Helium Attractor",
+            elerium_mining: "Elerium Mining",
+            laser_mining: "Laser Mining",
+            elerium_tech: "Elerium Theory",
+            elerium_reactor: "Elerium Reactor",
+            neutronium_housing: "Neutronium Housing",
+            genesis: "Genesis Project",
+            star_dock: "Space Dock",
+            interstellar: "Interstellar Probes",
+            genesis_ship: "Genesis Ship",
+            geck: "G.E.C.K.",
+            dial_it_to_11: "Dial it up to 11",
+            limit_collider: "Limit Collider"
+        },
+        "Globalized": {
+            pipelines: { name: "Oil Pipelines", suffix: "Gravity Well" },
+            windturbine: "Wind Turbine",
+            wind_plant: { name: "Windmill", suffix: "Power Plant" },
+            gmfood: "GM Food",
+            machinery: "Machinery",
+            cnc_machine: "CNC Machine",
+            assembly_line: "Assembly Line",
+            tv: "Television",
+            casino: "Casino",
+            dazzle: "Extreme Dazzle",
+            electric_arc_furnace: "Electric Arc Furnace",
+            cameras: "Security Cameras",
+            titanium_crates: "Titanium-Banded Crates",
+            urbanization: "Urbanization",
+            massive_trades: "Massive Volume Trading",
+            safety_deposit: "Safety Deposit Box",
+            stock_market: "Stock Exchange",
+            monument: "Monuments",
+            internet: "Internet",
+            bioscience: "Bioscience",
+            genetics: "Genetics",
+            crispr: "CRISPR-Cas9",
+            fission: "Nuclear Fission",
+            arpa: "A.R.P.A.",
+            rocketry: "Rocketry",
+            robotics: "Advanced Robotics",
+            uranium: "Uranium Extraction",
+            uranium_storage: "Uranium Storage",
+            uranium_ash: "Uranium Ash",
+            alloy_drills: "Alloy Drills",
+            fracking: "Fracking",
+            polymer: "Polymer",
+            fluidized_bed_reactor: "Fluidized Bed Reactor",
+            synthetic_fur: "Synthetic Fur",
+            alloy_shovel: { name: "Alloy Shovel", suffix: "Evil" },
+            jackhammer_mk2: "Electric Jackhammer",
+            bunk_beds: "Bunk Beds",
+            kevlar: "Kevlar",
+            mad: "Mutual Destruction",
+            screw_conveyor: "Screw Conveyor",
+            kroll_process: "Kroll Process",
+            unite: { name: "Unite Country", suffix: "True Path" }
+        },
+        "Dimensional": {
+            arcology: "Arcology",
+            zoo: "Exotic Zoo",
+            infernium_fuel: "Infernium Fuel",
+            advanced_biotech: "Advanced Biotech",
+            codex_infinium: "Codex Infinium",
+            devilish_dish: { name: "Devilish Dish", suffix: "Fasting" },
+            hell_oven: { name: "Soul-Vide Cooker", suffix: "Fasting" },
+            preparation_methods: { name: "Preparation Methods", suffix: "Fasting" },
+            final_ingredient: { name: "Final Ingredient", suffix: "Fasting" },
+            cybernetics: "Cybernetics",
+            blood_pact: "Blood Pact",
+            purify: "Enhanced Air Filters",
+            waygate: "Waygate",
+            demonic_infusion: "Demonic Infusion",
+            gate_key: "Gate Key",
+            gate_turret: "Gate Turret",
+            infernite_mine: "Infernite Survey",
+            corrupt_gem_analysis: "Corrupt Gem Analysis",
+            hell_search: "Search Hell Coordinates",
+            codex_infernium: "Codex Infernium",
+            lake_analysis: "Blood Lake Analysis",
+            lake_threat: "Lake Threat",
+            lake_transport: "Lake Transport",
+            cooling_tower: "Cooling Tower",
+            miasma: "Miasma",
+            infernium_power: "Inferno Power",
+            scarletite: "Scarletite",
+            pillars: "Pillars Research",
+            cyber_limbs: "Cybernetic Worker Limbs",
+            cyborg_soldiers: "Cyborg Soldiers",
+            stabilize_decay: "Stabilize Decay",
+            outerplane_summon: { name: "Outerplane Summon", suffix: "Witch Hunter" },
+            dark_bomb: "Dark Energy Bomb",
+            bribe_sphinx: "Bribe Sphinx"
+        },
+        "Early Space": {
+            mythril_beams: "Mythril Beams",
+            automation: "Factory Automation",
+            casino_vault: "Casino Vault",
+            iridium_smelting_perk: "Iridium Smelting",
+            pocket_dimensions: "Pocket Dimensions",
+            mythril_crates: "Mythril-Plated Crates",
+            mythril_containers: "Mythril Containers",
+            federation: "Federation",
+            hedge_funds: "Hedge Funds",
+            four_oh_one: "401K",
+            mythril_vault: "Mythril Vault",
+            fire_proof_safe: "Fire Proof Safe",
+            tourism: "Tourism",
+            observatory: "Space Observatory",
+            shotgun_sequencing: "Shotgun Sequencing",
+            de_novo_sequencing: "De Novo Sequencing",
+            breeder_reactor: "Breeder Reactor",
+            mythril_drills: "Mythril Drills",
+            mass_driver: "Mass Driver",
+            mythril_shovel: { name: "Mythril Shovel", suffix: "Evil" },
+            ancient_infusion: { name: "Ancient Infusion", suffix: "Cannibalize" },
+            rail_guns: "Rail Guns",
+            space_marines: "Space Marines",
+            cambridge_process: "Cambridge Process",
+            pynn_partical: "Pynn Particles",
+            matter_compression: "Matter Compression",
+            higgs_boson: "Higgs Boson",
+            ancient_theology: "Ancient Theology",
+            study: "Study Ancients",
+            study_alt: { name: "Study Ancients", suffix: "Post-Preeminence" },
+            deify: "Deify Ancients",
+            deify_alt: { name: "Deify Ancients", suffix: "Post-Preeminence" },
+            astrophysics: "Astrophysics",
+            rover: "Rovers",
+            probes: "Space Probes",
+            starcharts: "Star Charts",
+            colonization: "Colonization",
+            red_tower: "Mars Control Tower",
+            space_manufacturing: "Space Manufacturing",
+            dyson_sphere: { name: "Dyson Sphere", suffix: "Plans" },
+            dyson_swarm: "Dyson Swarm",
+            gps: "GPS Constellation",
+            nav_beacon: "Navigation Beacon",
+            atmospheric_mining: "Atmospheric Mining",
+            zero_g_mining: "Zero G Mining",
+            unification: { name: "Unification", suffix: "Plans" },
+            unification2: "Unification",
+            genetic_decay: "Gene Therapy",
+            mana_nexus: "Mana Nexus",
+            concealment: { name: "Empowered Concealment Wards", suffix: "Witch Hunter" },
+            higgs_boson_tp: { name: "Higgs Boson", suffix: "True Path" }
+        },
+        "Intergalactic": {
+            bolognium_alloy_beams: "Bolognium Alloy Beams",
+            fertility_clinic: "Fertility Clinic",
+            psychic_efficiency: { name: "Psychic Efficiency", suffix: "Psychic" },
+            stellar_forge: "Stellar Forge",
+            stellar_smelting: "Stellar Smelting",
+            high_tech_factories: "High-Tech Factory",
+            bolognium_vaults: "Bolognium Vault",
+            bolognium_crates: "Bolognium Crates",
+            bolognium_containers: "Bolognium Containers",
+            nanoweave_containers: "Nanoweave Liners",
+            foreign_investment: "Foreign Investment",
+            xeno_tourism: "Xeno Tourism",
+            expedition: "Scientific Expeditions",
+            subspace_sensors: "Subspace Sensors",
+            alien_database: "Alien Database",
+            orichalcum_capacitor: "Orichalcum Capacitor",
+            metaphysics: "Metaphysics",
+            orichalcum_analysis: "Orichalcum Analysis",
+            study_corrupt_gem: { name: "Study Corrupt Gem", suffix: "Witch Hunter" },
+            soul_binding: { name: "Soul Binding", suffix: "Witch Hunter" },
+            soul_capacitor: { name: "Soul Capacitor", suffix: "Witch Hunter" },
+            absorption_chamber: { name: "Absorption Chamber", suffix: "Witch Hunter" },
+            incorporeal: "Incorporeal Existence",
+            tech_ascension: "Ascension",
+            terraforming: { name: "Terraforming", suffix: "Orbital Decay" },
+            graphene_processing: "Graphene Processing",
+            orichalcum_driver: "Orichalcum Mass Driver",
+            nanoweave: "Nanoweave",
+            gauss_rifles: "Gauss Rifles",
+            hammocks: "Nanoweave Hammocks",
+            nanoweave_vest: "Nanoweave Vest",
+            hydroponics: "Hydroponics Bays",
+            orichalcum_panels: "Orichalcum Panels",
+            dyson_sphere2: "Dyson Sphere",
+            orichalcum_sphere: "Orichalcum Dyson Plating",
+            mega_manufacturing: "Mega Manufacturing",
+            luxury_condo: "Luxury Condo",
+            asteroid_redirect: "Asteroid Redirect",
+            wormholes: "Wormholes",
+            advanced_predators: "Advanced Drones",
+            shield_generator: "Shield Generator",
+            enhanced_sensors: "Enhanced Sensors",
+            xeno_linguistics: "Xeno Linguistics",
+            xeno_culture: "Xeno Culture",
+            cultural_exchange: "Cultural Exchange",
+            shore_leave: "Shore Leave",
+            xeno_gift: "Alien Gift",
+            industrial_partnership: "Industrial Partnership",
+            embassy_housing: "Embassy Housing",
+            advanced_telemetry: "Advanced Telemetry",
+            defense_platform: "Defense Platform",
+            scout_ship: "Scout Ship",
+            corvette_ship: "Corvette Ship",
+            frigate_ship: "Frigate Ship",
+            cruiser_ship: "Cruiser Ship",
+            dreadnought: "Dreadnought",
+            ship_dock: "Ship Dock",
+            ore_processor: "Ore Processor",
+            scavenger: "Tech Scavenger",
+            coordinates: "Decrypt Coordinates",
+            chthonian_survey: "Chthonian Survey",
+            gateway_depot: "Depot",
+            soul_forge: "Soul Forge",
+            soul_attractor: "Soul Attractor",
+            soul_absorption: "Soul Absorption",
+            soul_link: "Soul Link",
+            gun_emplacement: "Gun Emplacement",
+            advanced_emplacement: "Advanced Gun Emplacement",
+            transmutation: "Advanced Transmutation",
+            improved_concealment: { name: "Improved Concealment Wards", suffix: "Witch Hunter" }
+        },
+        "Interstellar": {
+            superstars: "Super Stars",
+            vr_center: "VR Center",
+            online_gambling: "Online Gambling",
+            elysis_process: "ELYSIS Process",
+            hellfire_furnace: "Hellfire Furnace",
+            ai_logistics: "AI Shipping Logistics",
+            infernite_crates: "Infernite Crates",
+            graphene_crates: "Graphene Crates",
+            adamantite_containers: "Adamantite Containers",
+            aerogel_containers: "Aerogel Containers",
+            exchange: "Galactic Exchange",
+            adamantite_vault: "Adamantite Vault",
+            graphene_vault: "Graphene Vault",
+            tamper_proof_safe: "Tamper Proof Safe",
+            laboratory: "Laboratory",
+            virtual_assistant: "Virtual Assistant",
+            dimensional_readings: "Dimensional Readings",
+            quantum_entanglement: "Quantum Entanglement",
+            rapid_sequencing: "Rapid Gene Sequencing",
+            virtual_reality: "Virtual Reality",
+            plasma: "Plasma Beams",
+            shields: "Energy Shields",
+            ai_core: "AI Supercore",
+            cement_processing: "Cement Processing",
+            adamantite_processing_flier: { name: "Adamantite Processing", suffix: "Flier" },
+            adamantite_processing: "Adamantite Processing",
+            fusion_power: "Nuclear Fusion",
+            stanene: "Stanene",
+            adamantite_shovel: { name: "Adamantite Shovel", suffix: "Evil" },
+            chainsaws: "Chainsaws",
+            adamantite_hammer: "Adamantite Jackhammer",
+            adamantite_hoe: "Adamantite Hoes",
+            bac_tanks: "BAC Tank",
+            vr_training: "VR Training",
+            plasma_rifles: "Plasma Rifles",
+            disruptor_rifles: "Disruptor Rifles",
+            cruiser: "Patrol Cruiser",
+            laser_turret: "Laser Turret",
+            plasma_turret: "Plasma Turret",
+            adamantite_screws: "Adamantite Screws",
+            dimensional_compression: "Dimension Compression",
+            perovskite_cell: "Perovskite Cells",
+            swarm_convection: "Swarm Convection",
+            dyson_net: "Dyson Net",
+            subspace_signal: "Subspace Beacon",
+            ram_scoops: "Ram Scoops",
+            elerium_prospecting: "Elerium Prospecting",
+            plasma_mining: "Plasma Mining",
+            tachyon: "Tachyon Particles",
+            warp_drive: "Alcubierre Drive",
+            habitat: "Habitat",
+            graphene: "Graphene",
+            aerogel: "Aerogel",
+            stellar_engine: "Stellar Engine",
+            mass_ejector: "Mass Ejector",
+            exotic_infusion: { name: "Exotic Infusion", suffix: "1st Warning" },
+            infusion_check: { name: "Exotic Infusion", suffix: "2nd Warning" },
+            infusion_confirm: "Exotic Infusion",
+            stabilize_blackhole: "Stabilize Black Hole",
+            veil: "The Veil",
+            mana_syphon: "Mana Syphon",
+            gravitational_waves: "Gravitational Waves",
+            gravity_convection: "Gravitational Convection",
+            portal: "Portals",
+            fortifications: "Fortifications",
+            war_drones: "War Drones",
+            demon_attractor: "Demonic Attractor",
+            combat_droids: "Combat Droids",
+            repair_droids: "Repair Droids",
+            enhanced_droids: "Enhanced War Droids",
+            sensor_drone: "Sensor Drones",
+            map_terrain: "Map Terrain",
+            calibrated_sensors: "Calibrated Sensors"
+        },
+        "Existential": {
+            elysanite_crates: "Elysanite Crates",
+            elysanite_containers: "Elysanite Containers",
+            crypto_currency: "Crypto Currency",
+            spirit_box: "Spirit Box",
+            spirit_researcher: "Occult Researcher",
+            dimensional_tap: "Dimensional Tap",
+            divinity: "Divine Providence",
+            purify_essence: "Purify Essence",
+            crypto_mining: "Crypto Mining",
+            elysanite_hammer: "Elysanite Jackhammer",
+            ethereal_weapons: "Ethereal Weaponry",
+            super_tnt: "Super TNT",
+            otherworldly_binder: "Otherworldly Binder",
+            elysanite_sphere: "Elysanite Dyson Paneling",
+            soul_bait: "Soul Bait",
+            asphodel_flowers: "Ghostly Flowers",
+            ghost_traps: "Ghost Traps",
+            research_station: "Non-overlapping Magisteria",
+            soul_engine: "Soul Power",
+            railway_to_hell: "Railway to Hell",
+            purification: "Purification",
+            asphodel_mech: "Asphodel Mech Security",
+            asphodel_storage: "Asphodel Storage",
+            asphodel_stabilizer: "Asphodel Stabilizer",
+            edenic_bunker: "Edenic Bunker",
+            bliss_den: "Den of Bliss",
+            hallowed_housing: "Hallowed Housing",
+            outer_plane_study: "Outer Plane Study",
+            camouflage: "Camouflage",
+            celestial_tactics: "Celestial Tactics",
+            active_camouflage: "Active Camouflage",
+            special_ops_training: "Special Ops Training",
+            spectral_training: "Spectral Training Ground",
+            elysanite_mining: "Elysanite Mining",
+            sacred_smelter: "Sacred Smelter",
+            fire_support_base: "Fire Support Base",
+            pillbox: "Pillbox",
+            elerium_cannon: "Elerium Cannon",
+            elerium_containment: "Elerium Containment",
+            ambrosia: "Ambrosia",
+            eternal_bank: "Eternal Wealth",
+            wisdom: "Wisdom of the Ancients",
+            rushmore: "Mount Humanmore",
+            reincarnation: "Reincarnation Machine",
+            otherworldly_cement: "Edenic Cement",
+            ancient_crafters: "Ancient Crafters",
+            spirit_syphon: "Spirit Syphon",
+            spirit_capacitor: "Spirit Capacitor",
+            suction_force: "Suction Force",
+            soul_compactor: "Soul Compactor",
+            tomb: "Tomb of the Dead God",
+            energy_drain: "Energy Drain",
+            divine_infuser: "Divine Infuser"
+        },
+        "Outer Solar System": {
+            alien_biotech: { name: "Alien Biotech", suffix: "True Path" },
+            zero_g_lab: { name: "Zero Gravity Lab", suffix: "True Path" },
+            operating_base: { name: "Operating Base", suffix: "True Path" },
+            munitions_depot: { name: "Munitions Depot", suffix: "True Path" },
+            fob: { name: "Forward Operating Base", suffix: "True Path" },
+            bac_tanks_tp: { name: "BAC Tank", suffix: "True Path" },
+            medkit: { name: "Advanced Medkits", suffix: "True Path" },
+            sam_site: { name: "Planetary Defenses", suffix: "True Path" },
+            data_cracker: { name: "Data Cracker", suffix: "True Path" },
+            ai_core_tp: { name: "AI Supercore", suffix: "True Path" },
+            ai_optimizations: { name: "AI Optimizations", suffix: "True Path" },
+            synthetic_life: { name: "Synthetic Life", suffix: "True Path" },
+            protocol66: { name: "Protocol 66", suffix: "Warning, True Path" },
+            protocol66a: { name: "Protocol 66", suffix: "True Path" },
+            terraforming_tp: { name: "Terraforming", suffix: "Orbital Decay, True Path" },
+            quantium: { name: "Quantium", suffix: "True Path" },
+            anitgrav_bunk: { name: "Anti-Grav Bunks", suffix: "True Path" },
+            long_range_probes: { name: "Long Range Probes", suffix: "True Path" },
+            strange_signal: { name: "Strange Signal", suffix: "True Path" },
+            data_analysis: { name: "Encrypted Data Analysis", suffix: "True Path" },
+            mass_relay: { name: "Mass Relay", suffix: "True Path" },
+            nav_data: { name: "Navigation Data", suffix: "True Path" },
+            sensor_logs: { name: "Tau Ceti Data", suffix: "True Path" },
+            dronewar: { name: "Drone Warfare", suffix: "True Path" },
+            drone_tank: { name: "AI Drone Tanks", suffix: "True Path" },
+            stanene_tp: { name: "Stanene", suffix: "True Path" },
+            graphene_tp: { name: "Graphene", suffix: "True Path" },
+            virtual_reality_tp: { name: "Virtual Reality", suffix: "True Path" },
+            electrolysis: { name: "Electrolysis", suffix: "True Path" },
+            storehouse: { name: "Titan Storage Facility", suffix: "True Path" },
+            adamantite_vault_tp: { name: "Adamantite Vault", suffix: "True Path" },
+            titan_bank: { name: "Titan Banking", suffix: "True Path" },
+            hydrogen_plant: { name: "Hydrogen Power", suffix: "True Path" },
+            water_mining: { name: "Water Mining", suffix: "True Path" },
+            mercury_smelting: { name: "Solar Smelting", suffix: "True Path" },
+            iridium_smelting: { name: "Iridium Smelting", suffix: "True Path" },
+            adamantite_crates: { name: "Adamantite Crates", suffix: "True Path" },
+            adamantite_containers_tp: { name: "Adamantite Containers", suffix: "True Path" },
+            quantium_containers: { name: "Quantium Containers", suffix: "True Path" },
+            reinforced_shelving: { name: "Reinforced Shelving", suffix: "True Path" },
+            garage_shelving: { name: "Quantium Garage Shelving", suffix: "True Path" },
+            warehouse_shelving: { name: "Automated Warehousing System", suffix: "True Path" },
+            elerium_extraction: { name: "Elerium Extraction", suffix: "True Path" },
+            orichalcum_panels_tp: { name: "Orichalcum Panels", suffix: "True Path" },
+            shipyard: { name: "Ceres Ship Yard", suffix: "True Path" },
+            ship_lasers: { name: "Ship Lasers", suffix: "True Path" },
+            pulse_lasers: { name: "Ship Pulse Lasers", suffix: "True Path" },
+            ship_plasma: { name: "Ship Plasma Beams", suffix: "True Path" },
+            ship_phaser: { name: "Ship Phasers", suffix: "True Path" },
+            ship_disruptor: { name: "Ship Disruptor", suffix: "True Path" },
+            destroyer_ship: { name: "Destroyer", suffix: "True Path" },
+            cruiser_ship_tp: { name: "Cruiser", suffix: "True Path" },
+            h_cruiser_ship: { name: "Battlecruiser", suffix: "True Path" },
+            dreadnought_ship: { name: "Dreadnought", suffix: "True Path" },
+            pulse_engine: { name: "Pulse Drive", suffix: "True Path" },
+            photon_engine: { name: "Photon Drive", suffix: "True Path" },
+            vacuum_drive: { name: "Vacuum Drive", suffix: "True Path" },
+            ship_fusion: { name: "Fusion Generator", suffix: "True Path" },
+            ship_elerium: { name: "Elerium Generator", suffix: "True Path" },
+            quantum_signatures: { name: "Quantum Signatures", suffix: "True Path" }
+        },
+        "Tau Ceti": {
+            bolognium_crates_tp: { name: "Bolognium Crates", suffix: "True Path" },
+            unobtainium_containers: { name: "Unobtainium Containers", suffix: "True Path" },
+            interstellar_drive: { name: "Interstellar Drive", suffix: "True Path" },
+            alien_outpost: { name: "Alien Outpost", suffix: "True Path" },
+            jumpgates: { name: "Jump Gates", suffix: "True Path" },
+            system_survey: { name: "Tau Survey", suffix: "True Path" },
+            repository: { name: "Repository", suffix: "True Path" },
+            fusion_generator: { name: "Nuclear Fusion", suffix: "True Path" },
+            tau_cultivation: { name: "Tau Ceti Cultivation", suffix: "True Path" },
+            tau_manufacturing: { name: "Tau Ceti Manufacturing", suffix: "True Path" },
+            weasels: { name: "Weasels", suffix: "True Path" },
+            jeff: { name: "Contact Jeff", suffix: "True Path" },
+            womling_fun: { name: "Womling Entertainment", suffix: "True Path" },
+            womling_lab: { name: "Womling Science", suffix: "True Path" },
+            womling_mining: { name: "Womling Dirt Excavation", suffix: "True Path" },
+            womling_firstaid: { name: "Womling First Aid", suffix: "True Path" },
+            womling_logistics: { name: "Womling Logistics", suffix: "True Path" },
+            womling_repulser: { name: "Womling Repulser Pad", suffix: "True Path" },
+            womling_farming: { name: "Womling Farming", suffix: "True Path" },
+            womling_housing: { name: "Womling Housing", suffix: "True Path" },
+            womling_support: { name: "Womling Support", suffix: "True Path" },
+            womling_recycling: { name: "Womling Recycling", suffix: "True Path" },
+            asteroid_analysis: { name: "Asteroid Data Analysis", suffix: "True Path" },
+            shark_repellent: { name: "Shark Repellent", suffix: "True Path" },
+            belt_mining: { name: "Tau Ceti Belt Mining", suffix: "True Path" },
+            adv_belt_mining: { name: "Advanced Belt Mining", suffix: "True Path" },
+            space_whaling: { name: "Space Whaling", suffix: "True Path" },
+            infectious_disease_lab: { name: "Infectious Disease Lab", suffix: "True Path" },
+            isolation_protocol: { name: "Isolation Protocol", suffix: "True Path" },
+            focus_cure: { name: "Focus Cure", suffix: "True Path" },
+            decode_virus: { name: "Decode Virus", suffix: "True Path" },
+            vaccine_campaign: { name: "Vaccination Campaign", suffix: "True Path" },
+            vax_strat1: { name: "Propaganda Campaign", suffix: "True Path" },
+            vax_strat2: { name: "Force Vaccination", suffix: "True Path" },
+            vax_strat3: { name: "Show the Science", suffix: "True Path" },
+            vax_strat4: { name: "Secret Vaccination", suffix: "True Path" },
+            cloning: { name: "Cloning Facility", suffix: "True Path" },
+            clone_degradation: { name: "Clone Degradation", suffix: "True Path" },
+            digital_paradise: { name: "Digital Paradise", suffix: "True Path" },
+            ringworld: { name: "Design a Ringworld", suffix: "True Path" },
+            iso_gambling: { name: "Pit Bosses", suffix: "True Path" },
+            outpost_boost: { name: "Alien Outpost Device", suffix: "True Path" },
+            cultural_center: { name: "Cultural Center", suffix: "True Path" },
+            outer_tau_survey: { name: "Survey Outer Planet", suffix: "True Path" },
+            alien_research: { name: "Alien Research", suffix: "True Path" },
+            womling_gene_therapy: { name: "Womling Gene Therapy", suffix: "True Path" },
+            food_culture: { name: "Sell fruitcake", suffix: "True Path" },
+            advanced_refinery: { name: "Advanced Ore Refinery", suffix: "True Path" },
+            advanced_pit_mining: { name: "Advanced Pit Mining", suffix: "True Path" },
+            useless_junk: { name: "Useless Junk", suffix: "True Path" },
+            advanced_asteroid_mining: { name: "Advanced Asteroid Mining", suffix: "True Path" },
+            advanced_material_synthesis: { name: "Advanced Material Synthesis", suffix: "True Path" },
+            matrioshka_brain: { name: "Matrioshka Brain", suffix: "True Path" },
+            ignition_device: { name: "Ignition Device", suffix: "True Path" },
+            replicator: { name: "Matter Replicator", suffix: "Lone Survivor, True Path" },
+            womling_unlock: { name: "Meet The Neighbors", suffix: "Lone Survivor, True Path" },
+            garden_of_eden: { name: "Garden of Eden", suffix: "True Path" }
+        }
+    });
+
+    const events = {
+        womlings: "Servants Arrival",
+        steel: "Steel Discovery",
+        elerium: "Elerium Discovery",
+        oil: "Space Oil Discovery",
+        pit: "Pit Discovery",
+        alien: "Alien Encounter",
+        piracy: "Pirate Encounter",
+        alien_db: "Alien Database Find",
+        corrupt_gem: "Corrupt Soul Gem Find",
+        vault: "Vault Discovery",
+        syndicate: "Syndicate Encounter"
+    };
+    const resets = {
+        mad: "MAD",
+        bioseed: "Bioseed",
+        cataclysm: "Cataclysm",
+        blackhole: "Black Hole",
+        ascend: "Ascension",
+        descend: "Demonic Infusion",
+        apotheosis: "Apotheosis",
+        aiappoc: "AI Apocalypse",
+        matrix: "Matrix",
+        retire: "Retirement",
+        eden: "Garden of Eden",
+        terraform: "Terraform"
+    };
+    const universes = {
+        standard: "Standard",
+        heavy: "Heavy Gravity",
+        antimatter: "Antimatter",
+        evil: "Evil",
+        micro: "Micro",
+        magic: "Magic"
+    };
+    const challengeGenes = {
+        no_plasmid: "No Starting Plasmids",
+        weak_mastery: "Weak Mastery",
+        nerfed: "Weak Genes",
+        no_crispr: "Junk Gene",
+        badgenes: "Bad Genes",
+        no_trade: "No Free Trade",
+        no_craft: "No Manual Crafting"
+    };
+    const environmentEffects = {
+        hot: "Hot days",
+        cold: "Cold days",
+        inspired: "Inspired",
+        motivated: "Motivated"
+    };
+    const viewModes = {
+        timestamp: "Timestamp",
+        duration: "Duration",
+        durationStacked: "Duration (stacked)",
+        records: "Records"
+    };
+    const additionalInformation = {
+        raceName: "Race name",
+        combatDeaths: "Combat deaths",
+        junkTraits: "Junk traits"
+    };
+    function resetName(reset, universe) {
+        if (reset === "blackhole" && universe === "magic") {
+            return "Vacuum Collapse";
+        }
+        else {
+            return resets[reset];
+        }
     }
 
     class Game {
@@ -2170,6 +1976,27 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         }
     }
 
+    function effectActive(effect, game) {
+        switch (effect) {
+            case "hot":
+                return game.temperature === "hot";
+            case "cold":
+                return game.temperature === "cold";
+            case "inspired":
+                return game.inspired;
+            case "motivated":
+                return game.motivated;
+            default:
+                return false;
+        }
+    }
+    const effectColors = {
+        "effect:hot": Observable10.red,
+        "effect:cold": Observable10.blue,
+        "effect:inspired": Observable10.green,
+        "effect:motivated": Observable10.orange
+    };
+
     function getResetType(entry, history) {
         const [milestoneID] = entry.milestones[entry.milestones.length - 1];
         const milestone = history.getMilestone(milestoneID);
@@ -2229,6 +2056,201 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         }
     }
 
+    function makeCondition(description) {
+        let impl = (game) => true;
+        if (description.tech !== undefined) {
+            for (const [tech, level] of Object.entries(description.tech)) {
+                impl = compose(impl, (game) => game.techLevel(tech) >= level);
+            }
+        }
+        if (description.built !== undefined) {
+            for (const [tab, buildings] of Object.entries(description.built)) {
+                impl = compose(impl, (game) => buildings.some(b => game.built(tab, b, 1)));
+            }
+        }
+        if (description.demonKills !== undefined) {
+            impl = compose(impl, (game) => game.demonKills() >= description.demonKills);
+        }
+        if (description.womlingsArrived !== undefined) {
+            impl = compose(impl, (game) => game.womlingsArrived());
+        }
+        if (description.resourceUnlocked !== undefined) {
+            impl = compose(impl, (game) => game.resourceUnlocked(description.resourceUnlocked));
+        }
+        return impl;
+    }
+    function makeEventsInfo(descriptions) {
+        return transformMap(descriptions, ([event, { precondition, postcondition }]) => {
+            const triggered = makeCondition(postcondition);
+            const conditionMet = precondition !== undefined ? makeCondition(precondition) : undefined;
+            return [event, { conditionMet, triggered }];
+        });
+    }
+    var eventsInfo = makeEventsInfo({
+        womlings: {
+            postcondition: { womlingsArrived: true }
+        },
+        steel: {
+            postcondition: { resourceUnlocked: "Steel" }
+        },
+        elerium: {
+            precondition: { tech: { "asteroid": 3 }, built: { space: ["iron_ship", "iridium_ship"] } },
+            postcondition: { tech: { "asteroid": 4 } }
+        },
+        oil: {
+            precondition: { tech: { "gas_moon": 1 }, built: { space: ["outpost"] } },
+            postcondition: { tech: { "gas_moon": 2 } }
+        },
+        pit: {
+            precondition: { tech: { "gateway": 1 }, demonKills: 1000000 },
+            postcondition: { tech: { "hell_pit": 1 } }
+        },
+        alien: {
+            precondition: { built: { galaxy: ["scout_ship"] } },
+            postcondition: { tech: { "xeno": 1 } }
+        },
+        piracy: {
+            precondition: { tech: { "xeno": 5 } },
+            postcondition: { tech: { "piracy": 1 } }
+        },
+        alien_db: {
+            precondition: { tech: { "conflict": 4 }, built: { galaxy: ["scavenger"] } },
+            postcondition: { tech: { "conflict": 5 } }
+        },
+        corrupt_gem: {
+            precondition: { tech: { "high_tech": 16 } },
+            postcondition: { tech: { "corrupt": 1 } },
+        },
+        vault: {
+            precondition: { tech: { "hell_ruins": 2 }, built: { portal: ["archaeology"] } },
+            postcondition: { tech: { "hell_vault": 1 } }
+        },
+        syndicate: {
+            precondition: { tech: { "outer": 1 } },
+            postcondition: { tech: { "syndicate": 1 } }
+        }
+    });
+
+    function makeMilestoneChecker(game, milestone) {
+        const impl = patternMatch(milestone, [
+            [/built:(.+?)-(.+?):(\d+)/, (tab, id, count) => () => game.built(tab, id, Number(count))],
+            [/tech:(.+)/, (id) => () => game.researched(id)],
+            [/event:(.+)/, (id) => () => eventsInfo[id].triggered(game)],
+            [/event_condition:(.+)/, (id) => () => eventsInfo[id].conditionMet?.(game) ?? true],
+            [/effect:(.+)/, (id) => () => effectActive(id, game)],
+        ]);
+        return {
+            milestone,
+            reached: impl ?? (() => false)
+        };
+    }
+    function techName(id) {
+        const info = techs[id];
+        return {
+            type: "Research",
+            name: info.name,
+            suffix: info.suffix
+        };
+    }
+    function buildingName(id, count) {
+        const info = buildings[id];
+        return {
+            type: "Building",
+            name: info.name,
+            id,
+            prefix: info.prefix,
+            suffix: info.suffix,
+            count
+        };
+    }
+    function milestoneName(milestone, universe) {
+        const name = patternMatch(milestone, [
+            [/built:(.+?):(\d+)/, (id, count) => buildingName(id, Number(count))],
+            [/tech:(.+)/, (id) => techName(id)],
+            [/event:(.+)/, (id) => ({ type: "Event", "name": events[id] })],
+            [/event_condition:(.+)/, (id) => ({ type: "Event Condition", "name": events[id] })],
+            [/effect:(.+)/, (id) => ({ type: "Effect", name: environmentEffects[id] })],
+            [/reset:(.+)/, (reset) => ({ type: "Reset", name: resetName(reset, universe) })],
+        ]);
+        return name ?? { type: "unknown", name: milestone };
+    }
+    function getDuplicates(entries) {
+        const grouped = Object.groupBy(entries, info => info.name);
+        return filterMap(grouped, ([, group]) => group.length !== 1);
+    }
+    function resolveDuplicateNames(entries) {
+        const steps = [
+            // Step 1: Resolve non-buildings
+            (group) => {
+                for (const entry of group) {
+                    if (entry.type !== "Building") {
+                        const { type, name, suffix } = entry;
+                        entry.name = `${name} (${suffix ?? type})`;
+                    }
+                }
+            },
+            // Step 2: Add building prefixes
+            (group) => {
+                // If all prefixes are the same, adding them won't resolve duplicate names
+                const regions = new Set(group.map(entry => entry.prefix));
+                if (regions.size === 1) {
+                    return;
+                }
+                for (const entry of group) {
+                    const { name, prefix } = entry;
+                    if (prefix) {
+                        entry.name = `${prefix} ${name}`;
+                    }
+                }
+            },
+            // Step 3: Add building suffixes
+            (group) => {
+                for (const entry of group) {
+                    const { name, suffix } = entry;
+                    if (suffix) {
+                        entry.name = `${name} (${suffix})`;
+                    }
+                }
+            },
+            // Step 4: Add building counts
+            (group) => {
+                for (const entry of group) {
+                    const { id, count } = entry;
+                    entry.name = `${entry.name} (${count})`;
+                    // Don't add count twice - make equal to the default value
+                    entry.count = segments[id] ?? 1;
+                }
+            }
+        ];
+        for (const step of steps) {
+            const duplicates = getDuplicates(entries);
+            if (Object.entries(duplicates).length === 0) {
+                return;
+            }
+            for (const group of Object.values(duplicates)) {
+                step(group);
+            }
+        }
+    }
+    function generateMilestoneNames(milestones, universe) {
+        const entries = milestones.map(m => milestoneName(m, universe));
+        resolveDuplicateNames(entries);
+        // Final step: Add building counts if needed
+        for (const entry of entries) {
+            if (entry.type !== "Building") {
+                continue;
+            }
+            const { id, count } = entry;
+            if (count !== (segments[id] ?? 1)) {
+                entry.name = `${entry.name} (${count})`;
+            }
+        }
+        return entries.map(e => e.name);
+    }
+    function milestoneType(milestone) {
+        return milestone.slice(0, milestone.indexOf(":"));
+    }
+
     function runTime(entry) {
         return entry.milestones[entry.milestones.length - 1]?.[1];
     }
@@ -2264,12 +2286,12 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         }
         const milestones = Object.keys(view.milestones);
         milestones.sort((l, r) => {
-            if (!isEffectMilestone(l) && !isEffectMilestone(r)) {
+            if (milestoneType(l) !== "effect" && milestoneType(r) !== "effect") {
                 const lIdx = lastRun.milestones.findIndex(([id]) => id === history.getMilestoneID(l));
                 const rIdx = lastRun.milestones.findIndex(([id]) => id === history.getMilestoneID(r));
                 return rIdx - lIdx;
             }
-            else if (isEffectMilestone(l)) {
+            else if (milestoneType(l) === "effect") {
                 return 1;
             }
             else {
@@ -2639,7 +2661,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             if (milestone in runStats.milestones) {
                 continue;
             }
-            if (isEffectMilestone(milestone)) {
+            if (milestoneType(milestone) === "effect") {
                 const isActive = reached();
                 const startDay = runStats.activeEffects[milestone];
                 if (isActive && startDay === undefined) {
@@ -2949,6 +2971,10 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
                 text-decoration: line-through;
             }
 
+            .hidden {
+                display: none;
+            }
+
             span.add {
                 line-height: normal;
                 width: 1.5rem;
@@ -3003,6 +3029,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             .dropdown-content {
                 scrollbar-width: thin;
                 flex-grow: 1;
+                max-height: 20rem;
             }
 
             div.dropdown-item {
@@ -3024,6 +3051,36 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
 
             .tabs li.has-text-warning a {
                 color: unset;
+            }
+
+            .plot-swatches {
+                font-family: system-ui, sans-serif;
+                font-size: 1rem;
+                align-items: center;
+
+                min-height: 33px;
+                display: flex;
+                flex-wrap: wrap;
+                justify-content: center;
+                column-gap: 1em;
+
+                .plot-swatch {
+                    display: inline-flex;
+                    align-items: center;
+                    cursor: pointer;
+                }
+
+                svg {
+                    margin-right: 0.5em;
+                    overflow: visible;
+                }
+            }
+
+            .market-item.alt {
+                margin: 0;
+                align-items: center;
+                justify-content: center;
+                opacity: 0.5;
             }
         }
 
@@ -3055,14 +3112,19 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
     `;
 
     function waitFor(query) {
+        let count = 1;
+        if (Array.isArray(query)) {
+            count = query.length;
+            query = query.join(", ");
+        }
         return new Promise(resolve => {
             const node = $(query);
-            if (node.length !== 0) {
-                return resolve(node);
+            if (node.length === count) {
+                resolve(node);
             }
             const observer = new MutationObserver(() => {
                 const node = $(query);
-                if (node.length !== 0) {
+                if (node.length === count) {
                     observer.disconnect();
                     resolve(node);
                 }
@@ -3072,6 +3134,26 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
                 subtree: true
             });
         });
+    }
+    function monitor(query, parent, callback) {
+        const nodes = $(parent).find(query);
+        if (nodes.length !== 0) {
+            callback(nodes);
+        }
+        const observer = new MutationObserver((changes) => {
+            for (const { addedNodes } of changes) {
+                const nodes = $(addedNodes).find(query);
+                if (nodes.length !== 0) {
+                    callback(nodes);
+                }
+            }
+        });
+        for (const node of parent) {
+            observer.observe(node, {
+                childList: true,
+                subtree: true
+            });
+        }
     }
 
     const scale = 2;
@@ -3108,19 +3190,20 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
                 }
             </style>
         `;
+        const offsetX = 5;
         const canvasWidth = $(plot).width();
         const canvasHeight = $(plot).height();
         const { width, height } = plot.viewBox.baseVal;
-        const context = context2d(width, height, canvasWidth, canvasHeight);
+        const context = context2d(width + offsetX * 2, height, canvasWidth, canvasHeight);
         const im = new Image();
-        im.width = width;
+        im.width = width + offsetX * 2;
         im.height = height;
         $(plot).attr("xmlns", "http://www.w3.org/2000/svg");
         const idx = -"</svg>".length;
         im.src = "data:image/svg+xml," + encodeURIComponent(plot.outerHTML.slice(0, idx) + style + plot.outerHTML.slice(idx));
         return new Promise((resolve) => {
             im.onload = () => {
-                context.drawImage(im, 0, 0, width, height);
+                context.drawImage(im, offsetX, 0, width, height);
                 resolve(context.canvas);
             };
         });
@@ -3144,21 +3227,21 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         legend.style.removeProperty("max-height");
         return canvas;
     }
-    async function plotToCanvas(plot) {
+    async function plotToCanvas(plot, legend) {
         const backgroundColor = $("html").css("background-color");
-        const legendCanvas = await legendToCanvas($(plot).find("> div")[0], backgroundColor);
-        const graphCanvas = await graphToCanvas($(plot).find("> svg")[0], backgroundColor);
-        const offsetX = 5;
+        const legendCanvas = await legendToCanvas(legend, backgroundColor);
+        const graphCanvas = await graphToCanvas(plot, backgroundColor);
         const offsetY = 10;
+        const gapY = 10;
         const legendHeight = parseFloat(legendCanvas.style.height);
         const graphHeight = parseFloat(graphCanvas.style.height);
-        const height = legendHeight + graphHeight + offsetY;
-        const width = parseFloat(legendCanvas.style.width) + offsetX * 2;
+        const height = legendHeight + graphHeight + offsetY + gapY;
+        const width = parseFloat(legendCanvas.style.width);
         const context = context2d(width, height);
         context.fillStyle = backgroundColor;
         context.fillRect(0, 0, width, height);
-        context.drawImage(legendCanvas, offsetX, offsetY, width, legendHeight);
-        context.drawImage(graphCanvas, offsetX, legendHeight + offsetY, width, graphHeight);
+        context.drawImage(legendCanvas, 0, offsetY, width, legendHeight);
+        context.drawImage(graphCanvas, 0, legendHeight + offsetY + gapY, width, graphHeight);
         return context.canvas;
     }
 
@@ -3341,6 +3424,36 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             options: Object.entries(options).map(([id, label]) => ({ type, id, label }))
         };
     }
+    function* makeBuildingGroups() {
+        const makeGroup = ([id, { name, region, suffix }]) => ({
+            type: "built",
+            prefix: region,
+            id,
+            label: name,
+            suffix
+        });
+        yield {
+            type: "Buildings",
+            options: Object.entries(buildings).filter(([id]) => !id.startsWith("arpa-")).map(makeGroup)
+        };
+        yield {
+            type: "Projects",
+            options: Object.entries(buildings).filter(([id]) => id.startsWith("arpa-")).map(makeGroup)
+        };
+    }
+    function makeResearchGroup() {
+        const options = Object.entries(techs).map(([id, { name, era, suffix }]) => ({
+            type: "tech",
+            prefix: era,
+            id,
+            label: name,
+            suffix
+        }));
+        return {
+            type: "Research",
+            options
+        };
+    }
     var MilestoneController = {
         components: {
             NumberInput
@@ -3353,10 +3466,10 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
                 count: 1,
                 selected: null,
                 options: [
-                    makeMilestoneGroup("Building/Project", "built", buildings),
-                    makeMilestoneGroup("Research", "tech", techs),
-                    makeMilestoneGroup("Event", "event", events),
-                    makeMilestoneGroup("Effect", "effect", environmentEffects)
+                    ...makeBuildingGroups(),
+                    makeResearchGroup(),
+                    makeMilestoneGroup("Events", "event", events),
+                    makeMilestoneGroup("Effects", "effect", environmentEffects)
                 ]
             };
         },
@@ -3386,15 +3499,17 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
                 return milestone;
             }
         },
+        watch: {
+            selected(value) {
+                if (value) {
+                    this.count = segments[value.id] ?? 1;
+                }
+            }
+        },
         methods: {
             add() {
                 if (this.milestone !== undefined) {
                     this.view.addMilestone(this.milestone);
-                }
-            },
-            remove() {
-                if (this.milestone !== undefined) {
-                    this.view.removeMilestone(this.milestone);
                 }
             },
             sort() {
@@ -3402,6 +3517,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             },
             resetColors() {
                 this.view.resetColors();
+                this.$emit("colorReset");
             }
         },
         template: `
@@ -3409,20 +3525,250 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
                 <label class="self-center">Track:</label>
                 <b-autocomplete
                     v-model="input"
+                    @select="(option) => { selected = option }"
                     :data="filteredOptions"
+                    field="label"
                     group-field="type"
                     group-options="options"
-                    field="label"
-                    @select="(option) => { selected = option }"
                     open-on-focus
                     placeholder="e.g. Launch Facility"
-                />
+                >
+                    <template slot-scope="props">
+                        <span v-if="props.option.prefix" style="opacity: 0.5">[{{ props.option.prefix }}]</span>
+                        <span>{{ props.option.label }}</span>
+                        <span v-if="props.option.suffix" style="opacity: 0.5">({{ props.option.suffix }})</span>
+                    </template>
+                </b-autocomplete>
                 <number-input v-if="selected?.type === 'built'" v-model="count" min="1"/>
 
                 <button class="button slim" @click="add" :disabled="selected === null">Add</button>
-                <button class="button slim" @click="remove" :disabled="selected === null">Remove</button>
                 <button class="button slim" @click="sort">Auto sort</button>
                 <button class="button slim" @click="resetColors">Reset colors</button>
+            </div>
+        `
+    };
+
+    function removable(element) {
+        return milestoneType(element.getAttribute("data-milestone")) !== "reset";
+    }
+    var MilestoneRemover = {
+        props: ["view"],
+        methods: {
+            remove(milestone) {
+                this.view.removeMilestone(milestone);
+            }
+        },
+        mounted() {
+            Sortable.create(this.$refs.container, {
+                ghostClass: "hidden",
+                sort: false,
+                group: {
+                    name: "milestones",
+                    pull: false,
+                    put: (to, from, element) => removable(element)
+                },
+                onAdd: (event) => {
+                    const milestone = event.item.getAttribute("data-milestone");
+                    this.remove(milestone);
+                }
+            });
+        },
+        template: `
+            <div ref="container" class="slim market-item alt">
+                <span>Drag here to remove</span>
+            </div>
+        `
+    };
+
+    function makeColorPickerTrigger(target, overflow = 0) {
+        const width = Number(target.attr("width"));
+        const height = Number(target.attr("height"));
+        const trigger = $(`<button></button>`)
+            .css("position", "absolute")
+            .css("padding", "0")
+            .css("top", "0px")
+            .css("left", `-${overflow}px`)
+            .css("width", `${width + overflow * 2}px`)
+            .css("height", `${height + overflow * 2}px`)
+            .css("background", "transparent")
+            .css("border", "none")
+            .css("cursor", "pointer");
+        return trigger;
+    }
+    // Reuse the same Pickr instance
+    let colorPickerInstance = null;
+    const vtable = {};
+    function getPickrInstance() {
+        if (colorPickerInstance !== null) {
+            return colorPickerInstance;
+        }
+        const trigger = $(`<button></button>`);
+        const pickr = new Pickr({
+            container: "#mTabAnalytics > div.b-tabs > section.tab-content",
+            el: trigger[0],
+            useAsButton: true,
+            position: "top-middle",
+            theme: "classic",
+            appClass: "color-picker",
+            lockOpacity: true,
+            swatches: Object.values(Observable10),
+            components: {
+                palette: true,
+                hue: true,
+                interaction: {
+                    input: true,
+                    save: true
+                }
+            }
+        });
+        let pending = false;
+        pickr.on("show", () => {
+            pending = true;
+        });
+        pickr.on("hide", (instance) => {
+            if (pending) {
+                instance.setColor(vtable.defaultColor);
+                vtable.onCancel();
+                pending = false;
+            }
+        });
+        pickr.on("save", (value, instance) => {
+            const hex = value?.toHEXA()?.toString();
+            if (hex) {
+                vtable.onSave(hex);
+                pending = false;
+            }
+            instance.hide();
+        });
+        pickr.on("change", (value) => {
+            vtable.onChange(value.toHEXA().toString());
+        });
+        return colorPickerInstance = [pickr, trigger];
+    }
+    function makeColorPicker(target, overflow, instanceCallbacks) {
+        const [pickr, trigger] = getPickrInstance();
+        const wrapper = makeColorPickerTrigger(target, overflow).on("click", function () {
+            const defaultColor = instanceCallbacks.currentColor();
+            Object.assign(vtable, { ...instanceCallbacks, defaultColor });
+            pickr.setColor(defaultColor, true);
+            trigger.prop("style", $(this).attr("style"));
+            trigger.insertAfter(target);
+            trigger.trigger("click");
+        });
+        target.parent().css("position", "relative");
+        wrapper.insertAfter(target);
+    }
+
+    var MilestoneSwatch = {
+        props: ["view", "milestone", "label"],
+        data() {
+            return {
+                pendingColor: null
+            };
+        },
+        computed: {
+            type() {
+                return milestoneType(this.milestone);
+            },
+            enabled() {
+                return this.view.milestones[this.milestone].enabled;
+            },
+            color() {
+                return this.pendingColor ?? this.view.milestones[this.milestone].color;
+            }
+        },
+        methods: {
+            toggle() {
+                this.view.toggleMilestone(this.milestone);
+            },
+            changeColor(color) {
+                this.view.setMilestoneColor(this.milestone, color);
+            }
+        },
+        directives: {
+            colorPicker: {
+                inserted(element, _, vnode) {
+                    const self = vnode.context;
+                    makeColorPicker($(element), 3, {
+                        currentColor: () => self.color,
+                        onChange: (color) => {
+                            self.pendingColor = color;
+                            self.$emit("colorPreview", { milestone: self.milestone, label: self.label, color });
+                        },
+                        onSave: (color) => {
+                            self.pendingColor = null;
+                            self.changeColor(color);
+                        },
+                        onCancel: () => {
+                            self.pendingColor = null;
+                            self.$emit("colorPreview", null);
+                        }
+                    });
+                }
+            }
+        },
+        template: `
+            <span class="plot-swatch" :data-milestone="milestone">
+                <svg v-if="type === 'effect'" v-color-picker width="15" height="15" :stroke="color" fill-opacity="0">
+                    <rect width="100%" height="100%"></rect>
+                </svg>
+
+                <svg v-else-if="type === 'event'" v-color-picker width="15" height="15" :fill="color">
+                    <circle cx="50%" cy="50%" r="50%"></circle>
+                </svg>
+
+                <svg v-else v-color-picker width="15" height="15" :fill="color">
+                    <rect width="100%" height="100%"></rect>
+                </svg>
+
+                <span @click="toggle" :class="{ crossed: !enabled }">
+                    {{ label }}
+                </span>
+            </span>
+        `
+    };
+
+    var PlotLegend = {
+        components: {
+            MilestoneSwatch
+        },
+        props: ["view"],
+        computed: {
+            milestones() {
+                return getSortedMilestones(this.view);
+            },
+            milestoneNames() {
+                return generateMilestoneNames(this.milestones, this.view.universe);
+            },
+            legend() {
+                return this.$refs.container;
+            }
+        },
+        mounted() {
+            Sortable.create(this.$refs.container, {
+                group: "milestones",
+                animation: 150,
+                onStart: () => {
+                    this.$emit("drag", true);
+                },
+                onEnd: () => {
+                    this.$emit("drag", false);
+                },
+                onUpdate: ({ oldIndex, newIndex }) => {
+                    this.view.moveMilestone(oldIndex, newIndex);
+                }
+            });
+        },
+        template: `
+            <div ref="container" class="plot-swatches plot-swatches-wrap">
+                <milestone-swatch
+                    v-for="(milestone, idx) in milestones"
+                    :key="milestone"
+                    :view="view"
+                    :milestone="milestone"
+                    :label="milestoneNames[idx]"
+                    v-on="$listeners"
+                />
             </div>
         `
     };
@@ -3449,7 +3795,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
                 }
             };
             if (options?.expected) {
-                if (!(isEventMilestone(milestone) || isEffectMilestone(milestone))) {
+                if (!["event", "effect"].includes(milestoneType(milestone))) {
                     saveTo(this.expectedMilestones);
                 }
             }
@@ -3667,90 +4013,8 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         return entries;
     }
 
-    function makeColorPickerTrigger(target, overflow = 0) {
-        const width = Number(target.attr("width"));
-        const height = Number(target.attr("height"));
-        const trigger = $(`<button></button>`)
-            .css("position", "absolute")
-            .css("padding", "0")
-            .css("top", "0px")
-            .css("left", `-${overflow}px`)
-            .css("width", `${width + overflow * 2}px`)
-            .css("height", `${height + overflow * 2}px`)
-            .css("background", "transparent")
-            .css("border", "none")
-            .css("cursor", "pointer");
-        return trigger;
-    }
-    // Reuse the same Pickr instance
-    let colorPickerInstance = null;
-    const vtable = {};
-    function getPickrInstance() {
-        if (colorPickerInstance !== null) {
-            return colorPickerInstance;
-        }
-        const trigger = $(`<button></button>`);
-        const pickr = new Pickr({
-            container: "#mTabAnalytics > div.b-tabs > section.tab-content",
-            el: trigger[0],
-            useAsButton: true,
-            position: "top-middle",
-            theme: "classic",
-            appClass: "color-picker",
-            lockOpacity: true,
-            swatches: Object.values(Observable10),
-            components: {
-                palette: true,
-                hue: true,
-                interaction: {
-                    input: true,
-                    save: true
-                }
-            }
-        });
-        pickr.on("hide", (instance) => {
-            if (instance.getColor().toHEXA().toString() !== vtable.currentColor()) {
-                instance.setColor(vtable.defaultColor);
-                vtable.onCancel();
-            }
-        });
-        pickr.on("save", (value, instance) => {
-            const hex = value?.toHEXA().toString();
-            if (hex !== undefined) {
-                vtable.onSave(hex);
-            }
-            instance.hide();
-        });
-        pickr.on("change", (value) => {
-            vtable.onChange(value.toHEXA().toString());
-        });
-        return colorPickerInstance = [pickr, trigger];
-    }
-    function makeColorPicker(target, overflow, defaultColor, instanceCallbacks) {
-        const [pickr, trigger] = getPickrInstance();
-        const wrapper = makeColorPickerTrigger(target, overflow).on("click", function () {
-            Object.assign(vtable, { ...instanceCallbacks, defaultColor });
-            pickr.setColor(defaultColor, true);
-            trigger.prop("style", $(this).attr("style"));
-            trigger.insertAfter(target);
-            trigger.trigger("click");
-        });
-        target.parent().css("position", "relative");
-        wrapper.insertAfter(target);
-    }
-
     const topTextOffset = -27;
     const marginTop = 30;
-    // If the graph gets redrawn while sorting is in progress or the color picker is open, the pending state is lost
-    // Store it here and use it in the next redraw
-    const pendingColorPicks = new WeakMap();
-    const pendingDraggingLegend = new WeakMap();
-    const pendingSelection = new WeakMap();
-    function discardCachedState(view) {
-        pendingColorPicks.delete(view);
-        pendingDraggingLegend.delete(view);
-        pendingSelection.delete(view);
-    }
     function getType(point) {
         if (point.event) {
             return "event";
@@ -4175,8 +4439,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         const idx = filteredRuns.length;
         return runAsPlotPoints(currentRun, view, game, bestRunEntries, estimate, idx);
     }
-    function makeGraph(history, view, game, currentRun, onSelect) {
-        const filteredRuns = applyFilters(history, view);
+    function makeGraph(history, view, game, filteredRuns, currentRun, colorOverride) {
         const bestRun = findBestRun(history, view);
         const plotPoints = asPlotPoints(filteredRuns, history, view, game);
         if (view.includeCurrentRun && view.mode !== "records") {
@@ -4185,11 +4448,9 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         const milestones = getSortedMilestones(view);
         const milestoneNames = generateMilestoneNames(milestones, view.universe);
         const milestoneColors = milestones.map(m => view.milestones[m].color);
-        const pendingPick = pendingColorPicks.get(view);
-        if (pendingPick !== undefined) {
-            const [milestone, value] = pendingPick;
-            const idx = milestones.indexOf(milestone);
-            milestoneColors[idx] = value;
+        if (colorOverride !== null) {
+            const idx = milestones.indexOf(colorOverride.milestone);
+            milestoneColors[idx] = colorOverride.color;
         }
         const plot = Plot.plot({
             marginTop,
@@ -4197,7 +4458,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             className: "analytics-plot",
             x: { axis: null },
             y: { grid: true, domain: calculateYScale(plotPoints, view) },
-            color: { legend: true, domain: milestoneNames, range: milestoneColors },
+            color: { domain: milestoneNames, range: milestoneColors },
             marks: generateMarks(plotPoints, filteredRuns, bestRun, view)
         });
         // When creating marks, we add a title with the milestone name
@@ -4210,140 +4471,47 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
                 title.remove();
             }
         });
-        // Handle selection
-        if (pendingSelection.has(view)) {
-            const [{ top, left }, milestone] = pendingSelection.get(view);
-            waitFor(plot).then(() => {
-                const target = $(plot).find(`[data-milestone="${milestone}"]`);
-                const container = $(`#mTabAnalytics > .b-tabs > section`);
-                function makePointerEvent(name) {
-                    return new PointerEvent(name, {
-                        pointerType: "mouse",
-                        bubbles: true,
-                        composed: true,
-                        clientX: left - container.scrollLeft(),
-                        clientY: top - container.scrollTop(),
-                    });
-                }
-                target[0].dispatchEvent(makePointerEvent("pointerenter"));
-                target[0].dispatchEvent(makePointerEvent("pointerdown"));
-            });
-        }
-        plot.addEventListener("mousedown", (event) => {
-            if (plot.value && plot.value.run < filteredRuns.length) {
-                const container = $(`#mTabAnalytics > .b-tabs > section`);
-                const coordinates = {
-                    top: event.clientY + container.scrollTop(),
-                    left: event.clientX + container.scrollLeft()
-                };
-                pendingSelection.set(view, [coordinates, plot.value.milestone]);
-                onSelect(filteredRuns[plot.value.run]);
-            }
-            else {
-                pendingSelection.delete(view);
-                onSelect(null);
-            }
-        });
-        // Process legend
-        const legendNode = $(plot).find("> div");
-        if (pendingDraggingLegend.has(view)) {
-            legendNode.replaceWith(pendingDraggingLegend.get(view));
-        }
-        else {
-            legendNode.css("justify-content", "center");
-            legendNode.find("> span").each(function () {
-                const svgNode = $(this).find("> svg");
-                const milestone = milestones[$(this).index() - 1];
-                const milestoneName = milestoneNames[$(this).index() - 1];
-                const defaultColor = svgNode.attr("fill");
-                // Metadata
-                svgNode
-                    .attr("data-view", view.index)
-                    .attr("data-milestone", milestone);
-                // Styling
-                $(this).css("font-size", "1rem");
-                if (isEffectMilestone(milestone)) {
-                    svgNode
-                        .attr("fill", null)
-                        .attr("fill-opacity", "0")
-                        .attr("stroke", defaultColor);
-                }
-                else if (isEventMilestone(milestone)) {
-                    svgNode.find("> rect").replaceWith(`<circle cx="50%" cy="50%" r="50%"></circle>`);
-                    svgNode.html(svgNode.html());
-                }
-                // Toggle milestones on click
-                $(this).css("cursor", "pointer");
-                $(this).toggleClass("crossed", !view.milestones[milestone].enabled);
-                $(this).on("click", function (event) {
-                    // Ignore clicks on the svg
-                    if (event.target !== this) {
-                        return;
-                    }
-                    const milestone = milestones[$(this).index() - 1];
-                    view.toggleMilestone(milestone);
-                });
-                // Set up color picker
-                const setMarksColor = (value) => {
-                    function impl() {
-                        if ($(this).attr("fill") !== undefined) {
-                            $(this).attr("fill", value);
-                        }
-                        if ($(this).attr("stroke") !== undefined) {
-                            $(this).attr("stroke", value);
-                        }
-                    }
-                    svgNode.each(impl);
-                    $(`figure [data-milestone="${milestoneName}"]`).each(impl);
-                };
-                makeColorPicker(svgNode, 3, defaultColor, {
-                    onChange: (value) => {
-                        pendingColorPicks.set(view, [milestone, value]);
-                        setMarksColor(value);
-                    },
-                    onSave: (value) => {
-                        pendingColorPicks.delete(view);
-                        view.setMilestoneColor(milestone, value);
-                    },
-                    onCancel: () => {
-                        pendingColorPicks.delete(view);
-                        setMarksColor(defaultColor);
-                    },
-                    currentColor: () => view.milestones[milestone].color
-                });
-            });
-            Sortable.create(legendNode[0], {
-                animation: 150,
-                onStart() {
-                    pendingDraggingLegend.set(view, $(plot).find("> div"));
-                },
-                onEnd({ oldIndex, newIndex }) {
-                    pendingDraggingLegend.delete(view);
-                    if (oldIndex !== newIndex) {
-                        view.moveMilestone(oldIndex - 1, newIndex - 1);
-                    }
-                }
-            });
-        }
-        $(plot).find("> svg").attr("width", "100%");
-        $(plot).css("margin", "0");
+        $(plot).attr("width", "100%");
         return plot;
     }
 
+    function serializeMouseEvent(event, milestone) {
+        const container = $(`#mTabAnalytics > .b-tabs > section`);
+        return {
+            top: event.clientY + container.scrollTop(),
+            left: event.clientX + container.scrollLeft(),
+            milestone: milestone
+        };
+    }
+    function restoreSelection(plot, { top, left, milestone }) {
+        const target = $(plot).find(`[data-milestone="${milestone}"]`);
+        const container = $(`#mTabAnalytics > .b-tabs > section`);
+        function makePointerEvent(name) {
+            return new PointerEvent(name, {
+                pointerType: "mouse",
+                bubbles: true,
+                composed: true,
+                clientX: left - container.scrollLeft(),
+                clientY: top - container.scrollTop(),
+            });
+        }
+        target[0].dispatchEvent(makePointerEvent("pointerenter"));
+        target[0].dispatchEvent(makePointerEvent("pointerdown"));
+    }
     var Plot$1 = {
         inject: ["game", "config", "history", "currentRun"],
-        props: ["view"],
+        props: ["view", "pendingColorChange"],
         data() {
             return {
-                selectedRun: null,
                 plot: null,
-                timestamp: null
+                timestamp: null,
+                pendingSelection: null
             };
         },
         mounted() {
             this.history.watch(() => {
-                discardCachedState(this.view);
-                this.selectedRun = null;
+                this.$emit("select", null);
+                this.pendingSelection = null;
                 this.redraw(true);
             });
             document.addEventListener("visibilitychange", () => {
@@ -4380,20 +4548,32 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
                 }
             },
             makeGraph() {
-                return makeGraph(this.history, this.view, this.game, this.currentRun, (run) => { this.selectedRun = run; });
+                const filteredRuns = applyFilters(this.history, this.view);
+                const plot = makeGraph(this.history, this.view, this.game, filteredRuns, this.currentRun, this.pendingColorChange);
+                plot.addEventListener("mousedown", (event) => {
+                    if (plot.value && plot.value.run < filteredRuns.length) {
+                        this.pendingSelection = serializeMouseEvent(event, plot.value.milestone);
+                        this.$emit("select", filteredRuns[plot.value.run]);
+                    }
+                    else {
+                        this.pendingSelection = null;
+                        this.$emit("select", null);
+                    }
+                });
+                return plot;
             }
         },
         watch: {
             plot(newNode, oldNode) {
                 if (oldNode !== null) {
                     $(oldNode).replaceWith(newNode);
+                    if (this.pendingSelection) {
+                        restoreSelection(newNode, this.pendingSelection);
+                    }
                 }
                 else {
                     this.redraw();
                 }
-            },
-            selectedRun() {
-                this.$emit("select", this.selectedRun);
             },
             "config.active"() {
                 this.redraw();
@@ -4407,8 +4587,8 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             },
             view: {
                 handler() {
-                    discardCachedState(this.view);
-                    this.selectedRun = null;
+                    this.pendingSelection = null;
+                    this.$emit("select", null);
                     this.redraw(true);
                 },
                 deep: true
@@ -4418,6 +4598,18 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
                     this.redraw();
                 },
                 deep: true
+            },
+            pendingColorChange(newValue, oldValue) {
+                const label = newValue?.label ?? oldValue.label;
+                const color = newValue?.color ?? this.view.milestones[oldValue.milestone].color;
+                // It's faster than rerendering the whole graph
+                $(this.plot).find(`[data-milestone="${label}"]`).each(function () {
+                    for (const attr of ["fill", "stroke"]) {
+                        if ($(this).attr(attr) !== undefined) {
+                            $(this).attr(attr, color);
+                        }
+                    }
+                });
             }
         },
         directives: {
@@ -4516,14 +4708,18 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         components: {
             ViewSettings,
             MilestoneController,
+            MilestoneRemover,
+            PlotLegend,
             Plot: Plot$1
         },
         inject: ["config", "history"],
         props: ["view"],
         data() {
             return {
+                pendingColorChange: null,
                 selectedRun: null,
-                rendering: false
+                rendering: false,
+                dragging: false
             };
         },
         computed: {
@@ -4557,7 +4753,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             },
             async asImage() {
                 this.rendering = true;
-                const canvas = await plotToCanvas(this.$refs.plot.plot);
+                const canvas = await plotToCanvas(this.$refs.plot.plot, this.$refs.legend.legend);
                 canvas.toBlob((blob) => {
                     navigator.clipboard.write([
                         new ClipboardItem({ "image/png": blob })
@@ -4579,6 +4775,9 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             },
             renameView() {
                 openInputDialog(this, "view.name", "Rename", this.defaultName);
+            },
+            onColorPreview(preview) {
+                this.pendingColorChange = preview;
             }
         },
         template: `
@@ -4590,9 +4789,12 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
                 <div class="flex flex-col gap-m">
                     <view-settings :view="view"/>
 
-                    <milestone-controller :view="view"/>
+                    <milestone-controller v-if="!dragging" :view="view" @colorReset="() => onColorPreview(null)"/>
+                    <milestone-remover v-else :view="view"/>
 
-                    <plot ref="plot" :view="view" @select="(run) => { selectedRun = run }"/>
+                    <plot-legend ref="legend" :view="view" @colorPreview="onColorPreview" @drag="(value) => dragging = value"/>
+
+                    <plot ref="plot" :view="view" :pendingColorChange="pendingColorChange" @select="(run) => selectedRun = run"/>
 
                     <div class="flex flex-row flex-wrap justify-between">
                         <div class="flex flex-row gap-m">
@@ -4776,17 +4978,18 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
                 original(item);
             }
         };
-        // Because the observation button may not always exist,
-        // use then() instead of await to unblock bootstrapUIComponents() and allow logging in index.ts
-        waitFor("button.observe").then(observationButtons => {
-            // Vanilla evolve does `global.settings.civTabs = $(`#mainTabs > nav ul li`).length - 1`
-            // Replace the button with the mock click handler that assigns the correct tab index
-            const text = observationButtons.first().text();
+        // Vanilla evolve does `global.settings.civTabs = $(`#mainTabs > nav ul li`).length - 1`
+        // Replace the button with the mock click handler that assigns the correct tab index
+        const tabhNodes = (await waitFor(["#mTabCivil", "#mTabCivic"])).parent();
+        // Note: the tabs get rerendered many times during the run - replace the button after every redraw
+        monitor("button.observe", tabhNodes, (button) => {
+            const text = button.first().text();
             const mockButton = $(`<button class="button observe right">${text}</button>`);
             mockButton.on("click", () => {
                 openTab(8 /* EvolveTabs.HellObservations */);
             });
-            observationButtons.replaceWith(mockButton);
+            button.replaceWith(mockButton);
+            console.log("replaced");
         });
     }
     async function addMainToggle(config) {
