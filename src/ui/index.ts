@@ -1,5 +1,5 @@
 import styles from "./styles.css";
-import { waitFor } from "./utils";
+import { waitFor, monitor } from "./utils";
 import { spy } from "../utils";
 import { EvolveTabs } from "../evolve";
 import type { Game } from "../game";
@@ -103,19 +103,21 @@ async function addAnalyticsTab(game: Game, config: ConfigManager, history: Histo
         }
     };
 
-    // Because the observation button may not always exist,
-    // use then() instead of await to unblock bootstrapUIComponents() and allow logging in index.ts
-    waitFor("button.observe").then(observationButtons => {
-        // Vanilla evolve does `global.settings.civTabs = $(`#mainTabs > nav ul li`).length - 1`
-        // Replace the button with the mock click handler that assigns the correct tab index
-        const text = observationButtons.first().text();
+    // Vanilla evolve does `global.settings.civTabs = $(`#mainTabs > nav ul li`).length - 1`
+    // Replace the button with the mock click handler that assigns the correct tab index
+    const tabhNodes = (await waitFor(["#mTabCivil", "#mTabCivic"])).parent();
+
+    // Note: the tabs get rerendered many times during the run - replace the button after every redraw
+    monitor("button.observe", tabhNodes, (button) => {
+        const text = button.first().text();
 
         const mockButton = $(`<button class="button observe right">${text}</button>`);
         mockButton.on("click", () => {
             openTab(EvolveTabs.HellObservations);
         });
 
-        observationButtons.replaceWith(mockButton);
+        button.replaceWith(mockButton);
+        console.log("replaced");
     });
 }
 

@@ -2,7 +2,7 @@ import colorScheme from "../../enums/colorSchemes";
 
 import { default as Pickr } from "@simonwep/pickr";
 
-function makeColorPickerTrigger(target: JQuery<HTMLElement>, overflow: number = 0) {
+function makeColorPickerTrigger(target: JQuery, overflow: number = 0) {
     const width = Number(target.attr("width"));
     const height = Number(target.attr("height"));
 
@@ -28,10 +28,10 @@ type PickrVTable = {
 }
 
 // Reuse the same Pickr instance
-let colorPickerInstance: [Pickr, JQuery<HTMLElement>] | null = null;
+let colorPickerInstance: [Pickr, JQuery] | null = null;
 const vtable: PickrVTable & { defaultColor: string } = {} as any;
 
-function getPickrInstance(): [Pickr, JQuery<HTMLElement>] {
+function getPickrInstance(): [Pickr, JQuery] {
     if (colorPickerInstance !== null) {
         return colorPickerInstance
     }
@@ -92,7 +92,7 @@ function getPickrInstance(): [Pickr, JQuery<HTMLElement>] {
     return colorPickerInstance = [pickr, trigger];
 }
 
-export function makeColorPicker(target: JQuery<HTMLElement>, overflow: number, instanceCallbacks: PickrVTable) {
+export function makeColorPicker(target: JQuery, overflow: number, instanceCallbacks: PickrVTable) {
     const [pickr, trigger] = getPickrInstance();
 
     const wrapper = makeColorPickerTrigger(target, overflow).on("click", function() {
