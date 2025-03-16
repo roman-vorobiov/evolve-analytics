@@ -139,12 +139,35 @@ async function addMainToggle(config: ConfigManager) {
     });
 }
 
+async function gropPauseButton() {
+    const icon = $(`<span id="pausegame" role="button" aria-label="Start the Game" class="atime pause"></span>`);
+
+    const button = await waitFor("#pausegame");
+
+    button
+        .removeClass("play")
+        .removeClass("pause")
+        .removeAttr("id")
+        .removeAttr("aria-label")
+        .css("padding", "0 0.5rem")
+        .css("margin-left", "0.5rem")
+        .css("width", `1rem`)
+        .css("height", `100%`)
+        .css("background", "transparent")
+        .css("border", "none")
+        .css("cursor", "pointer");
+
+    button.append(icon);
+}
+
 function addStyles() {
     $("head").append(`<style type="text/css">${styles}</style>`);
 }
 
 export async function bootstrapUIComponents(game: Game, config: ConfigManager, history: HistoryManager, currentRun: LatestRun) {
     addStyles();
+
+    await gropPauseButton();
 
     await addMainToggle(config);
 
