@@ -4,7 +4,7 @@ import { shouldIncludeRun } from "./exports/historyFiltering";
 import { rotateMap } from "./utils"
 import type { universes } from "./enums";
 import type { Game } from "./game";
-import type { ConfigManager } from "./config";
+import type { ConfigManager, View } from "./config";
 
 import { ref, watch, type Ref } from "vue";
 
@@ -61,30 +61,20 @@ export class HistoryManager {
     commitRun(runStats: LatestRun) {
         const resetType = inferResetType(runStats, this.game);
 
-        const milestones: MilestoneReference[] = [
-            ...Object.entries(runStats.milestones).map(([milestone, days]) => [this.getMilestoneID(milestone), days]) as MilestoneReference[],
-            [this.getMilestoneID(`reset:${resetType}`), runStats.totalDays]
-        ];
-
-        milestones.sort(([, l], [, r]) => l - r);
-
-        const effectsHistory = [
-            ...runStats.effectsHistory,
-            ...Object.entries(runStats.activeEffects).map(([effect, start]) => [effect, start, runStats.totalDays]) as [string, number, number][]
-        ];
-
-        const effects = effectsHistory
-            .map(([effect, start, end]) => [this.getMilestoneID(effect), start, end]) as EffectReference[];
-
         const entry: HistoryEntry = {
             run: runStats.run,
             universe: runStats.universe!,
             starLevel: runStats.starLevel,
-            milestones,
-            effects: effects.length === 0 ? undefined : effects
+            milestones: [
+                [this.getMilestoneID(`reset:${resetType}`), runStats.totalDays]
+            ]
         };
 
-        this.augmentEntry(entry, runStats);
+        const matchingViews = this.config.views.filter(v => shouldIncludeRun(entry, v, this));
+
+        this.collectMilestones(entry, runStats, matchingViews);
+        this.collectEffects(entry, runStats, matchingViews);
+        this.collectAdditionalInfo(entry, runStats, matchingViews);
 
         this.history.runs.push(entry);
         this.length.value = this.runs.length;
@@ -108,11 +98,38 @@ export class HistoryManager {
         return id;
     }
 
-    private augmentEntry(entry: HistoryEntry, runStats: LatestRun) {
-        const views = this.config.views.filter(v => shouldIncludeRun(entry, v, this));
-        const infoKeys = [...new Set(views.flatMap(v => v.additionalInfo))];
+    private collectMilestones(entry: HistoryEntry, runStats: LatestRun, views: View[]) {
+        const milestonesFilter = new Set(views.flatMap(v => Object.keys(v.milestones)));
 
-        for (const key of infoKeys) {
+        entry.milestones.push(
+            ...Object.entries(runStats.milestones)
+                .filter(([milestone]) => milestonesFilter.has(milestone))
+                .map(([milestone, days]) => [this.getMilestoneID(milestone), days]) as MilestoneReference[]
+        );
+
+        entry.milestones.sort(([, l], [, r]) => l - r);
+    }
+
+    private collectEffects(entry: HistoryEntry, runStats: LatestRun, views: View[]) {
+        const milestonesFilter = new Set(views.flatMap(v => Object.keys(v.milestones)));
+
+        let effectsHistory = [
+            ...runStats.effectsHistory,
+            ...Object.entries(runStats.activeEffects)
+                .map(([effect, start]) => [effect, start, runStats.totalDays]) as LatestRun["effectsHistory"]
+        ];
+
+        effectsHistory = effectsHistory.filter(([effect]) => milestonesFilter.has(effect));
+
+        if (effectsHistory.length !== 0) {
+            entry.effects = effectsHistory.map(([effect, start, end]) => [this.getMilestoneID(effect), start, end]);
+        }
+    }
+
+    private collectAdditionalInfo(entry: HistoryEntry, runStats: LatestRun, views: View[]) {
+        const infoKeys = new Set(views.flatMap(v => v.additionalInfo));
+
+        for (const key of infoKeys.values()) {
             entry[key] = runStats[key] as any;
         }
     }

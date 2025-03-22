@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach } from "@jest/globals";
-import { makeGameState, makeConfig, makeHistory } from "./fixture";
+import { makeGameState, makeConfig, makeHistory, makeView, makeMilestones } from "./fixture";
 
 import { Game } from "../src/game";
 import { HistoryManager, blankHistory } from "../src/history";
@@ -94,9 +94,22 @@ describe("History", () => {
             });
         });
 
-        it("should add all milestones", () => {
+        it("should add all milestones from matching views", () => {
             const game = new Game(makeGameState({ global: { stats: { bioseed: 1 } } }));
-            const history = makeHistory({ game }, {
+            const config = makeConfig({ game }, {
+                views: [
+                    makeView({
+                        resetType: "mad",
+                        milestones: makeMilestones(["tech:wheel"])
+                    }),
+                    makeView({
+                        resetType: "bioseed",
+                        milestones: makeMilestones(["tech:club", "built:city-shed:1"])
+                    })
+                ]
+            });
+
+            const history = makeHistory({ game, config }, {
                 milestones: {
                     "tech:club": 0
                 },
@@ -108,20 +121,20 @@ describe("History", () => {
                 universe: "standard",
                 resets: {},
                 totalDays: 456,
-                milestones: { "tech:club": 10, "built:city-shed:1": 20 },
+                milestones: { "tech:club": 10, "tech:wheel": 15, "built:city-shed:1": 20 },
                 activeEffects: {},
                 effectsHistory: []
             });
 
             expect(history.milestones).toEqual({
                 [0]: "tech:club",
-                [1]: "built:city-shed:1",
-                [2]: "reset:bioseed"
+                [1]: "reset:bioseed",
+                [2]: "built:city-shed:1"
             });
             expect(history.milestoneIDs).toEqual({
                 "tech:club": 0,
-                "built:city-shed:1": 1,
-                "reset:bioseed": 2
+                "reset:bioseed": 1,
+                "built:city-shed:1": 2
             });
 
             expect(history.runs.length).toBe(1);
@@ -130,15 +143,28 @@ describe("History", () => {
                 universe: "standard",
                 milestones: [
                     [0, 10],
-                    [1, 20],
-                    [2, 456]
+                    [2, 20],
+                    [1, 456]
                 ]
             });
         });
 
-        it("should add all effects", () => {
+        it("should add all effects from matching views", () => {
             const game = new Game(makeGameState({ global: { stats: { bioseed: 1 } } }));
-            const history = makeHistory({ game }, {
+            const config = makeConfig({ game }, {
+                views: [
+                    makeView({
+                        resetType: "mad",
+                        milestones: makeMilestones(["effect:inspired"])
+                    }),
+                    makeView({
+                        resetType: "bioseed",
+                        milestones: makeMilestones(["effect:hot", "effect:cold"])
+                    })
+                ]
+            });
+
+            const history = makeHistory({ game, config }, {
                 milestones: {},
                 runs: []
             });
@@ -150,16 +176,18 @@ describe("History", () => {
                 totalDays: 456,
                 milestones: {},
                 activeEffects: { "effect:hot": 200 },
-                effectsHistory: [["effect:hot", 50, 100]]
+                effectsHistory: [["effect:hot", 50, 100], ["effect:inspired", 25, 75], ["effect:cold", 125, 175]]
             });
 
             expect(history.milestones).toEqual({
                 [0]: "reset:bioseed",
                 [1]: "effect:hot",
+                [2]: "effect:cold"
             });
             expect(history.milestoneIDs).toEqual({
                 "reset:bioseed": 0,
-                "effect:hot": 1
+                "effect:hot": 1,
+                "effect:cold": 2
             });
 
             expect(history.runs.length).toBe(1);
@@ -171,6 +199,7 @@ describe("History", () => {
                 ],
                 effects: [
                     [1, 50, 100],
+                    [2, 125, 175],
                     [1, 200, 456]
                 ]
             });
@@ -220,7 +249,7 @@ describe("History", () => {
             });
         });
 
-        it("should not affect existing runs", () => {
+        it("should not affect existing milestone IDs", () => {
             const game = new Game(makeGameState({ global: { stats: { bioseed: 1 } } }));
             const history = makeHistory({ game }, {
                 milestones: {
@@ -244,7 +273,7 @@ describe("History", () => {
                 universe: "standard",
                 resets: {},
                 totalDays: 456,
-                milestones: { "tech:club": 10, "built:city-shed:1": 20 },
+                milestones: { "tech:club": 10 },
                 activeEffects: {},
                 effectsHistory: []
             });
@@ -252,14 +281,12 @@ describe("History", () => {
             expect(history.milestones).toEqual({
                 [0]: "tech:club",
                 [1]: "reset:mad",
-                [2]: "built:city-shed:1",
-                [3]: "reset:bioseed"
+                [2]: "reset:bioseed"
             });
             expect(history.milestoneIDs).toEqual({
                 "tech:club": 0,
                 "reset:mad": 1,
-                "built:city-shed:1": 2,
-                "reset:bioseed": 3
+                "reset:bioseed": 2
             });
 
             expect(history.runs.length).toBe(2);
@@ -267,9 +294,7 @@ describe("History", () => {
                 run: 123,
                 universe: "standard",
                 milestones: [
-                    [0, 10],
-                    [2, 20],
-                    [3, 456]
+                    [2, 456]
                 ]
             });
         });
