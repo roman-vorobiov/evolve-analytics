@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.15.9
+// @version      0.15.10
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -2632,25 +2632,18 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         }
         commitRun(runStats) {
             const resetType = inferResetType(runStats, this.game);
-            const milestones = [
-                ...Object.entries(runStats.milestones).map(([milestone, days]) => [this.getMilestoneID(milestone), days]),
-                [this.getMilestoneID(`reset:${resetType}`), runStats.totalDays]
-            ];
-            milestones.sort(([, l], [, r]) => l - r);
-            const effectsHistory = [
-                ...runStats.effectsHistory,
-                ...Object.entries(runStats.activeEffects).map(([effect, start]) => [effect, start, runStats.totalDays])
-            ];
-            const effects = effectsHistory
-                .map(([effect, start, end]) => [this.getMilestoneID(effect), start, end]);
             const entry = {
                 run: runStats.run,
                 universe: runStats.universe,
                 starLevel: runStats.starLevel,
-                milestones,
-                effects: effects.length === 0 ? undefined : effects
+                milestones: [
+                    [this.getMilestoneID(`reset:${resetType}`), runStats.totalDays]
+                ]
             };
-            this.augmentEntry(entry, runStats);
+            const matchingViews = this.config.views.filter(v => shouldIncludeRun(entry, v, this));
+            this.collectMilestones(entry, runStats, matchingViews);
+            this.collectEffects(entry, runStats, matchingViews);
+            this.collectAdditionalInfo(entry, runStats, matchingViews);
             this.history.runs.push(entry);
             this.length.value = this.runs.length;
         }
@@ -2667,10 +2660,28 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             this.milestoneIDs[milestone] = id;
             return id;
         }
-        augmentEntry(entry, runStats) {
-            const views = this.config.views.filter(v => shouldIncludeRun(entry, v, this));
-            const infoKeys = [...new Set(views.flatMap(v => v.additionalInfo))];
-            for (const key of infoKeys) {
+        collectMilestones(entry, runStats, views) {
+            const milestonesFilter = new Set(views.flatMap(v => Object.keys(v.milestones)));
+            entry.milestones.push(...Object.entries(runStats.milestones)
+                .filter(([milestone]) => milestonesFilter.has(milestone))
+                .map(([milestone, days]) => [this.getMilestoneID(milestone), days]));
+            entry.milestones.sort(([, l], [, r]) => l - r);
+        }
+        collectEffects(entry, runStats, views) {
+            const milestonesFilter = new Set(views.flatMap(v => Object.keys(v.milestones)));
+            let effectsHistory = [
+                ...runStats.effectsHistory,
+                ...Object.entries(runStats.activeEffects)
+                    .map(([effect, start]) => [effect, start, runStats.totalDays])
+            ];
+            effectsHistory = effectsHistory.filter(([effect]) => milestonesFilter.has(effect));
+            if (effectsHistory.length !== 0) {
+                entry.effects = effectsHistory.map(([effect, start, end]) => [this.getMilestoneID(effect), start, end]);
+            }
+        }
+        collectAdditionalInfo(entry, runStats, views) {
+            const infoKeys = new Set(views.flatMap(v => v.additionalInfo));
+            for (const key of infoKeys.values()) {
                 entry[key] = runStats[key];
             }
         }
