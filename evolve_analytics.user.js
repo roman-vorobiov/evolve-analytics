@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.15.10
+// @version      0.15.11
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -1181,7 +1181,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             science: "Scientific Method",
             library: "Dewey Decimal System",
             thesis: "Thesis Papers",
-            research_grant: "Research Grants",
+            research_grant: "Research Grant",
             reclaimer: { name: "Reclaimers", suffix: "Evil" },
             shovel: { name: "Shovel", suffix: "Evil" },
             iron_shovel: { name: "Iron Shovel", suffix: "Evil" },
@@ -1224,7 +1224,8 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             conjuring: "Conjuring",
             res_conjuring: "Resource Conjuring",
             secret_society: "Secret Society",
-            cultists: { name: "Cultists", suffix: "Witch Hunter" }
+            cultists: { name: "Cultists", suffix: "Witch Hunter" },
+            might: "Might Makes Right"
         },
         "Discovery": {
             steam_engine: { name: "Steam Engine", suffix: "Gravity Well" },
@@ -1291,7 +1292,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             corruption: "Corrupt Politicians",
             freight: "Freight Trains",
             wharf: "Wharves",
-            swiss_banking: "Kashkaval Banking",
+            swiss_banking: "Swiss Banking",
             scientific_journal: "Scientific Journal",
             adjunct_professor: "Adjunct Professors",
             tesla_coil: "Tesla Coil",
@@ -1312,7 +1313,8 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             portland_cement: "Portland Cement",
             hunter_process: "Hunter Process",
             pylon_camouflage: { name: "Pylon Camouflage", suffix: "Witch Hunter" },
-            fake_tech: { name: "Fake Tech", suffix: "Witch Hunter" }
+            fake_tech: { name: "Fake Tech", suffix: "Witch Hunter" },
+            executions: "Public Executions"
         },
         "Deep Space": {
             hover_cart: { name: "Hover Cart", suffix: "Gravity Well" },
@@ -1350,7 +1352,8 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             genesis_ship: "Genesis Ship",
             geck: "G.E.C.K.",
             dial_it_to_11: "Dial it up to 11",
-            limit_collider: "Limit Collider"
+            limit_collider: "Limit Collider",
+            ai_tracking: "Facial Recognition"
         },
         "Globalized": {
             pipelines: { name: "Oil Pipelines", suffix: "Gravity Well" },
@@ -1394,7 +1397,8 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             mad: "Mutual Destruction",
             screw_conveyor: "Screw Conveyor",
             kroll_process: "Kroll Process",
-            unite: { name: "Unite Country", suffix: "True Path" }
+            unite: { name: "Unite Country", suffix: "True Path" },
+            secret_police: "Secret Police"
         },
         "Dimensional": {
             arcology: "Arcology",
@@ -1555,7 +1559,8 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             gun_emplacement: "Gun Emplacement",
             advanced_emplacement: "Advanced Gun Emplacement",
             transmutation: "Advanced Transmutation",
-            improved_concealment: { name: "Improved Concealment Wards", suffix: "Witch Hunter" }
+            improved_concealment: { name: "Improved Concealment Wards", suffix: "Witch Hunter" },
+            predictive_arrests: "Predictive Arrests"
         },
         "Interstellar": {
             superstars: "Super Stars",
