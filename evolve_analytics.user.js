@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.15.11
+// @version      0.15.12
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @match        https://pmotschmann.github.io/Evolve/
@@ -53,25 +53,24 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
     const [saveCurrentRun, loadLatestRun, discardLatestRun] = makeDatabaseFunctions("sneed.analytics.latest");
 
     function migrate4(config) {
-        return {
-            version: 6,
-            recordRuns: config.recordRuns ?? true,
-            lastOpenViewIndex: config.views.length !== 0 ? 0 : undefined,
-            views: config.views.map(view => {
-                return {
-                    additionalInfo: [],
-                    ...view
-                };
-            })
-        };
+        config.recordRuns ??= true;
+        delete config.paused;
+        config.lastOpenViewIndex = config.views.length !== 0 ? 0 : undefined;
+        config.views = config.views.map(view => {
+            return {
+                additionalInfo: [],
+                ...view
+            };
+        });
+        config.version = 6;
     }
 
-    function migrateLatestRun$3(latestRun) {
+    function migrateLatestRun$2(latestRun) {
         if (latestRun.universe === "bigbang") {
             delete latestRun.universe;
         }
     }
-    function migrateHistory$3(history) {
+    function migrateHistory$2(history) {
         for (let i = 0; i !== history.runs.length; ++i) {
             const run = history.runs[i];
             const nextRun = history.runs[i + 1];
@@ -95,14 +94,14 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
     }
     function migrate6(config, history, latestRun) {
         if (latestRun !== null) {
-            migrateLatestRun$3(latestRun);
+            migrateLatestRun$2(latestRun);
         }
-        if (migrateHistory$3(history)) {
+        if (migrateHistory$2(history)) {
             config.version = 7;
         }
     }
 
-    function migrateView$4(view) {
+    function migrateView$3(view) {
         return {
             ...view,
             mode: ["segmented", "barsSegmented"].includes(view.mode) ? "duration" : "timestamp",
@@ -113,11 +112,8 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         };
     }
     function migrate7(config) {
-        return {
-            ...config,
-            version: 8,
-            views: config.views.map(migrateView$4)
-        };
+        config.views = config.views.map(migrateView$3);
+        config.version = 8;
     }
 
     function transformMap(obj, fn) {
@@ -221,34 +217,38 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         }
     }
 
-    function rename(milestone) {
-        return milestone.replace("harbour", "harbor");
-    }
-    function migrateMilestones(milestones) {
-        return transformMap(milestones, ([milestone, day]) => [rename(milestone), day]);
-    }
-    function migrateView$3(view) {
-        view.milestones = migrateMilestones(view.milestones);
-    }
-    function migrateConfig$2(config) {
-        for (const view of config.views) {
-            migrateView$3(view);
+    function makeRenamingMigration(newVersion, from, to) {
+        function rename(milestone) {
+            return milestone.replace(from, to);
         }
-        config.version = 9;
-    }
-    function migrateHistory$2(history) {
-        history.milestones = migrateMilestones(history.milestones);
-    }
-    function migrateLatestRun$2(latestRun) {
-        latestRun.milestones = migrateMilestones(latestRun.milestones);
-    }
-    function migrate8(config, history, latestRun) {
-        migrateConfig$2(config);
-        migrateHistory$2(history);
-        if (latestRun !== null) {
-            migrateLatestRun$2(latestRun);
+        function migrateMilestones(milestones) {
+            return transformMap(milestones, ([milestone, day]) => [rename(milestone), day]);
         }
+        function migrateView(view) {
+            view.milestones = migrateMilestones(view.milestones);
+        }
+        function migrateConfig(config) {
+            for (const view of config.views) {
+                migrateView(view);
+            }
+            config.version = newVersion;
+        }
+        function migrateHistory(history) {
+            history.milestones = migrateMilestones(history.milestones);
+        }
+        function migrateLatestRun(latestRun) {
+            latestRun.milestones = migrateMilestones(latestRun.milestones);
+        }
+        return function (config, history, latestRun) {
+            migrateConfig(config);
+            migrateHistory(history);
+            if (latestRun !== null) {
+                migrateLatestRun(latestRun);
+            }
+        };
     }
+
+    const migrate8 = makeRenamingMigration(9, "harbour", "harbor");
 
     function migrateConfig$1(config) {
         config.version = 10;
@@ -423,7 +423,9 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         config.version = 16;
     }
 
-    const VERSION = 16;
+    const migrate16 = makeRenamingMigration(17, "eden-abandoned_throne", "eden-throne");
+
+    const VERSION = 17;
     function migrate() {
         let config = loadConfig();
         if (config === null) {
@@ -432,46 +434,42 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         if (config.version >= VERSION) {
             return;
         }
-        let history = loadHistory();
-        let latestRun = loadLatestRun();
         if (config.version < 4) {
             discardConfig();
             discardHistory();
             discardLatestRun();
             return;
         }
-        if (config.version < 6) {
-            config = migrate4(config);
-        }
-        if (config.version === 6) {
-            migrate6(config, history, latestRun);
-        }
-        if (config.version === 7) {
-            config = migrate7(config);
-        }
-        if (config.version === 8) {
-            migrate8(config, history, latestRun);
-        }
-        if (config.version === 9) {
-            migrate9(config, latestRun);
-        }
-        if (config.version === 10) {
-            migrate10(config);
-        }
-        if (config.version === 11) {
-            migrate11(config, history, latestRun);
-        }
-        if (config.version === 12) {
-            migrate12(config, history);
-        }
-        if (config.version === 13) {
-            migrate13(config);
-        }
-        if (config.version === 14) {
-            migrate14(config, history);
-        }
-        if (config.version === 15) {
-            migrate15(config);
+        let history = loadHistory();
+        let latestRun = loadLatestRun();
+        switch (config.version) {
+            default:
+                return;
+            case 4:
+            case 5:
+                migrate4(config);
+            case 6:
+                migrate6(config, history, latestRun);
+            case 7:
+                migrate7(config);
+            case 8:
+                migrate8(config, history, latestRun);
+            case 9:
+                migrate9(config, latestRun);
+            case 10:
+                migrate10(config);
+            case 11:
+                migrate11(config, history, latestRun);
+            case 12:
+                migrate12(config, history);
+            case 13:
+                migrate13(config);
+            case 14:
+                migrate14(config, history);
+            case 15:
+                migrate15(config);
+            case 16:
+                migrate16(config, history, latestRun);
         }
         saveConfig(config);
         history !== null && saveHistory(history);
