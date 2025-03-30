@@ -14,12 +14,14 @@ function makeView(mode: string) {
 describe("Migration", () => {
     describe("7 -> 8", () => {
         it("should translate 'total' mode", () => {
-            const oldConfig = {
+            const config = {
                 version: 7,
                 views: [makeView("total")]
             };
 
-            expect(migrate7(oldConfig as any)).toEqual({
+            migrate7(config as any);
+
+            expect(config).toEqual({
                 version: 8,
                 views: [
                     {
@@ -37,12 +39,14 @@ describe("Migration", () => {
         });
 
         it("should translate 'filled' mode", () => {
-            const oldConfig = {
+            const config = {
                 version: 7,
                 views: [makeView("filled")]
             };
 
-            expect(migrate7(oldConfig as any)).toEqual({
+            migrate7(config as any);
+
+            expect(config).toEqual({
                 version: 8,
                 views: [
                     {
@@ -60,12 +64,14 @@ describe("Migration", () => {
         });
 
         it("should translate 'bars' mode", () => {
-            const oldConfig = {
+            const config = {
                 version: 7,
                 views: [makeView("bars")]
             };
 
-            expect(migrate7(oldConfig as any)).toEqual({
+            migrate7(config as any);
+
+            expect(config).toEqual({
                 version: 8,
                 views: [
                     {
@@ -83,12 +89,14 @@ describe("Migration", () => {
         });
 
         it("should translate 'barsSegmented' mode", () => {
-            const oldConfig = {
+            const config = {
                 version: 7,
                 views: [makeView("barsSegmented")]
             };
 
-            expect(migrate7(oldConfig as any)).toEqual({
+            migrate7(config as any);
+
+            expect(config).toEqual({
                 version: 8,
                 views: [
                     {
@@ -106,12 +114,14 @@ describe("Migration", () => {
         });
 
         it("should translate 'segmented' mode", () => {
-            const oldConfig = {
+            const config = {
                 version: 7,
                 views: [makeView("segmented")]
             };
 
-            expect(migrate7(oldConfig as any)).toEqual({
+            migrate7(config as any);
+
+            expect(config).toEqual({
                 version: 8,
                 views: [
                     {

@@ -5,13 +5,15 @@ import { migrate4 } from "../../src/migration/4";
 describe("Migration", () => {
     describe("5 -> 6", () => {
         it("should remove the paused field", () => {
-            const oldConfig = {
+            const config = {
                 version: 5,
                 paused: true,
                 views: []
             };
 
-            expect(migrate4(oldConfig as any)).toEqual({
+            migrate4(config as any);
+
+            expect(config).toEqual({
                 version: 6,
                 recordRuns: true,
                 views: []
@@ -19,7 +21,7 @@ describe("Migration", () => {
         });
 
         it("should force the additionalInfo field", () => {
-            const oldConfig = {
+            const config = {
                 version: 5,
                 views: [
                     {
@@ -36,7 +38,9 @@ describe("Migration", () => {
                 ]
             };
 
-            expect(migrate4(oldConfig as any)).toEqual({
+            migrate4(config as any)
+
+            expect(config).toEqual({
                 version: 6,
                 recordRuns: true,
                 lastOpenViewIndex: 0,

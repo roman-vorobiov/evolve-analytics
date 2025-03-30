@@ -13,19 +13,23 @@ export type ViewConfig4 = {
 export type Config4 = {
     version: number,
     recordRuns?: boolean,
-    views: ViewConfig4[]
+    views: ViewConfig4[],
+    paused?: boolean
 }
 
-export function migrate4(config: Config4): Config6 {
-    return {
-        version: 6,
-        recordRuns: config.recordRuns ?? true,
-        lastOpenViewIndex: config.views.length !== 0 ? 0 : undefined,
-        views: config.views.map(view => {
-            return {
-                additionalInfo: [],
-                ...view
-            };
-        })
-    };
+export function migrate4(config: Config4) {
+    config.recordRuns ??= true;
+
+    delete config.paused;
+
+    (config as any).lastOpenViewIndex = config.views.length !== 0 ? 0 : undefined;
+
+    config.views = config.views.map(view => {
+        return {
+            additionalInfo: [],
+            ...view
+        };
+    });
+
+    config.version = 6;
 }

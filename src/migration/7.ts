@@ -37,10 +37,7 @@ function migrateView(view: ViewConfig7): ViewConfig8 {
     };
 }
 
-export function migrate7(config: Config7): Config8 {
-    return {
-        ...config,
-        version: 8,
-        views: config.views.map(migrateView)
-    };
+export function migrate7(config: any) {
+    config.views = config.views.map(migrateView);
+    config.version = 8;
 }
