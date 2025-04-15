@@ -1,9 +1,11 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.15.12
+// @version      0.15.13
 // @description  Track and see detailed information about your runs
 // @author       Sneed
+// @updateURL    https://github.com/roman-vorobiov/evolve-analytics/raw/refs/heads/main/evolve_analytics.meta.js
+// @downloadURL  https://github.com/roman-vorobiov/evolve-analytics/raw/refs/heads/main/evolve_analytics.user.js
 // @match        https://pmotschmann.github.io/Evolve/
 // @resource     PICKR_CSS https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/themes/classic.min.css
 // @require      https://cdn.jsdelivr.net/npm/@simonwep/pickr/dist/pickr.min.js
@@ -492,7 +494,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
     }
 
     function checkOldTech({ actions, global }, tech) {
-        let tch = actions.tech[tech].grant[0];
+        let tch = actions.tech[tech]?.grant?.[0];
         if (global.tech[tch] && global.tech[tch] >= actions.tech[tech].grant[1]) {
             switch (tech) {
                 case "fanaticism":
@@ -2427,15 +2429,6 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
                 info.color = effectColors[milestone] ?? colors[info.index % colors.length];
             }
         }
-        toggleAdditionalInfo(key) {
-            const idx = this.view.additionalInfo.indexOf(key);
-            if (idx !== -1) {
-                this.view.additionalInfo.splice(idx, 1);
-            }
-            else {
-                this.view.additionalInfo.push(key);
-            }
-        }
         updateMilestoneOrder(milestones) {
             for (let i = 0; i !== milestones.length; ++i) {
                 this.view.milestones[milestones[i]].index = i;
@@ -3460,7 +3453,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
                     <span>Additional info:</span>
                     <b-checkbox v-model="includeCurrentRun">Current run</b-checkbox>
                     <template v-for="(label, key) in additionalInformation">
-                        <b-checkbox :checked="view.additionalInfo.includes(key)" @input="() => view.toggleAdditionalInfo(key)">{{ label }}</b-checkbox>
+                        <b-checkbox v-model="view.additionalInfo" :native-value="key">{{ label }}</b-checkbox>
                     </template>
                 </div>
             </div>
@@ -5076,11 +5069,11 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
     function addStyles() {
         $("head").append(`<style type="text/css">${styles}</style>`);
     }
-    async function bootstrapUIComponents(game, config, history, currentRun) {
+    function bootstrapUIComponents(game, config, history, currentRun) {
         addStyles();
-        await gropPauseButton();
-        await addMainToggle(config);
-        await addAnalyticsTab(game, config, history, currentRun);
+        gropPauseButton();
+        addMainToggle(config);
+        addAnalyticsTab(game, config, history, currentRun);
     }
 
     migrate();
@@ -5094,6 +5087,6 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
     trackMilestones(currentRun, game, config);
     // Do not touch DOM when the tab is in the background
     await( waitFocus());
-    await( bootstrapUIComponents(game, config, history, currentRun));
+    bootstrapUIComponents(game, config, history, currentRun);
 
 })();
