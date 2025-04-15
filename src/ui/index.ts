@@ -164,12 +164,12 @@ function addStyles() {
     $("head").append(`<style type="text/css">${styles}</style>`);
 }
 
-export async function bootstrapUIComponents(game: Game, config: ConfigManager, history: HistoryManager, currentRun: LatestRun) {
+export function bootstrapUIComponents(game: Game, config: ConfigManager, history: HistoryManager, currentRun: LatestRun) {
     addStyles();
 
-    await gropPauseButton();
+    gropPauseButton();
 
-    await addMainToggle(config);
+    addMainToggle(config);
 
-    await addAnalyticsTab(game, config, history, currentRun);
+    addAnalyticsTab(game, config, history, currentRun);
 }

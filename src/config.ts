@@ -137,16 +137,6 @@ class ViewUtils {
         }
     }
 
-    toggleAdditionalInfo(key: keyof typeof additionalInformation) {
-        const idx = this.view.additionalInfo.indexOf(key);
-        if (idx !== -1) {
-            this.view.additionalInfo.splice(idx, 1);
-        }
-        else {
-            this.view.additionalInfo.push(key);
-        }
-    }
-
     private updateMilestoneOrder(milestones: string[]) {
         for (let i = 0; i !== milestones.length; ++i) {
             this.view.milestones[milestones[i]].index = i;

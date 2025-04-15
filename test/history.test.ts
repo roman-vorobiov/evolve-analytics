@@ -232,7 +232,7 @@ describe("History", () => {
 
             it("should not add info if no matching views request it", () => {
                 const view = config.addView();
-                view.toggleAdditionalInfo("raceName");
+                view.additionalInfo.push("raceName");
 
                 history.commitRun(run);
                 expect(history.runs[0].raceName).toBeUndefined();
@@ -242,7 +242,7 @@ describe("History", () => {
                 const view = config.addView();
                 view.universe = "magic";
                 view.resetType = "bioseed";
-                view.toggleAdditionalInfo("raceName");
+                view.additionalInfo.push("raceName");
 
                 history.commitRun(run);
                 expect(history.runs[0].raceName).toBe("Hello");

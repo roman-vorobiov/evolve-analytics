@@ -27,4 +27,4 @@ trackMilestones(currentRun, game, config);
 // Do not touch DOM when the tab is in the background
 await waitFocus();
 
-await bootstrapUIComponents(game, config, history, currentRun);
+bootstrapUIComponents(game, config, history, currentRun);

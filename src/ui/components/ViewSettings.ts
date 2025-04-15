@@ -96,7 +96,7 @@ export default {
                 <span>Additional info:</span>
                 <b-checkbox v-model="includeCurrentRun">Current run</b-checkbox>
                 <template v-for="(label, key) in additionalInformation">
-                    <b-checkbox :checked="view.additionalInfo.includes(key)" @input="() => view.toggleAdditionalInfo(key)">{{ label }}</b-checkbox>
+                    <b-checkbox v-model="view.additionalInfo" :native-value="key">{{ label }}</b-checkbox>
                 </template>
             </div>
         </div>
