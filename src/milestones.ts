@@ -1,7 +1,7 @@
 import { resetName, buildings, buildingSegments, techs, events, environmentEffects } from "./enums";
 import eventsInfo from "./events";
 import { effectActive } from "./effects";
-import { filterMap, patternMatch } from "./utils";
+import { filterMap, patternMatch, patternMatcher } from "./utils";
 import type { milestoneTypes, resets, universes } from "./enums";
 import type { Game } from "./game";
 
@@ -168,4 +168,14 @@ export function generateMilestoneNames(milestones: string[], universe?: keyof ty
 
 export function milestoneType(milestone: string) {
     return milestone.slice(0, milestone.indexOf(":")) as keyof typeof milestoneTypes;
+}
+
+export function withEventConditions(milestones: string[]): string[] {
+    const hasPrecondition = (event: string) => eventsInfo[event as keyof typeof eventsInfo].conditionMet !== undefined;
+
+    const conditions = milestones
+        .map(patternMatcher([[/event:(.+)/, (id) => hasPrecondition(id) ? `event_condition:${id}` : undefined]]))
+        .filter(m => m !== undefined);
+
+    return [...conditions, ...milestones];
 }

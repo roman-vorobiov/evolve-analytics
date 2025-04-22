@@ -1,5 +1,6 @@
 import { saveHistory, loadHistory } from "./database";
 import { inferResetType, type LatestRun } from "./pendingRun";
+import { withEventConditions } from "./milestones";
 import { shouldIncludeRun } from "./exports/historyFiltering";
 import { rotateMap } from "./utils"
 import type { universes } from "./enums";
@@ -99,7 +100,7 @@ export class HistoryManager {
     }
 
     private collectMilestones(entry: HistoryEntry, runStats: LatestRun, views: View[]) {
-        const milestonesFilter = new Set(views.flatMap(v => Object.keys(v.milestones)));
+        const milestonesFilter = new Set(withEventConditions(views.flatMap(v => Object.keys(v.milestones))));
 
         entry.milestones.push(
             ...Object.entries(runStats.milestones)

@@ -205,6 +205,61 @@ describe("History", () => {
             });
         });
 
+        it("should add events from matching views", () => {
+            const game = new Game(makeGameState({ global: { stats: { bioseed: 1 } } }));
+            const config = makeConfig({ game }, {
+                views: [
+                    makeView({
+                        resetType: "bioseed",
+                        milestones: makeMilestones([
+                            "event:elerium",
+                            "event:alien"
+                        ])
+                    })
+                ]
+            });
+
+            const history = makeHistory({ game, config }, {
+                milestones: {},
+                runs: []
+            });
+
+            history.commitRun({
+                run: 123,
+                universe: "standard",
+                resets: {},
+                totalDays: 456,
+                milestones: {
+                    "event:elerium": 100,
+                    "event_condition:elerium": 50,
+                    "event:alien": 200,
+                    "event_condition:alien": 150
+                },
+                activeEffects: {},
+                effectsHistory: []
+            });
+
+            expect(history.milestones).toEqual({
+                [0]: "reset:bioseed",
+                [1]: "event:elerium",
+                [2]: "event_condition:elerium",
+                [3]: "event:alien",
+                [4]: "event_condition:alien"
+            });
+
+            expect(history.runs[0]).toEqual(<HistoryEntry> {
+                run: 123,
+                universe: "standard",
+                milestones: [
+                    [2, 50],
+                    [1, 100],
+                    [4, 150],
+                    [3, 200],
+                    [0, 456]
+                ]
+            });
+        });
+
         describe("Additional info", () => {
             let game: Game;
             let config: ConfigManager;

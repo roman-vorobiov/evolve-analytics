@@ -1,6 +1,4 @@
-import eventsInfo from "./events";
-import { makeMilestoneChecker, milestoneType } from "./milestones";
-import { patternMatcher } from "./utils";
+import { makeMilestoneChecker, milestoneType, withEventConditions } from "./milestones";
 import type { Game } from "./game";
 import type { ConfigManager } from "./config";
 import type { MilestoneChecker } from "./milestones";
@@ -66,16 +64,6 @@ function updateAdditionalInfo(runStats: LatestRun, game: Game) {
     Vue.set(runStats, "raceName", game.raceName);
     Vue.set(runStats, "junkTraits", junkTraits(game));
     Vue.set(runStats, "combatDeaths", game.combatDeaths);
-}
-
-function withEventConditions(milestones: string[]): string[] {
-    const hasPrecondition = (event: string) => eventsInfo[event as keyof typeof eventsInfo].conditionMet !== undefined;
-
-    const conditions = milestones
-        .map(patternMatcher([[/event:(.+)/, (id) => hasPrecondition(id) ? `event_condition:${id}` : undefined]]))
-        .filter(m => m !== undefined);
-
-    return [...conditions, ...milestones];
 }
 
 export function collectMilestones(config: ConfigManager) {
