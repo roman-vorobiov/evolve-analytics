@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.15.13
+// @version      0.15.14
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @updateURL    https://github.com/roman-vorobiov/evolve-analytics/raw/refs/heads/main/evolve_analytics.meta.js

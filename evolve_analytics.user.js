@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Evolve Analytics
 // @namespace    http://tampermonkey.net/
-// @version      0.15.13
+// @version      0.15.14
 // @description  Track and see detailed information about your runs
 // @author       Sneed
 // @updateURL    https://github.com/roman-vorobiov/evolve-analytics/raw/refs/heads/main/evolve_analytics.meta.js
@@ -2286,6 +2286,13 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
     function milestoneType(milestone) {
         return milestone.slice(0, milestone.indexOf(":"));
     }
+    function withEventConditions(milestones) {
+        const hasPrecondition = (event) => eventsInfo[event].conditionMet !== undefined;
+        const conditions = milestones
+            .map(patternMatcher([[/event:(.+)/, (id) => hasPrecondition(id) ? `event_condition:${id}` : undefined]]))
+            .filter(m => m !== undefined);
+        return [...conditions, ...milestones];
+    }
 
     function runTime(entry) {
         return entry.milestones[entry.milestones.length - 1]?.[1];
@@ -2657,7 +2664,7 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
             return id;
         }
         collectMilestones(entry, runStats, views) {
-            const milestonesFilter = new Set(views.flatMap(v => Object.keys(v.milestones)));
+            const milestonesFilter = new Set(withEventConditions(views.flatMap(v => Object.keys(v.milestones))));
             entry.milestones.push(...Object.entries(runStats.milestones)
                 .filter(([milestone]) => milestonesFilter.has(milestone))
                 .map(([milestone, days]) => [this.getMilestoneID(milestone), days]));
@@ -2742,13 +2749,6 @@ GM_addStyle(GM_getResourceText("PICKR_CSS"));
         Vue.set(runStats, "raceName", game.raceName);
         Vue.set(runStats, "junkTraits", junkTraits(game));
         Vue.set(runStats, "combatDeaths", game.combatDeaths);
-    }
-    function withEventConditions(milestones) {
-        const hasPrecondition = (event) => eventsInfo[event].conditionMet !== undefined;
-        const conditions = milestones
-            .map(patternMatcher([[/event:(.+)/, (id) => hasPrecondition(id) ? `event_condition:${id}` : undefined]]))
-            .filter(m => m !== undefined);
-        return [...conditions, ...milestones];
     }
     function collectMilestones(config) {
         const uniqueMilestones = new Set(config.views.flatMap(v => {
